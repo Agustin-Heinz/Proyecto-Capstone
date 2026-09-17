@@ -1,11 +1,13 @@
+import { Link } from 'react-router-dom';
+
 export default function Header() {
   return (
     <header className="app-header">
       <div className="row">
-        {/* Aquí luego agregaremos la lógica del botón "Atrás" */}
-        <button className="logo">
+        {/* Usamos Link para que al hacer clic en el logo, nos lleve a la ruta raíz "/" */}
+        <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
           <span className="mark">🗣️</span> FonoTrack
-        </button>
+        </Link>
         <div className="header-spacer"></div>
         <button className="header-cta">Ingresar</button>
       </div>

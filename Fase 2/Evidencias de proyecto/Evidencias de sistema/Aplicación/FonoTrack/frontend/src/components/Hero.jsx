@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function Hero() {
   return (
     <div className="hero">
@@ -8,7 +10,10 @@ export default function Hero() {
           tu próxima sesión en minutos, sin llamadas ni esperas.
         </p>
         <div className="hero-cta-row">
-          <button className="btn-primary">Prueba ahora</button>
+          {/* Cambiamos el button por Link */}
+          <Link to="/directorio" className="btn-primary" style={{ textDecoration: 'none' }}>
+            Prueba ahora
+          </Link>
         </div>
         <div className="hero-photos">
           <div>👂</div>
