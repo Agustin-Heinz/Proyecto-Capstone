@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model citas {
+  id_citas          Int      @id @default(autoincrement())
+  id_paciente       Int
+  id_fonoaudiologo  Int
+  id_servicio       Int
+  id_ubicacion      Int?
+  fecha             DateTime @db.Date
+  hora_inicio       DateTime @db.Time(0)
+  duracion_minutos  Int
+  precio            Int
+  estado_asistencia String?  @db.VarChar(50)
+  estado_pago       String?  @db.VarChar(50)
+
+  @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
+  @@index([id_paciente], map: "id_paciente")
+  @@index([id_servicio], map: "id_servicio")
+  @@index([id_ubicacion], map: "id_ubicacion")
+}
+
+model disponibilidad {
+  id_disponibilidad Int      @id @default(autoincrement())
+  id_fonoaudiologo  Int
+  dia_semana        String   @db.VarChar(20)
+  hora_inicio       DateTime @db.Time(0)
+  hora_fin          DateTime @db.Time(0)
+
+  @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
+}
+
+model evoluciones_sesion {
+  id_fichas              Int     @id @default(autoincrement())
+  id_cita                Int
+  observaciones_clinicas String? @db.Text
+  actividades_hogar      String? @db.Text
+
+  @@index([id_cita], map: "id_cita")
+}
+
+model fonoaudiologos {
+  id_fonoaudiologo Int     @id @default(autoincrement())
+  id_usuario       Int
+  nombre_completo  String  @db.VarChar(100)
+  rut              String  @unique(map: "rut") @db.VarChar(15)
+  subespecialidad  String? @db.VarChar(100)
+  acerca_de_mi     String? @db.Text
+
+  @@index([id_usuario], map: "id_usuario")
+}
+
+model pacientes {
+  id_paciente      Int      @id @default(autoincrement())
+  id_usuario       Int
+  id_ubicacion     Int?
+  nombre_completo  String   @db.VarChar(100)
+  nombre_tutor     String?  @db.VarChar(100)
+  rut              String   @unique(map: "rut") @db.VarChar(15)
+  fecha_nacimiento DateTime @db.Date
+  telefono         String?  @db.VarChar(20)
+
+  @@index([id_ubicacion], map: "id_ubicacion")
+  @@index([id_usuario], map: "id_usuario")
+}
+
+model pagos {
+  id_pago                 Int       @id @default(autoincrement())
+  id_fonoaudiologo        Int
+  id_plan                 Int
+  estado_pago             String    @default("PENDIENTE") @db.VarChar(50)
+  monto_final             Int
+  fecha_pago              DateTime? @default(now()) @db.DateTime(0)
+  tbk_token               String?   @db.VarChar(255)
+  tbk_orden_compra        String?   @db.VarChar(100)
+  tbk_codigo_autorizacion String?   @db.VarChar(20)
+
+  @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
+  @@index([id_plan], map: "id_plan")
+}
+
+model planes {
+  id_plan       Int    @id @default(autoincrement())
+  nombre        String @db.VarChar(50)
+  precio        Int
+  duracion_dias Int
+}
+
+model servicios {
+  id_servicios     Int    @id @default(autoincrement())
+  id_fonoaudiologo Int
+  nombre_servicio  String @db.VarChar(100)
+  precio           Int
+
+  @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
+}
+
+model ubicacion {
+  id_ubicacion Int    @id @default(autoincrement())
+  comuna       String @db.VarChar(100)
+}
+
+model usuarios {
+  id_usuario     Int       @id @default(autoincrement())
+  email          String    @unique(map: "email") @db.VarChar(100)
+  contrasena     String    @db.VarChar(255)
+  rol            String    @db.VarChar(20)
+  fecha_creacion DateTime? @default(now()) @db.DateTime(0)
+}
