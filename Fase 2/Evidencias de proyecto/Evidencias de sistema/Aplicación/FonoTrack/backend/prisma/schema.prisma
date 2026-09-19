@@ -63,7 +63,7 @@ model pacientes {
   nombre_completo  String   @db.VarChar(100)
   nombre_tutor     String?  @db.VarChar(100)
   rut              String   @unique(map: "rut") @db.VarChar(15)
-  fecha_nacimiento DateTime @db.Date
+  fecha_nacimiento DateTime? @db.Date
   telefono         String?  @db.VarChar(20)
 
   @@index([id_ubicacion], map: "id_ubicacion")

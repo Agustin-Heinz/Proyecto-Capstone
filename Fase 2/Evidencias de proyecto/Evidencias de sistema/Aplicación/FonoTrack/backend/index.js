@@ -25,29 +25,22 @@ app.get('/api/planes', async (req, res) => {
   }
 });
 
-// POST: Ruta para agregar un nuevo paciente (La 'C' del CRUD)
+// POST: Ruta para agregar un nuevo paciente
 app.post('/api/pacientes', async (req, res) => {
     try {
-        console.log("⏳ Recibiendo formulario del Front Office...");
-
-        // 1. DESESTRUCTURACIÓN: Extraemos los datos que llegan desde el frontend
+        // Volvemos a recibir el id_usuario (que ahora sí enviará React)
         const { id_usuario, nombre_completo, rut, telefono } = req.body; 
 
-        // 2. PRISMA + AWAIT: Congelamos el código hasta que MySQL guarde el dato
-        const pacienteNuevo = await prisma.paciente.create({
+        const pacienteNuevo = await prisma.pacientes.create({
             data: {
-                id_usuario: id_usuario, // Llave foránea que lo conecta con un usuario
+                id_usuario: parseInt(id_usuario), // Aseguramos que sea número
                 nombre_completo: nombre_completo,
                 rut: rut,
                 telefono: telefono
             }
         });
 
-        console.log(`✅ ¡Éxito! Paciente guardado en MySQL: ${nombre_completo}`);
-        
-        // Respondemos al frontend (React/Mobile) con un código 201 (Creado) y los datos
         res.status(201).json(pacienteNuevo); 
-
     } catch (error) {
         console.error("❌ Hubo un error al guardar en MySQL:", error);
         res.status(500).json({ mensaje: "Error al crear el paciente", detalle: error.message });
@@ -131,6 +124,20 @@ app.delete('/api/pacientes/:id', async (req, res) => {
     } catch (error) {
         console.error("❌ Error al eliminar:", error);
         res.status(500).json({ mensaje: "Error al eliminar", detalle: error.message });
+    }
+});
+
+// ==========================================
+// DIRECTORIO: Traer lista de Fonoaudiólogos
+// ==========================================
+app.get('/api/fonoaudiologos', async (req, res) => {
+    try {
+        // Prisma extrae el catálogo desde MySQL
+        const listaProfesionales = await prisma.fonoaudiologos.findMany();
+        res.status(200).json(listaProfesionales);
+    } catch (error) {
+        console.error("❌ Error al buscar profesionales:", error);
+        res.status(500).json({ mensaje: "Error al cargar el directorio", detalle: error.message });
     }
 });
 
