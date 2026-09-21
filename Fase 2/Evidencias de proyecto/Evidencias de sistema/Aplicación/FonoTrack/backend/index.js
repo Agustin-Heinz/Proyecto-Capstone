@@ -141,34 +141,52 @@ app.get('/api/fonoaudiologos', async (req, res) => {
     }
 });
 
-// ==========================================
 // CITAS: Crear una nueva hora (POST)
 // ==========================================
 app.post('/api/citas', async (req, res) => {
-    try {
-        // 1. Extraemos rápidamente los datos del paquete que envía React
-        const { id_paciente, id_fonoaudiologo, fecha, hora_inicio, precio, modalidad } = req.body;
+  try {
+    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio } = req.body;
 
-        // 2. Prisma congela el código hasta insertar el registro en MySQL
-        const nuevaCita = await prisma.citas.create({
-            data: {
-                id_paciente: parseInt(id_paciente),
-                id_fonoaudiologo: parseInt(id_fonoaudiologo),
-                fecha: new Date(fecha), // Formato AAAA-MM-DD
-                hora_inicio: hora_inicio,
-                precio: parseInt(precio),
-                modalidad: modalidad,
-                estado_pago: "Pendiente",
-                estado_asistencia: "Pendiente"
-            }
-        });
+    console.log("📥 Datos recibidos:", { fecha, hora_inicio });
 
-        console.log(`✅ Cita agendada para el ${fecha} a las ${hora_inicio}`);
-        res.status(201).json(nuevaCita);
-    } catch (error) {
-        console.error("❌ Error al agendar cita:", error);
-        res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
+    // 1. Extraer solo la parte de la fecha ("2026-10-20")
+    const soloFecha = String(fecha).split('T')[0];
+
+    // 2. Extraer limpiamente solo los números de la hora (ej: "15:00") ignorando el "1970" y el "PM"
+    let horaLimpia = "00:00";
+    if (hora_inicio) {
+      // Busca exactamente el patrón de dos números, dos puntos, dos números (HH:MM)
+      const coincidencia = String(hora_inicio).match(/\d{2}:\d{2}/);
+      if (coincidencia) {
+        horaLimpia = coincidencia[0]; 
+      }
     }
+
+    // 3. Combinar Fecha y Hora impecables
+    const fechaHoraInicio = new Date(`${soloFecha}T${horaLimpia}:00.000Z`);
+
+    // 4. Guardar en MySQL
+    const nuevaCita = await prisma.citas.create({
+      data: {
+        id_paciente: Number(id_paciente),
+        id_fonoaudiologo: Number(id_fonoaudiologo),
+        id_servicio: Number(id_servicio),
+        fecha: new Date(`${soloFecha}T00:00:00.000Z`),
+        hora_inicio: fechaHoraInicio,
+        duracion_minutos: Number(duracion_minutos),
+        precio: Number(precio),
+        estado_pago: "Pendiente",
+        estado_asistencia: "Pendiente"
+      }
+    });
+
+    console.log("✅ ¡Éxito! Cita creada:", nuevaCita.id_citas);
+    res.status(201).json(nuevaCita);
+
+  } catch (error) {
+    console.error("❌ Error al agendar cita:", error);
+    res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
+  }
 });
 
 // ==========================================
@@ -179,9 +197,7 @@ app.get('/api/citas', async (req, res) => {
         // Extraemos todo el registro de citas para el Back Office de la fonoaudióloga
         const historialCitas = await prisma.citas.findMany({
             // Prisma permite incluir (JOIN) los datos del paciente relacionado automáticamente
-            include: {
-                pacientes: true 
-            }
+        
         });
         res.status(200).json(historialCitas);
     } catch (error) {

@@ -11,12 +11,12 @@ export default function Contact() {
   const p = PROFESIONALES.find(prof => prof.id === parseInt(profId));
   const s = p?.servicios.find(serv => serv.id === parseInt(servId));
 
-  // 1. Ampliamos la memoria de React para capturar TODOS los datos que exige tu MySQL
+  // 1. Ampliamos la memoria de React para capturar los campos obligatorios
   const [datosPaciente, setDatosPaciente] = useState({
     nombre_completo: '',
     rut: '',
     telefono: '',
-    email: '' // Opcional, pero bueno tenerlo si lo piden en pantalla
+    email: '' // Opcional visualmente, pero se guarda en el state
   });
 
   if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
@@ -29,42 +29,47 @@ export default function Contact() {
     });
   };
 
-  // 3. EL PUENTE A MYSQL: Qué pasa cuando el usuario presiona el botón
-  // 3. EL PUENTE A MYSQL: Qué pasa cuando el usuario presiona el botón
+  // 3. EL PUENTE A MYSQL: Qué pasa cuando el usuario presiona "Continuar al pago"
   const handleSubmit = async (e) => {
     e.preventDefault(); 
     
     try {
-      // Preparamos el paquete exacto que necesita el backend
-      const datosParaBackend = {
-        ...datosPaciente,
-        id_usuario: parseInt(profId) // ¡Aquí conectamos al paciente con el profesional!
+      console.log("Enviando datos de la cita");
+
+      // Construimos el paquete exacto que espera tu nueva ruta POST /api/citas
+      // Usamos los IDs estáticos del profesional y servicio que vienen de useParams
+      const paqueteCita = {
+          id_paciente: 1, // Por ahora enviamos un ID de paciente existente
+          id_fonoaudiologo: parseInt(profId), 
+          id_servicio: parseInt(servId), 
+          fecha: fecha, // Debes asegurarte de que este formato coincida con el esperado por MySQL (ej. 'YYYY-MM-DD')
+          hora_inicio: `1970-01-01T${hora}:00Z`, // Adaptamos la hora visual al formato ISO que exige Prisma
+          duracion_minutos: s.duracion,
+          precio: s.precio
       };
 
-      console.log("⏳ Enviando datos a MySQL...", datosParaBackend);
-
-      // Disparamos la petición a tu ruta POST en Node.js
-      const respuesta = await fetch('http://localhost:3000/api/pacientes', {
+      // Disparamos la petición POST a tu servidor Node.js
+      const respuesta = await fetch('http://localhost:3000/api/citas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(datosParaBackend) // Empaquetamos los datos completos
+        body: JSON.stringify(paqueteCita) 
       });
 
-      // ... resto de tu código (if respuesta.ok ...)
-
       if (respuesta.ok) {
-        alert("✅ ¡Paciente registrado en la base de datos con éxito!");
-        // Si se guardó bien, recién ahí lo dejamos pasar al pago
+        alert("Cita guardada en MySQL! Pendiente de pago.");
+        // Navegamos al pago enviando los datos de la cita
         navigate(`/pago/${p.id}/${s.id}`, { state: { fecha, hora, contacto: datosPaciente } });
       } else {
-        alert("❌ Hubo un problema al guardar en MySQL. Revisa tu consola.");
+        const errorData = await respuesta.json();
+        alert(`Error al agendar: ${errorData.mensaje}`);
+        console.error("Detalle del error:", errorData.detalle);
       }
 
     } catch (error) {
-      console.error("Error conectando al servidor:", error);
-      alert("❌ Error de red. Asegúrate de que tu servidor Node.js esté encendido.");
+      console.error("Error de red:", error);
+      alert("Error de conexión con el servidor.");
     }
   };
 
@@ -73,7 +78,6 @@ export default function Contact() {
       <div className="contact-wrap">
         <div className="contact-panel">
           <h2>Formulario de contacto</h2>
-          {/* Conectamos el formulario a nuestra nueva función handleSubmit */}
           <form onSubmit={handleSubmit}>
             
             <div className="cf-group">
