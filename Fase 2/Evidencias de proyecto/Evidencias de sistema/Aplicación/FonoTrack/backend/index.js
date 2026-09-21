@@ -141,6 +141,55 @@ app.get('/api/fonoaudiologos', async (req, res) => {
     }
 });
 
+// ==========================================
+// CITAS: Crear una nueva hora (POST)
+// ==========================================
+app.post('/api/citas', async (req, res) => {
+    try {
+        // 1. Extraemos rápidamente los datos del paquete que envía React
+        const { id_paciente, id_fonoaudiologo, fecha, hora_inicio, precio, modalidad } = req.body;
+
+        // 2. Prisma congela el código hasta insertar el registro en MySQL
+        const nuevaCita = await prisma.citas.create({
+            data: {
+                id_paciente: parseInt(id_paciente),
+                id_fonoaudiologo: parseInt(id_fonoaudiologo),
+                fecha: new Date(fecha), // Formato AAAA-MM-DD
+                hora_inicio: hora_inicio,
+                precio: parseInt(precio),
+                modalidad: modalidad,
+                estado_pago: "Pendiente",
+                estado_asistencia: "Pendiente"
+            }
+        });
+
+        console.log(`✅ Cita agendada para el ${fecha} a las ${hora_inicio}`);
+        res.status(201).json(nuevaCita);
+    } catch (error) {
+        console.error("❌ Error al agendar cita:", error);
+        res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
+    }
+});
+
+// ==========================================
+// CITAS: Leer el calendario de horas (GET)
+// ==========================================
+app.get('/api/citas', async (req, res) => {
+    try {
+        // Extraemos todo el registro de citas para el Back Office de la fonoaudióloga
+        const historialCitas = await prisma.citas.findMany({
+            // Prisma permite incluir (JOIN) los datos del paciente relacionado automáticamente
+            include: {
+                pacientes: true 
+            }
+        });
+        res.status(200).json(historialCitas);
+    } catch (error) {
+        console.error("❌ Error al cargar el calendario:", error);
+        res.status(500).json({ mensaje: "Error al buscar citas", detalle: error.message });
+    }
+});
+
 // --- INICIAR EL SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
