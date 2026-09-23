@@ -170,7 +170,7 @@ app.post('/api/citas', async (req, res) => {
   try {
     const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio } = req.body;
 
-    console.log("📥 Datos recibidos:", { fecha, hora_inicio });
+    console.log("📥 Datos completos recibidos:", req.body);
 
     // 1. Extraer solo la parte de la fecha ("2026-10-20")
     const soloFecha = String(fecha).split('T')[0];

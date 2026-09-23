@@ -7,8 +7,8 @@ export default function Payment() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Recibimos los datos acumulados
-  const { fecha, hora, contacto } = location.state || {};
+  // 1. Recibimos los datos acumulados, incluyendo el pacienteId que generó el Contacto
+  const { fecha, hora, contacto, pacienteId } = location.state || {};
   
   const p = PROFESIONALES.find(prof => prof.id === parseInt(profId));
   const s = p?.servicios.find(serv => serv.id === parseInt(servId));
@@ -18,14 +18,46 @@ export default function Payment() {
 
   if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
 
-  const handleSubmit = (e) => {
+  // 2. Nueva función para guardar en MySQL
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setProcesando(true);
-    // Simulamos un retraso de 1 segundo para que parezca que está procesando con el banco
-    setTimeout(() => {
-      // Al terminar el pago, enviamos todo a la pantalla final de confirmación
-      navigate(`/confirmacion/${p.id}/${s.id}`, { state: { fecha, hora, contacto } });
-    }, 1000);
+
+    try {
+      // Hacemos la petición a tu backend para crear la cita
+      const respuesta = await fetch('http://localhost:3000/api/citas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_paciente: pacienteId,
+          id_fonoaudiologo: p.id,
+          id_servicio: s.id,
+          fecha: fecha,
+          hora_inicio: hora,
+          duracion_minutos: s.duracion,
+          precio: s.precio
+        })
+      });
+
+      if (!respuesta.ok) {
+        throw new Error("Error al guardar la cita en la base de datos");
+      }
+
+      const nuevaCita = await respuesta.json();
+
+      // Si todo sale bien, simulamos el retraso del banco y avanzamos
+      setTimeout(() => {
+        navigate(`/confirmacion/${p.id}/${s.id}`, { 
+          // Pasamos el id real generado por MySQL a la confirmación
+          state: { fecha, hora, contacto, reservaId: nuevaCita.id_citas } 
+        });
+      }, 1000);
+
+    } catch (error) {
+      console.error("Error procesando reserva:", error);
+      alert("Hubo un problema al agendar tu hora. Revisa la consola.");
+      setProcesando(false);
+    }
   };
 
   return (
