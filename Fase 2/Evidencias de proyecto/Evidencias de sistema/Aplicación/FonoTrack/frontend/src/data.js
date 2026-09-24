@@ -8,7 +8,7 @@ export const PROFESIONALES = [
     especialidades: ["Lactancia y frenillo lingual","Deglución infantil"],
     telefono: "+56 9 3202 4343", email: "sofia.martinez@fonotrack.cl", direccion: "Av. Providencia 1234, Of. 502, Providencia",
     servicios: [
-      { id: 101, nombre: "Evaluación inicial completa", modalidad: "Presencial", duracion: 50, precio: 55000, detalle: "Incluye evaluación inicial completa, observación de una toma de lactancia y plan de seguimiento." }
+      { id: 1, nombre: "Evaluación inicial completa", modalidad: "Presencial", duracion: 50, precio: 55000, detalle: "Incluye evaluación inicial completa, observación de una toma de lactancia y plan de seguimiento." }
     ],
     reviews: [{ rating: 5, comentario: "Nos ayudó muchísimo con el frenillo lingual de nuestra hija, súper clara explicando todo." }]
   },
@@ -19,7 +19,7 @@ export const PROFESIONALES = [
     especialidades: ["Rehabilitación post ACV","Deglución (disfagia)"],
     telefono: "+56 9 8871 2200", email: "matias.contreras@fonotrack.cl", direccion: "Irarrázaval 3400, Of. 12, Ñuñoa",
     servicios: [
-      { id: 201, nombre: "Evaluación de deglución", modalidad: "Presencial", duracion: 50, precio: 50000, detalle: "Evaluación clínica completa con informe y recomendaciones." }
+      { id: 2, nombre: "Evaluación de deglución", modalidad: "Presencial", duracion: 50, precio: 50000, detalle: "Evaluación clínica completa con informe y recomendaciones." }
     ],
     reviews: [{ rating: 5, comentario: "Acompañó a mi papá después de su ACV, muy comprometido con su recuperación." }]
   }

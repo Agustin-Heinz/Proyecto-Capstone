@@ -220,7 +220,18 @@ app.get('/api/citas', async (req, res) => {
   }
 });
 
-
+// ==========================================
+// SERVICIOS: Leer el catálogo real (GET)
+// ==========================================
+app.get('/api/servicios', async (req, res) => {
+  try {
+    const catalogo = await prisma.servicios.findMany();
+    res.status(200).json(catalogo);
+  } catch (error) {
+    console.error("❌ Error al cargar servicios:", error);
+    res.status(500).json({ mensaje: "Error al buscar servicios", detalle: error.message });
+  }
+});
 
 // --- INICIAR EL SERVIDOR ---
 app.listen(PORT, () => {
