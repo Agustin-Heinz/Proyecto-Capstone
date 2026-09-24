@@ -139,10 +139,10 @@ app.get('/api/citas/ocupadas', async (req, res) => {
 
     const soloFecha = String(fecha).split('T')[0];
 
-    // Buscar citas agendadas para esa fecha y fonoaudiólogo
+    // 1. Buscamos fijando la hora a las 12:00 UTC para neutralizar la zona horaria local
     const citasOcupadas = await prisma.citas.findMany({
       where: {
-        fecha: new Date(`${soloFecha}T00:00:00.000Z`),
+        fecha: new Date(`${soloFecha}T12:00:00.000Z`),
         id_fonoaudiologo: Number(id_fonoaudiologo)
       },
       select: {
@@ -150,10 +150,8 @@ app.get('/api/citas/ocupadas', async (req, res) => {
       }
     });
 
-    // Formatear las horas encontradas en arreglo HH:MM (ej: ["15:00"])
     const horasOcupadas = citasOcupadas.map(cita => {
-      const match = String(cita.hora_inicio).match(/\d{2}:\d{2}/);
-      return match ? match[0] : null;
+      return cita.hora_inicio.toISOString().substring(11, 16); 
     }).filter(Boolean);
 
     res.json(horasOcupadas);
@@ -170,31 +168,29 @@ app.post('/api/citas', async (req, res) => {
   try {
     const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio } = req.body;
 
-    console.log("📥 Datos completos recibidos:", req.body);
-
-    // 1. Extraer solo la parte de la fecha ("2026-10-20")
     const soloFecha = String(fecha).split('T')[0];
 
-    // 2. Extraer limpiamente solo los números de la hora (ej: "15:00")
-    let horaLimpia = "00:00";
+    let horaLimpia = "00:00:00";
     if (hora_inicio) {
       const coincidencia = String(hora_inicio).match(/\d{2}:\d{2}/);
       if (coincidencia) {
-        horaLimpia = coincidencia[0]; 
+        horaLimpia = coincidencia[0] + ":00"; 
       }
     }
 
-    // 3. Combinar Fecha y Hora
-    const fechaHoraInicio = new Date(`${soloFecha}T${horaLimpia}:00.000Z`);
-
-    // 4. Guardar en MySQL
+    // 2. Guardar en MySQL
     const nuevaCita = await prisma.citas.create({
       data: {
         id_paciente: Number(id_paciente),
         id_fonoaudiologo: Number(id_fonoaudiologo),
         id_servicio: Number(id_servicio),
-        fecha: new Date(`${soloFecha}T00:00:00.000Z`),
-        hora_inicio: fechaHoraInicio,
+        
+        // MAGIA PARA LA FECHA: Fijarla siempre al mediodía UTC
+        fecha: new Date(`${soloFecha}T12:00:00.000Z`), 
+        
+        // MAGIA PARA LA HORA: Usamos la fecha comodín 1970 y forzamos el formato UTC con 'Z'
+        hora_inicio: new Date(`1970-01-01T${horaLimpia}.000Z`),
+        
         duracion_minutos: Number(duracion_minutos),
         precio: Number(precio),
         estado_pago: "Pendiente",
@@ -202,7 +198,7 @@ app.post('/api/citas', async (req, res) => {
       }
     });
 
-    console.log("✅ ¡Éxito! Cita creada con ID:", nuevaCita.id_citas);
+    console.log("✅ ¡Éxito! Cita agendada para el día:", nuevaCita.fecha);
     res.status(201).json(nuevaCita);
 
   } catch (error) {
