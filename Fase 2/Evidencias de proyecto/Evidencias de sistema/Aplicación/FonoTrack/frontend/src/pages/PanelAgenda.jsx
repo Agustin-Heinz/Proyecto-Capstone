@@ -9,7 +9,14 @@ export default function PanelAgenda() {
     fetch('http://localhost:3000/api/citas')
       .then(respuesta => respuesta.json())
       .then(datosBackend => {
-        setCitasHoy(datosBackend);
+        // Obtenemos el ID del fonoaudiólogo logueado desde localStorage (o 2 como fallback)
+        const perfilIdStr = localStorage.getItem('perfilId');
+        const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; 
+
+        // Filtramos para ver solo las citas de este profesional
+        const misCitas = datosBackend.filter(c => c.id_fonoaudiologo === idFonoaudiologo);
+        
+        setCitasHoy(misCitas);
         setCargando(false);
       })
       .catch(error => {
