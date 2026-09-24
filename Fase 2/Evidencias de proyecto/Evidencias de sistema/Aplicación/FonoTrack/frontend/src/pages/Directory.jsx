@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-// ❌ Eliminamos la importación de data.js por completo
 
 export default function Directory() {
   const [profesionalesBD, setProfesionalesBD] = useState([]);

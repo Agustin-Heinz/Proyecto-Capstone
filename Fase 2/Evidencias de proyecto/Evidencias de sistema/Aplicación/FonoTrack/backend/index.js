@@ -216,11 +216,105 @@ app.post('/api/citas', async (req, res) => {
 // ==========================================
 app.get('/api/citas', async (req, res) => {
   try {
-    const historialCitas = await prisma.citas.findMany();
+    // Recibimos el ID desde la URL del frontend
+    const { id_fonoaudiologo } = req.query;
+
+    // Si nos envían un ID, filtramos solo las citas de ese profesional
+    const condicion = id_fonoaudiologo 
+      ? { where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) } } 
+      : {}; 
+
+    const historialCitas = await prisma.citas.findMany(condicion);
     res.status(200).json(historialCitas);
   } catch (error) {
     console.error("❌ Error al cargar el calendario:", error);
     res.status(500).json({ mensaje: "Error al buscar citas", detalle: error.message });
+  }
+});
+
+// ==========================================
+// AUTENTICACIÓN: Registro y Login
+// ==========================================
+
+// POST: Registrar un nuevo usuario y su perfil simultáneamente
+app.post('/api/registro', async (req, res) => {
+  try {
+    const { nombre, email, password, rol } = req.body;
+
+    // Utilizamos $transaction para asegurar que se creen ambas tablas al mismo tiempo
+    const resultado = await prisma.$transaction(async (tx) => {
+      // 1. Creamos las credenciales en la tabla Usuarios
+      const nuevoUsuario = await tx.usuarios.create({
+        data: {
+          email: email,
+          contrasena: password, // En producción real, esto iría encriptado con bcrypt
+          rol: rol
+        }
+      });
+
+      // 2. Evaluamos el rol y creamos el perfil correspondiente
+      if (rol === 'fonoaudiologo') {
+        await tx.fonoaudiologos.create({
+          data: {
+            id_usuario: nuevoUsuario.id_usuario,
+            nombre_completo: nombre,
+            rut: `PD-${Date.now().toString().slice(-6)}`, // RUT temporal para cumplir restricción UNIQUE
+            subespecialidad: 'General',
+            acerca_de_mi: 'Nuevo profesional en FonoTrack'
+          }
+        });
+      } else if (rol === 'paciente') {
+        await tx.pacientes.create({
+          data: {
+            id_usuario: nuevoUsuario.id_usuario,
+            nombre_completo: nombre,
+            rut: `PD-${Date.now().toString().slice(-6)}`, // RUT temporal
+            fecha_nacimiento: new Date('2000-01-01')
+          }
+        });
+      }
+
+      return nuevoUsuario;
+    });
+
+    console.log("✅ Nuevo usuario y perfil creados:", resultado.email);
+    res.status(201).json(resultado);
+
+  } catch (error) {
+    console.error("❌ Error al registrar:", error);
+    res.status(500).json({ mensaje: "Error al registrar la cuenta", detalle: error.message });
+  }
+});
+
+// POST: Iniciar sesión
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const usuario = await prisma.usuarios.findUnique({
+      where: { email: email }
+    });
+
+    if (!usuario || usuario.contrasena !== password) {
+      return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
+    }
+
+    // Buscamos el ID real del profesional en su tabla
+    let perfilId = null;
+    if (usuario.rol === 'fonoaudiologo') {
+      const perfilFono = await prisma.fonoaudiologos.findFirst({
+        where: { id_usuario: usuario.id_usuario }
+      });
+      perfilId = perfilFono ? perfilFono.id_fonoaudiologo : null;
+    }
+
+    console.log("✅ Inicio de sesión exitoso:", usuario.email);
+    // Enviamos los datos del usuario + su ID de profesional
+    res.status(200).json({ ...usuario, perfilId });
+
+  } catch (error) {
+    console.error("❌ Error en login:", error);
+    res.status(500).json({ mensaje: "Error al iniciar sesión", detalle: error.message });
   }
 });
 

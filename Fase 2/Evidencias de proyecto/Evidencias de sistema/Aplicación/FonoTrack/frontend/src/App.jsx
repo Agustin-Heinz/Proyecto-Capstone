@@ -13,6 +13,8 @@ import Payment from './pages/Payment'
 import Confirmation from './pages/Confirmation'
 import PanelPacientes from './pages/PanelPacientes'
 import PanelReportes from './pages/PanelReportes'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 // Componentes del Panel (¡Con la nueva agenda importada!)
 import DashboardLayout from './components/DashboardLayout'
@@ -44,6 +46,8 @@ function App() {
           <Route path="/contacto/:profId/:servId" element={<Contact />} />
           <Route path="/pago/:profId/:servId" element={<Payment />} />
           <Route path="/confirmacion/:profId/:servId" element={<Confirmation />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/registro" element={<Register />} />
         </Route>
 
         {/* GRUPO 2: Panel de Administración (Lleva la barra lateral) */}

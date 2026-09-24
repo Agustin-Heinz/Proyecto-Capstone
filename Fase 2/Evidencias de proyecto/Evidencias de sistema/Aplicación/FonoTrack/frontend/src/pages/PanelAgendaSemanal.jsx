@@ -17,7 +17,11 @@ export default function PanelAgendaSemanal() {
 
   // 2. Petición a tu API de Node.js al abrir la pantalla
   useEffect(() => {
-    fetch('http://localhost:3000/api/citas')
+    // Rescatamos el ID de quien inició sesión
+    const perfilId = localStorage.getItem('perfilId');
+
+    // Se lo pasamos al backend a través de la URL
+    fetch(`http://localhost:3000/api/citas?id_fonoaudiologo=${perfilId}`)
       .then(respuesta => respuesta.json())
       .then(datosBackend => {
         setCitas(datosBackend);
@@ -28,6 +32,8 @@ export default function PanelAgendaSemanal() {
         setCargando(false);
       });
   }, []);
+
+  const pacientesActivos = new Set(citas.map(c => c.id_paciente)).size;
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -46,7 +52,7 @@ export default function PanelAgendaSemanal() {
       {/* Tarjetas de Métricas Dinámicas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
         <MetricCard titulo="Citas agendadas (MySQL)" valor={cargando ? "..." : citas.length} icono="📅" />
-        <MetricCard titulo="Pacientes activos" valor="1" />
+        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} />
         <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${citas.reduce((total, c) => total + c.precio, 0)}`} icono="💲" />
       </div>
 
