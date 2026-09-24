@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { PROFESIONALES } from '../data';
 
 export default function Contact() {
   const { profId, servId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { fecha, hora } = location.state || {};
-  const p = PROFESIONALES.find(prof => prof.id === parseInt(profId));
-  const s = p?.servicios.find(serv => serv.id === parseInt(servId));
+  const { fecha, hora, p, s } = location.state || {};
 
   // 1. Ampliamos la memoria de React para capturar los campos obligatorios
   const [datosPaciente, setDatosPaciente] = useState({
@@ -29,43 +26,72 @@ export default function Contact() {
     });
   };
 
-  // 3. EL PUENTE A MYSQL: Qué pasa cuando el usuario presiona "Continuar al pago"
+  // 3. EL PUENTE A MYSQL: Guardar el paciente y pasar al pago
   const handleSubmit = async (e) => {
     e.preventDefault(); 
     
     try {
-      console.log("Enviando datos de la cita");
+      console.log("Creando paciente en la base de datos...");
 
-      // Construimos el paquete exacto que espera tu nueva ruta POST /api/citas
-      // Usamos los IDs estáticos del profesional y servicio que vienen de useParams
-      const paqueteCita = {
-          id_paciente: 1, // Por ahora enviamos un ID de paciente existente
-          id_fonoaudiologo: parseInt(profId), 
-          id_servicio: parseInt(servId), 
-          fecha: fecha, // Debes asegurarte de que este formato coincida con el esperado por MySQL (ej. 'YYYY-MM-DD')
-          hora_inicio: `1970-01-01T${hora}:00Z`, // Adaptamos la hora visual al formato ISO que exige Prisma
-          duracion_minutos: s.duracion,
-          precio: s.precio
+      // Construimos el paquete para crear el paciente real
+      const paquetePaciente = {
+        id_usuario: 1, // Usamos 1 como usuario 'invitado/temporal' para no frenar el flujo
+        nombre_completo: datosPaciente.nombre_completo,
+        rut: datosPaciente.rut,
+        telefono: datosPaciente.telefono
       };
 
-      // Disparamos la petición POST a tu servidor Node.js
-      const respuesta = await fetch('http://localhost:3000/api/citas', {
+      // 1. Guardamos al paciente real
+      const respuestaPaciente = await fetch('http://localhost:3000/api/pacientes', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(paqueteCita) 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paquetePaciente) 
       });
 
-      if (respuesta.ok) {
-        alert("Cita guardada en MySQL! Pendiente de pago.");
-        // Navegamos al pago enviando los datos de la cita
-        navigate(`/pago/${p.id}/${s.id}`, { state: { fecha, hora, contacto: datosPaciente } });
-      } else {
-        const errorData = await respuesta.json();
-        alert(`Error al agendar: ${errorData.mensaje}`);
-        console.error("Detalle del error:", errorData.detalle);
+      if (!respuestaPaciente.ok) {
+        const errorData = await respuestaPaciente.json();
+        alert(`Error al guardar paciente: ${errorData.mensaje}`);
+        return;
       }
+
+      const nuevoPaciente = await respuestaPaciente.json();
+      console.log("Paciente creado con ID:", nuevoPaciente.id_paciente);
+      
+      // 2. Creamos la cita de inmediato para que quede registrada (incluso si no paga)
+      const paqueteCita = {
+        id_paciente: nuevoPaciente.id_paciente,
+        id_fonoaudiologo: parseInt(profId),
+        id_servicio: parseInt(servId),
+        fecha: fecha,
+        hora_inicio: hora,
+        duracion_minutos: s.duracion,
+        precio: s.precio
+      };
+
+      const respuestaCita = await fetch('http://localhost:3000/api/citas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paqueteCita)
+      });
+
+      if (!respuestaCita.ok) {
+        throw new Error("Error al crear la cita");
+      }
+
+      const nuevaCita = await respuestaCita.json();
+
+      // 3. Navegamos al pago enviando el ID de la cita generada
+      navigate(`/pago/${profId}/${servId}`, { 
+        state: { 
+          fecha, 
+          hora, 
+          contacto: datosPaciente, 
+          p, 
+          s, 
+          pacienteId: nuevoPaciente.id_paciente,
+          reservaId: nuevaCita.id_citas
+        } 
+      });
 
     } catch (error) {
       console.error("Error de red:", error);

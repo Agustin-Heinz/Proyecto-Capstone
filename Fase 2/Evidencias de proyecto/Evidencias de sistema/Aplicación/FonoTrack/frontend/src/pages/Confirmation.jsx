@@ -1,18 +1,14 @@
 import { useLocation, useParams, Link } from 'react-router-dom';
-import { PROFESIONALES } from '../data';
 
 export default function Confirmation() {
   const { profId, servId } = useParams();
   const location = useLocation();
   
   // Rescatamos los datos finales
-  const { fecha, hora, contacto } = location.state || {};
-  
-  const p = PROFESIONALES.find(prof => prof.id === parseInt(profId));
-  const s = p?.servicios.find(serv => serv.id === parseInt(servId));
+  const { fecha, hora, contacto, p, s, reservaId: reservaIdState } = location.state || {};
 
   // Generamos un código de reserva aleatorio tipo "FT-X8J9K"
-  const reservaId = 'FT-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  const reservaId = reservaIdState || 'FT-' + Math.random().toString(36).slice(2, 8).toUpperCase();
 
   if (!p || !s || !contacto) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando la reserva.</div>;
 

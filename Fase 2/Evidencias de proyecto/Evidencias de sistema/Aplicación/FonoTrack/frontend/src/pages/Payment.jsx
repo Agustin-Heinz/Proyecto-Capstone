@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { PROFESIONALES } from '../data';
 
 export default function Payment() {
   const { profId, servId } = useParams();
@@ -8,54 +7,32 @@ export default function Payment() {
   const navigate = useNavigate();
 
   // 1. Recibimos los datos acumulados, incluyendo el pacienteId que generó el Contacto
-  const { fecha, hora, contacto, pacienteId } = location.state || {};
-  
-  const p = PROFESIONALES.find(prof => prof.id === parseInt(profId));
-  const s = p?.servicios.find(serv => serv.id === parseInt(servId));
+  const { fecha, hora, contacto, pacienteId, p, s } = location.state || {};
 
   const [metodo, setMetodo] = useState('debito');
   const [procesando, setProcesando] = useState(false);
 
   if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
 
-  // 2. Nueva función para guardar en MySQL
+  // 2. Simulamos el pago (la cita ya se creó en el paso anterior)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setProcesando(true);
 
     try {
-      // Hacemos la petición a tu backend para crear la cita
-      const respuesta = await fetch('http://localhost:3000/api/citas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id_paciente: pacienteId,
-          id_fonoaudiologo: p.id,
-          id_servicio: s.id,
-          fecha: fecha,
-          hora_inicio: hora,
-          duracion_minutos: s.duracion,
-          precio: s.precio
-        })
-      });
+      // Obtenemos el ID de reserva que viene desde Contact.jsx
+      const idReserva = location.state?.reservaId || 0;
 
-      if (!respuesta.ok) {
-        throw new Error("Error al guardar la cita en la base de datos");
-      }
-
-      const nuevaCita = await respuesta.json();
-
-      // Si todo sale bien, simulamos el retraso del banco y avanzamos
+      // Simulamos el retraso del banco y avanzamos
       setTimeout(() => {
-        navigate(`/confirmacion/${p.id}/${s.id}`, { 
-          // Pasamos el id real generado por MySQL a la confirmación
-          state: { fecha, hora, contacto, reservaId: nuevaCita.id_citas } 
+        navigate(`/confirmacion/${profId}/${servId}`, { 
+          state: { fecha, hora, contacto, reservaId: idReserva, p, s } 
         });
       }, 1000);
 
     } catch (error) {
       console.error("Error procesando reserva:", error);
-      alert("Hubo un problema al agendar tu hora. Revisa la consola.");
+      alert("Hubo un problema procesando tu pago.");
       setProcesando(false);
     }
   };

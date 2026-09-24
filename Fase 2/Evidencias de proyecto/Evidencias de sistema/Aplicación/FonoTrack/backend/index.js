@@ -29,12 +29,24 @@ app.post('/api/pacientes', async (req, res) => {
   try {
     const { id_usuario, nombre_completo, rut, telefono } = req.body; 
 
+    // 1. Verificamos si el paciente ya existe (por su RUT)
+    const pacienteExistente = await prisma.pacientes.findUnique({
+      where: { rut: rut }
+    });
+
+    if (pacienteExistente) {
+      console.log("✅ Paciente recurrente encontrado:", pacienteExistente.nombre_completo);
+      return res.status(200).json(pacienteExistente);
+    }
+
+    // 2. Si no existe, lo creamos
     const pacienteNuevo = await prisma.pacientes.create({
       data: {
         id_usuario: parseInt(id_usuario),
         nombre_completo: nombre_completo,
         rut: rut,
-        telefono: telefono
+        telefono: telefono,
+        fecha_nacimiento: new Date('2000-01-01') // Valor por defecto obligatorio
       }
     });
 

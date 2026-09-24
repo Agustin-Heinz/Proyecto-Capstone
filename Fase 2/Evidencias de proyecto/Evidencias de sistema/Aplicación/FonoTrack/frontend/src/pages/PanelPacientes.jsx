@@ -2,35 +2,71 @@ import { useState, useEffect } from 'react';
 
 export default function PanelPacientes() {
   const [pacienteActivo, setPacienteActivo] = useState(null);
-  
+
   // Estados para manejar los datos que llegan de la base de datos
   const [listaPacientes, setListaPacientes] = useState([]);
   const [cargando, setCargando] = useState(true);
 
   // useEffect se ejecuta automáticamente al abrir la pantalla para buscar los datos
   useEffect(() => {
-    fetch('http://localhost:3000/api/pacientes')
-      .then(respuesta => respuesta.json())
-      .then(datosBackend => {
-        // Transformamos los datos de Prisma al formato visual de nuestra tabla
-        const pacientesFormateados = datosBackend.map(p => ({
-          id: p.id_paciente,
-          nombre: p.nombre_completo,
-          rut: p.rut,
-          fono: p.telefono,
-          // Datos estáticos temporales mientras se añaden a la base de datos
-          ultimaSesion: 'Primera evaluación',
-          estadoPago: 'Al día',
-          nacimiento: 'No registrado',
-          genero: 'No especificado',
-          email: 'Sin correo',
-          direccion: p.direccion || 'No registrada',
-          emergencia: 'Sin contacto',
-          notas: 'Sin observaciones clínicas.'
-        }));
-        
-        setListaPacientes(pacientesFormateados);
-        setCargando(false);
+    // 1. Buscamos todas las citas para saber cuáles pacientes son del fonoaudiólogo actual
+    fetch('http://localhost:3000/api/citas')
+      .then(res => res.json())
+      .then(citas => {
+        // Obtenemos el ID del fonoaudiólogo logueado desde localStorage
+        const perfilIdStr = localStorage.getItem('perfilId');
+        // Si no hay sesión activa en desarrollo, usamos el 2 como fallback (Agustin)
+        const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; 
+
+        const citasFonoaudiologo = citas.filter(c => c.id_fonoaudiologo === idFonoaudiologo);
+        const idsMisPacientes = new Set(citasFonoaudiologo.map(c => c.id_paciente));
+
+        // 2. Buscamos todos los pacientes y los filtramos
+        return fetch('http://localhost:3000/api/pacientes')
+          .then(res => res.json())
+          .then(datosBackend => {
+            // Filtrar para dejar solo los del fonoaudiólogo actual
+            const misPacientes = datosBackend.filter(p => idsMisPacientes.has(p.id_paciente));
+
+            // Transformamos los datos al formato visual de nuestra tabla
+            const pacientesFormateados = misPacientes.map(p => {
+              // Buscar citas de este paciente
+              const citasDelPaciente = citasFonoaudiologo.filter(c => c.id_paciente === p.id_paciente);
+              
+              let ultimaSesionTexto = 'Primera evaluación';
+              if (citasDelPaciente.length > 0) {
+                 // Tomar la cita más reciente o próxima (por simplicidad la primera en la lista)
+                 const ultimaCita = citasDelPaciente[citasDelPaciente.length - 1]; 
+                 const fechaLimpia = String(ultimaCita.fecha).split('T')[0]; // Ej: 2026-10-20
+                 const [year, month, day] = fechaLimpia.split('-');
+                 
+                 let horaLimpia = '';
+                 if (ultimaCita.hora_inicio) {
+                   horaLimpia = ' - ' + String(ultimaCita.hora_inicio).substring(11, 16) + ' hrs';
+                 }
+                 
+                 ultimaSesionTexto = `${day}/${month}/${year}${horaLimpia}`;
+              }
+
+              return {
+                id: p.id_paciente,
+                nombre: p.nombre_completo,
+                rut: p.rut,
+                fono: p.telefono,
+                ultimaSesion: ultimaSesionTexto,
+                estadoPago: 'Al día',
+                nacimiento: p.fecha_nacimiento ? p.fecha_nacimiento.split('T')[0] : 'No registrado',
+                genero: 'No especificado',
+                email: 'Sin correo',
+                direccion: p.direccion || 'No registrada',
+                emergencia: 'Sin contacto',
+                notas: 'Sin observaciones clínicas.'
+              };
+            });
+            
+            setListaPacientes(pacientesFormateados);
+            setCargando(false);
+          });
       })
       .catch(error => {
         console.error("Error cargando los pacientes:", error);
@@ -45,7 +81,7 @@ export default function PanelPacientes() {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      
+
       <div style={{ marginBottom: '30px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Gestión Clínica</div>
         <h1 style={{ margin: 0, fontSize: '28px', color: '#1a365d' }}>Pacientes e Historial Médico</h1>
@@ -53,7 +89,7 @@ export default function PanelPacientes() {
 
       {!pacienteActivo ? (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-          
+
           <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}>
               👥 Directorio de Pacientes
@@ -83,16 +119,16 @@ export default function PanelPacientes() {
                   <td style={tdStyle}>{p.rut}</td>
                   <td style={tdStyle}>{p.ultimaSesion}</td>
                   <td style={tdStyle}>
-                    <span style={{ 
-                      backgroundColor: p.estadoPago === 'Al día' ? '#dcfce7' : '#fef08a', 
+                    <span style={{
+                      backgroundColor: p.estadoPago === 'Al día' ? '#dcfce7' : '#fef08a',
                       color: p.estadoPago === 'Al día' ? '#166534' : '#854d0e',
-                      padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' 
+                      padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700'
                     }}>
                       {p.estadoPago}
                     </span>
                   </td>
                   <td style={tdStyle}>
-                    <button 
+                    <button
                       onClick={() => setPacienteActivo(p)}
                       style={{ backgroundColor: 'transparent', color: '#1a365d', border: '1px solid #cbd5e1', padding: '6px 16px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}
                     >
@@ -106,9 +142,9 @@ export default function PanelPacientes() {
         </div>
       ) : (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-          
+
           <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button 
+            <button
               onClick={() => setPacienteActivo(null)}
               style={{ background: 'none', border: 'none', color: '#64748b', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}
             >
@@ -140,7 +176,7 @@ export default function PanelPacientes() {
               <h3 style={{ margin: '0 0 20px 0', color: '#1a365d', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 🕒 Sesiones Previas
               </h3>
-              
+
               <div style={{ borderLeft: '2px solid #e2e8f0', marginLeft: '10px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '40px' }}>
                 <div style={{ position: 'relative' }}>
                   <div style={timelineDotStyle}></div>
@@ -154,7 +190,7 @@ export default function PanelPacientes() {
               <h3 style={{ margin: '0 0 20px 0', color: '#1a365d', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 📝 Registrar Nueva Sesión
               </h3>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>Observaciones Clínicas</label>
@@ -162,7 +198,7 @@ export default function PanelPacientes() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>Tareas Asignadas</label>
-                  <textarea placeholder="Ejercicios para la casa..." style={{...textareaStyle, minHeight: '60px'}}></textarea>
+                  <textarea placeholder="Ejercicios para la casa..." style={{ ...textareaStyle, minHeight: '60px' }}></textarea>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <button style={{ backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
@@ -180,6 +216,6 @@ export default function PanelPacientes() {
 
 const thStyle = { padding: '16px 24px', color: '#64748b', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' };
 const tdStyle = { padding: '16px 24px', color: '#475569', fontSize: '14px' };
-function InfoRow({ label, value }) { return ( <div style={{ display: 'flex', alignItems: 'flex-start' }}><div style={{ width: '100px', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>{label}</div><div style={{ flex: 1, fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{value}</div></div> ); }
+function InfoRow({ label, value }) { return (<div style={{ display: 'flex', alignItems: 'flex-start' }}><div style={{ width: '100px', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>{label}</div><div style={{ flex: 1, fontSize: '14px', color: '#0f172a', fontWeight: '500' }}>{value}</div></div>); }
 const timelineDotStyle = { position: 'absolute', left: '-25px', top: '2px', width: '10px', height: '10px', backgroundColor: '#3b82f6', borderRadius: '50%', border: '3px solid white', boxShadow: '0 0 0 1px #e2e8f0' };
 const textareaStyle = { width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '14px', resize: 'vertical' };
