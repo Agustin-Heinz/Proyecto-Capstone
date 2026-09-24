@@ -187,6 +187,9 @@ app.post('/api/servicios', async (req, res) => {
 app.post('/api/disponibilidad', async (req, res) => {
   try {
     const { id_fonoaudiologo, dia, inicio, fin } = req.body;
+    if (!id_fonoaudiologo || isNaN(id_fonoaudiologo)) {
+  return res.status(400).json({ error: "ID de fonoaudiólogo ausente o inválido" });
+}
 
     // Prisma requiere que los campos TIME de MySQL se formateen como objetos Date
     const horaInicio = new Date(`1970-01-01T${inicio}:00.000Z`);
@@ -401,6 +404,130 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+/// ==========================================
+// MÓDULO BI: Estadísticas para Recharts (GET)
+// ==========================================
+app.get('/api/estadisticas', async (req, res) => {
+  try {
+    const todasLasCitas = await prisma.citas.findMany();
+    const todosLosServicios = await prisma.servicios.findMany();
+
+    const ingresos = await prisma.citas.aggregate({ _sum: { precio: true }, where: { estado_pago: 'Pagado' }});
+    const totalDinero = ingresos._sum.precio || 0;
+    
+    const totalCitas = todasLasCitas.length;
+    const asistencias = todasLasCitas.filter(c => c.estado_asistencia === 'Asistió').length;
+    const porcentajeAsistencia = totalCitas > 0 ? Math.round((asistencias / totalCitas) * 100) : 0;
+
+    const mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const diasNombres = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const agrupadoPorTiempo = { semanal: {}, mensual: {}, anual: {} };
+
+    const ahora = new Date();
+    const hace7Dias = new Date();
+    hace7Dias.setDate(ahora.getDate() - 7);
+    const mesActual = ahora.getMonth();
+    const anioActual = ahora.getFullYear();
+
+    const servSemanal = {};
+    const servMensual = {};
+    const servAnual = {};
+
+    // 🔥 CORRECCIÓN: Separamos la demanda (cantidad) del flujo de caja real (ingresos)
+    const sumarServicio = (obj, id, precio, estado_pago) => {
+      if (!obj[id]) obj[id] = { cantidad: 0, ingresos: 0 };
+      
+      obj[id].cantidad++; // Siempre sumamos 1 a la cantidad de citas agendadas (Demanda)
+      
+      if (estado_pago === 'Pagado') {
+        obj[id].ingresos += precio; // Solo sumamos el dinero si realmente lo pagaron
+      }
+    };
+
+    todasLasCitas.forEach(cita => {
+      if (!cita.fecha) return;
+      const f = new Date(cita.fecha);
+      
+      const dia = diasNombres[f.getDay()];
+      const mes = mesesNombres[f.getMonth()];
+      const anio = f.getFullYear().toString();
+
+      if (!agrupadoPorTiempo.semanal[dia]) agrupadoPorTiempo.semanal[dia] = { periodo: dia, asistencias: 0, inasistencias: 0 };
+      if (!agrupadoPorTiempo.mensual[mes]) agrupadoPorTiempo.mensual[mes] = { periodo: mes, asistencias: 0, inasistencias: 0 };
+      if (!agrupadoPorTiempo.anual[anio]) agrupadoPorTiempo.anual[anio] = { periodo: anio, asistencias: 0, inasistencias: 0 };
+
+      if (cita.estado_asistencia === 'Asistió' || cita.estado_asistencia === 'Pendiente') {
+        agrupadoPorTiempo.semanal[dia].asistencias++; agrupadoPorTiempo.mensual[mes].asistencias++; agrupadoPorTiempo.anual[anio].asistencias++;
+      } else {
+        agrupadoPorTiempo.semanal[dia].inasistencias++; agrupadoPorTiempo.mensual[mes].inasistencias++; agrupadoPorTiempo.anual[anio].inasistencias++;
+      }
+
+      const servId = cita.id_servicio;
+      const precio = cita.precio || 0;
+      
+      // Pasamos el estado de pago a la función matemática
+      if (f >= hace7Dias) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
+      if (f.getMonth() === mesActual && f.getFullYear() === anioActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
+      if (f.getFullYear() === anioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
+    });
+
+    const formatearTop = (conteo) => {
+      return Object.keys(conteo).map(id => {
+        const info = todosLosServicios.find(s => s.id_servicios === parseInt(id));
+        return {
+          nombre: info ? info.nombre_servicio : `Servicio ID ${id}`,
+          cantidad: conteo[id].cantidad,
+          ingresos: conteo[id].ingresos
+        };
+      }).sort((a, b) => b.cantidad - a.cantidad).slice(0, 4);
+    };
+
+    const serviciosProcesados = {
+      semanal: formatearTop(servSemanal),
+      mensual: formatearTop(servMensual),
+      anual: formatearTop(servAnual)
+    };
+
+    const servicioTop = serviciosProcesados.anual.length > 0 ? serviciosProcesados.anual[0] : { nombre: 'Sin datos', cantidad: 0 };
+    const porcentajeTop = totalCitas > 0 ? Math.round((servicioTop.cantidad / totalCitas) * 100) : 0;
+
+    res.status(200).json({
+      asistenciaPromedio: `${porcentajeAsistencia}%`,
+      servicioTopNombre: servicioTop.nombre,
+      servicioTopPorcentaje: `${porcentajeTop}%`,
+      ingresosProyectados: `$${(totalDinero / 1000000).toFixed(1)} M`,
+      ingresos_totales: totalDinero,
+      datosPorTiempo: {
+        semanal: Object.values(agrupadoPorTiempo.semanal),
+        mensual: Object.values(agrupadoPorTiempo.mensual),
+        anual: Object.values(agrupadoPorTiempo.anual)
+      },
+      distribucionServicios: serviciosProcesados
+    });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al calcular BI", detalle: error.message });
+  }
+});
+
+// ==========================================
+// CITAS: Marcar una cita como Pagada (PUT)
+// ==========================================
+app.put('/api/citas/:id/pago', async (req, res) => {
+  try {
+    const idCita = parseInt(req.params.id);
+
+    const citaActualizada = await prisma.citas.update({
+      where: { id_citas: idCita },
+      data: { estado_pago: 'Pagado' }
+    });
+
+    console.log(`✅ ¡Cha-ching! Cita ID ${idCita} marcada como Pagada.`);
+    res.status(200).json(citaActualizada);
+  } catch (error) {
+    console.error("❌ Error al procesar pago:", error);
+    res.status(500).json({ mensaje: "Error al actualizar pago", detalle: error.message });
+  }
+});
 // --- INICIAR EL SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
