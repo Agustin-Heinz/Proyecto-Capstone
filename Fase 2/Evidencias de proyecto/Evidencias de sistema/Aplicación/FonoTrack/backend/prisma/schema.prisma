@@ -33,6 +33,9 @@ model disponibilidad {
   hora_inicio       DateTime @db.Time(0)
   hora_fin          DateTime @db.Time(0)
 
+  // Relación inversa exacta
+  fonoaudiologos    fonoaudiologos @relation(fields: [id_fonoaudiologo], references: [id_fonoaudiologo])
+
   @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
 }
 
@@ -46,16 +49,19 @@ model evoluciones_sesion {
 }
 
 model fonoaudiologos {
-  id_fonoaudiologo Int     @id @default(autoincrement())
+  id_fonoaudiologo Int      @id @default(autoincrement())
   id_usuario       Int
-  nombre_completo  String  @db.VarChar(100)
-  rut              String  @unique(map: "rut") @db.VarChar(15)
-  subespecialidad  String? @db.VarChar(100)
-  acerca_de_mi     String? @db.Text
+  nombre_completo  String   @db.VarChar(100)
+  rut              String   @unique(map: "rut") @db.VarChar(15)
+  subespecialidad  String?  @db.VarChar(100)
+  acerca_de_mi     String?  @db.Text
 
   @@index([id_usuario], map: "id_usuario")
-}
 
+  // Conexiones hacia los hijos
+  servicios        servicios[]
+  disponibilidad   disponibilidad[]
+}
 model pacientes {
   id_paciente      Int      @id @default(autoincrement())
   id_usuario       Int
@@ -63,7 +69,7 @@ model pacientes {
   nombre_completo  String   @db.VarChar(100)
   nombre_tutor     String?  @db.VarChar(100)
   rut              String   @unique(map: "rut") @db.VarChar(15)
-  fecha_nacimiento DateTime? @db.Date
+  fecha_nacimiento DateTime @db.Date
   telefono         String?  @db.VarChar(20)
 
   @@index([id_ubicacion], map: "id_ubicacion")
@@ -98,6 +104,9 @@ model servicios {
   nombre_servicio  String @db.VarChar(100)
   precio           Int
 
+  // Relación inversa exacta que evita el error de la columna inventada
+  fonoaudiologos   fonoaudiologos @relation(fields: [id_fonoaudiologo], references: [id_fonoaudiologo])
+  
   @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
 }
 

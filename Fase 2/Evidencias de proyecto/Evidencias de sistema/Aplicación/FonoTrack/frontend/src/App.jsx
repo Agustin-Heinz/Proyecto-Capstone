@@ -20,6 +20,7 @@ import Register from './pages/Register'
 import DashboardLayout from './components/DashboardLayout'
 import PanelAgenda from './pages/PanelAgenda'
 import PanelAgendaSemanal from './pages/PanelAgendaSemanal'
+import PanelPerfil from './pages/PanelPerfil'
 
 // Plantilla Pública
 function PublicLayout() {
@@ -59,6 +60,7 @@ function App() {
           <Route path="agenda" element={<PanelAgendaSemanal />} />
           <Route path="pacientes" element={<PanelPacientes />} />
           <Route path="reportes" element={<PanelReportes />} />
+          <Route path="perfil" element={<PanelPerfil />} />
         </Route>
 
       </Routes>

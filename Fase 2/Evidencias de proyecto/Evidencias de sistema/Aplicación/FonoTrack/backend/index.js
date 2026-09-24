@@ -114,15 +114,98 @@ app.delete('/api/pacientes/:id', async (req, res) => {
 });
 
 // ==========================================
-// DIRECTORIO: Traer lista de Fonoaudiólogos
+// Traer lista de Fonoaudiólogos
 // ==========================================
 app.get('/api/fonoaudiologos', async (req, res) => {
   try {
-    const listaProfesionales = await prisma.fonoaudiologos.findMany();
+    const listaProfesionales = await prisma.fonoaudiologos.findMany({
+      // Esto es clave: le decimos a MySQL que adjunte los servicios de cada profesional
+      include: { 
+        servicios: true,
+        disponibilidad: true
+      } 
+    });
     res.status(200).json(listaProfesionales);
   } catch (error) {
     console.error("❌ Error al buscar profesionales:", error);
     res.status(500).json({ mensaje: "Error al cargar el directorio", detalle: error.message });
+  }
+});
+
+// GET: Leer servicios de un profesional específico
+app.get('/api/servicios', async (req, res) => {
+  try {
+    const { id_fonoaudiologo } = req.query;
+    const servicios = await prisma.servicios.findMany({
+      where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) }
+    });
+    res.status(200).json(servicios);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET: Leer disponibilidad de un profesional
+app.get('/api/disponibilidad', async (req, res) => {
+  try {
+    const { id_fonoaudiologo } = req.query;
+    const horarios = await prisma.disponibilidad.findMany({
+      where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) }
+    });
+    res.status(200).json(horarios);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// PERFIL PROFESIONAL: Servicios y Disponibilidad
+// ==========================================
+
+// POST: Registrar un nuevo servicio
+app.post('/api/servicios', async (req, res) => {
+  try {
+    const { id_fonoaudiologo, nombre, precio } = req.body;
+
+    const nuevoServicio = await prisma.servicios.create({
+      data: {
+        id_fonoaudiologo: parseInt(id_fonoaudiologo),
+        nombre_servicio: nombre,
+        precio: parseInt(precio)
+      }
+    });
+
+    console.log("✅ Nuevo servicio guardado:", nuevoServicio.nombre_servicio);
+    res.status(201).json(nuevoServicio);
+  } catch (error) {
+    console.error("❌ Error al guardar el servicio:", error);
+    res.status(500).json({ mensaje: "Error al crear el servicio", detalle: error.message });
+  }
+});
+
+// POST: Registrar disponibilidad (horarios)
+app.post('/api/disponibilidad', async (req, res) => {
+  try {
+    const { id_fonoaudiologo, dia, inicio, fin } = req.body;
+
+    // Prisma requiere que los campos TIME de MySQL se formateen como objetos Date
+    const horaInicio = new Date(`1970-01-01T${inicio}:00.000Z`);
+    const horaFin = new Date(`1970-01-01T${fin}:00.000Z`);
+
+    const nuevaDisponibilidad = await prisma.disponibilidad.create({
+      data: {
+        id_fonoaudiologo: parseInt(id_fonoaudiologo),
+        dia_semana: dia,
+        hora_inicio: horaInicio,
+        hora_fin: horaFin
+      }
+    });
+
+    console.log("✅ Nueva disponibilidad guardada para el día:", nuevaDisponibilidad.dia_semana);
+    res.status(201).json(nuevaDisponibilidad);
+  } catch (error) {
+    console.error("❌ Error al guardar disponibilidad:", error);
+    res.status(500).json({ mensaje: "Error al crear disponibilidad", detalle: error.message });
   }
 });
 
