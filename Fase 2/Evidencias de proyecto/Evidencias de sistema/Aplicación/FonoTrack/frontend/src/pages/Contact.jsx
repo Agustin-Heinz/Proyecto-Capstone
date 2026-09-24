@@ -38,12 +38,12 @@ export default function Contact() {
 
       // Construimos el paquete exacto que espera tu nueva ruta POST /api/citas
       // Usamos los IDs estáticos del profesional y servicio que vienen de useParams
-    const paqueteCita = {
-          id_paciente: 1, 
+      const paqueteCita = {
+          id_paciente: 1, // Por ahora enviamos un ID de paciente existente
           id_fonoaudiologo: parseInt(profId), 
-          id_servicio: 1, // <--- FIJAMOS EL ID REAL DE MYSQL AQUÍ
-          fecha: fecha, 
-          hora_inicio: `1970-01-01T${hora}:00Z`, 
+          id_servicio: parseInt(servId), 
+          fecha: fecha, // Debes asegurarte de que este formato coincida con el esperado por MySQL (ej. 'YYYY-MM-DD')
+          hora_inicio: `1970-01-01T${hora}:00Z`, // Adaptamos la hora visual al formato ISO que exige Prisma
           duracion_minutos: s.duracion,
           precio: s.precio
       };
