@@ -225,6 +225,68 @@ app.post('/api/disponibilidad', async (req, res) => {
 });
 
 // ==========================================
+// MANTENEDOR SERVICIOS: Editar y Eliminar
+// ==========================================
+
+app.put('/api/servicios/:id', async (req, res) => {
+  try {
+    const idServicio = parseInt(req.params.id);
+    const { nombre, precio } = req.body;
+    const actualizado = await prisma.servicios.update({
+      where: { id_servicios: idServicio },
+      data: { nombre_servicio: nombre, precio: parseInt(precio) }
+    });
+    res.status(200).json(actualizado);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error", detalle: error.message });
+  }
+});
+
+app.delete('/api/servicios/:id', async (req, res) => {
+  try {
+    const idServicio = parseInt(req.params.id);
+    await prisma.servicios.delete({ where: { id_servicios: idServicio } });
+    res.status(200).json({ mensaje: "Ok" });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error", detalle: error.message });
+  }
+});
+
+// ==========================================
+// MANTENEDOR DISPONIBILIDAD: Editar y Eliminar
+// ==========================================
+
+app.put('/api/disponibilidad/:id', async (req, res) => {
+  try {
+    const idDisp = parseInt(req.params.id);
+    const { dia, inicio, fin } = req.body;
+    
+    const horaInicio = new Date(`1970-01-01T${inicio}:00.000Z`);
+    const horaFin = new Date(`1970-01-01T${fin}:00.000Z`);
+    
+    const actualizado = await prisma.disponibilidad.update({
+      where: { id_disponibilidad: idDisp },
+      data: { dia_semana: dia, hora_inicio: horaInicio, hora_fin: horaFin }
+    });
+    res.status(200).json(actualizado);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error", detalle: error.message });
+  }
+});
+
+app.delete('/api/disponibilidad/:id', async (req, res) => {
+  try {
+    const idDisp = parseInt(req.params.id);
+    await prisma.disponibilidad.delete({ where: { id_disponibilidad: idDisp } });
+    res.status(200).json({ mensaje: "Ok" });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error", detalle: error.message });
+  }
+});
+
+
+
+// ==========================================
 // CITAS: Obtener horas ocupadas (GET)
 // ==========================================
 app.get('/api/citas/ocupadas', async (req, res) => {
