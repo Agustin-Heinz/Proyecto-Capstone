@@ -145,7 +145,6 @@ app.get('/api/fonoaudiologos', async (req, res) => {
 });
 
 // GET: Leer servicios de un profesional específico
-// GET: Leer servicios
 app.get('/api/servicios', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
@@ -179,6 +178,7 @@ app.get('/api/disponibilidad', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 // ==========================================
 // PERFIL PROFESIONAL: Servicios y Disponibilidad
 // ==========================================
@@ -296,8 +296,6 @@ app.delete('/api/disponibilidad/:id', async (req, res) => {
   }
 });
 
-
-
 // ==========================================
 // CITAS: Obtener horas ocupadas (GET)
 // ==========================================
@@ -344,10 +342,8 @@ app.post('/api/citas', async (req, res) => {
 
     console.log("📥 Datos completos recibidos:", req.body);
 
-    // 1. Extraer solo la parte de la fecha ("2026-10-20")
     const soloFecha = String(fecha).split('T')[0];
 
-    // 2. Extraer limpiamente solo los números de la hora (ej: "15:00")
     let horaLimpia = "00:00";
     if (hora_inicio) {
       const coincidencia = String(hora_inicio).match(/\d{2}:\d{2}/);
@@ -356,10 +352,8 @@ app.post('/api/citas', async (req, res) => {
       }
     }
 
-    // 3. Combinar Fecha y Hora
     const fechaHoraInicio = new Date(`${soloFecha}T${horaLimpia}:00.000Z`);
 
-    // 4. Guardar en MySQL
     const nuevaCita = await prisma.citas.create({
       data: {
         id_paciente: Number(id_paciente),
@@ -369,7 +363,8 @@ app.post('/api/citas', async (req, res) => {
         hora_inicio: fechaHoraInicio,
         duracion_minutos: Number(duracion_minutos),
         precio: Number(precio),
-        estado_pago: "Pendiente",
+        // 🔥 CAMBIO: Las citas nacen como "Pagado" para la demostración en tiempo real
+        estado_pago: "Pagado",
         estado_asistencia: "Pendiente"
       }
     });
@@ -388,10 +383,8 @@ app.post('/api/citas', async (req, res) => {
 // ==========================================
 app.get('/api/citas', async (req, res) => {
   try {
-    // Recibimos el ID desde la URL del frontend
     const { id_fonoaudiologo } = req.query;
 
-    // Si nos envían un ID, filtramos solo las citas de ese profesional
     const condicion = id_fonoaudiologo 
       ? { where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) } } 
       : {}; 
@@ -407,30 +400,25 @@ app.get('/api/citas', async (req, res) => {
 // ==========================================
 // AUTENTICACIÓN: Registro y Login
 // ==========================================
-
-// POST: Registrar un nuevo usuario y su perfil simultáneamente
 app.post('/api/registro', async (req, res) => {
   try {
     const { nombre, email, password, rol } = req.body;
 
-    // Utilizamos $transaction para asegurar que se creen ambas tablas al mismo tiempo
     const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Creamos las credenciales en la tabla Usuarios
       const nuevoUsuario = await tx.usuarios.create({
         data: {
           email: email,
-          contrasena: password, // En producción real, esto iría encriptado con bcrypt
+          contrasena: password,
           rol: rol
         }
       });
 
-      // 2. Evaluamos el rol y creamos el perfil correspondiente
       if (rol === 'fonoaudiologo') {
         await tx.fonoaudiologos.create({
           data: {
             id_usuario: nuevoUsuario.id_usuario,
             nombre_completo: nombre,
-            rut: `PD-${Date.now().toString().slice(-6)}`, // RUT temporal para cumplir restricción UNIQUE
+            rut: `PD-${Date.now().toString().slice(-6)}`,
             subespecialidad: 'General',
             acerca_de_mi: 'Nuevo profesional en FonoTrack'
           }
@@ -440,7 +428,7 @@ app.post('/api/registro', async (req, res) => {
           data: {
             id_usuario: nuevoUsuario.id_usuario,
             nombre_completo: nombre,
-            rut: `PD-${Date.now().toString().slice(-6)}`, // RUT temporal
+            rut: `PD-${Date.now().toString().slice(-6)}`,
             fecha_nacimiento: new Date('2000-01-01')
           }
         });
@@ -458,7 +446,6 @@ app.post('/api/registro', async (req, res) => {
   }
 });
 
-// POST: Iniciar sesión
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -471,7 +458,6 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
 
-    // Buscamos el ID real del profesional en su tabla
     let perfilId = null;
     if (usuario.rol === 'fonoaudiologo') {
       const perfilFono = await prisma.fonoaudiologos.findFirst({
@@ -481,7 +467,6 @@ app.post('/api/login', async (req, res) => {
     }
 
     console.log("✅ Inicio de sesión exitoso:", usuario.email);
-    // Enviamos los datos del usuario + su ID de profesional
     res.status(200).json({ ...usuario, perfilId });
 
   } catch (error) {
@@ -495,7 +480,6 @@ app.post('/api/login', async (req, res) => {
 // ==========================================
 app.get('/api/estadisticas', async (req, res) => {
   try {
-    // 1. REQUISITO ESTRICTO: Capturamos el ID del fonoaudiólogo desde la URL
     const { id_fonoaudiologo } = req.query;
 
     if (!id_fonoaudiologo) {
@@ -503,22 +487,18 @@ app.get('/api/estadisticas', async (req, res) => {
     }
 
     const fonoId = parseInt(id_fonoaudiologo);
-
-    // 2. Filtro maestro que aplicaremos a todas las consultas
     const filtroPrivado = { id_fonoaudiologo: fonoId };
 
-    // 3. Traemos SOLO las citas de este profesional específico
     const todasLasCitas = await prisma.citas.findMany({
       where: filtroPrivado
     });
     const todosLosServicios = await prisma.servicios.findMany();
 
-    // 4. MATEMÁTICA: Ingresos Totales SOLO de este profesional
     const ingresos = await prisma.citas.aggregate({
       _sum: { precio: true },
       where: { 
         estado_pago: 'Pagado',
-        ...filtroPrivado // <- El candado de seguridad
+        ...filtroPrivado 
       }
     });
     const totalDinero = ingresos._sum.precio || 0;
@@ -553,8 +533,7 @@ app.get('/api/estadisticas', async (req, res) => {
       if (!cita.fecha) return;
       const f = new Date(cita.fecha);
       
-      // 🔥 LA MURALLA TEMPORAL: Ignoramos por completo las citas agendadas en el futuro
-      if (f > ahora) return;
+      // 🔥 CAMBIO: Se eliminó "if (f > ahora) return;" para permitir leer las citas futuras
 
       const dia = diasNombres[f.getDay()];
       const mes = mesesNombres[f.getMonth()];
@@ -573,8 +552,8 @@ app.get('/api/estadisticas', async (req, res) => {
       const servId = cita.id_servicio;
       const precio = cita.precio || 0;
       
-      // La matemática se procesa solo si pasó el filtro de tiempo real
-      if (f >= hace7Dias && f <= ahora) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
+      // 🔥 CAMBIO: Se quitó la restricción "f <= ahora" en el filtro semanal para contar la demanda proyectada
+      if (f >= hace7Dias) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
       if (f.getMonth() === mesActual && f.getFullYear() === anioActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
       if (f.getFullYear() === anioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
     });
@@ -616,6 +595,7 @@ app.get('/api/estadisticas', async (req, res) => {
     res.status(500).json({ mensaje: "Error al calcular BI", detalle: error.message });
   }
 });
+
 // ==========================================
 // CITAS: Marcar una cita como Pagada (PUT)
 // ==========================================
@@ -635,8 +615,8 @@ app.put('/api/citas/:id/pago', async (req, res) => {
     res.status(500).json({ mensaje: "Error al actualizar pago", detalle: error.message });
   }
 });
+
 // --- INICIAR EL SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
 });
-
