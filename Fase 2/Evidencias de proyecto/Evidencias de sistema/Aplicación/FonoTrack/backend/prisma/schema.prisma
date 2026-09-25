@@ -32,11 +32,14 @@ model disponibilidad {
   dia_semana        String   @db.VarChar(20)
   hora_inicio       DateTime @db.Time(0)
   hora_fin          DateTime @db.Time(0)
+  id_servicio       Int      // <--- Este campo es el que exige el create
 
-  // Relación inversa exacta
+  // Relaciones opcionales u obligatorias
+  servicio          servicios @relation(fields: [id_servicio], references: [id_servicios], onDelete: Cascade)
   fonoaudiologos    fonoaudiologos @relation(fields: [id_fonoaudiologo], references: [id_fonoaudiologo])
 
   @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
+  @@index([id_servicio], map: "id_servicio")
 }
 
 model evoluciones_sesion {
@@ -104,8 +107,11 @@ model servicios {
   nombre_servicio  String @db.VarChar(100)
   precio           Int
 
-  // Relación inversa exacta que evita el error de la columna inventada
+  // Relación inversa con fonoaudiologos
   fonoaudiologos   fonoaudiologos @relation(fields: [id_fonoaudiologo], references: [id_fonoaudiologo])
+  
+  // SOLUCIÓN: Relación inversa con disponibilidad
+  disponibilidad   disponibilidad[]
   
   @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
 }

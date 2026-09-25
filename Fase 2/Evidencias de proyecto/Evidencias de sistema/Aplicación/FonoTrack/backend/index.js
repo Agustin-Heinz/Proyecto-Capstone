@@ -157,19 +157,24 @@ app.get('/api/servicios', async (req, res) => {
   }
 });
 
-// GET: Leer disponibilidad de un profesional
 app.get('/api/disponibilidad', async (req, res) => {
   try {
-    const { id_fonoaudiologo } = req.query;
+    const { id_fonoaudiologo, id_servicio } = req.query;
+    
+    // Filtramos por profesional y, si nos envían el servicio, también por servicio
+    const filtro = { id_fonoaudiologo: parseInt(id_fonoaudiologo) };
+    if (id_servicio) {
+      filtro.id_servicio = parseInt(id_servicio);
+    }
+
     const horarios = await prisma.disponibilidad.findMany({
-      where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) }
+      where: filtro
     });
     res.status(200).json(horarios);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 // ==========================================
 // PERFIL PROFESIONAL: Servicios y Disponibilidad
 // ==========================================
@@ -195,28 +200,31 @@ app.post('/api/servicios', async (req, res) => {
   }
 });
 
-// POST: Registrar disponibilidad (horarios)
 app.post('/api/disponibilidad', async (req, res) => {
   try {
-    const { id_fonoaudiologo, dia, inicio, fin } = req.body;
+    const { id_fonoaudiologo, id_servicio, dia, inicio, fin } = req.body;
+    
     if (!id_fonoaudiologo || isNaN(id_fonoaudiologo)) {
-  return res.status(400).json({ error: "ID de fonoaudiólogo ausente o inválido" });
-}
+      return res.status(400).json({ error: "ID de fonoaudiólogo ausente o inválido" });
+    }
+    // NUEVA BARRERA: Exigimos el ID del servicio
+    if (!id_servicio || isNaN(id_servicio)) {
+      return res.status(400).json({ error: "ID de servicio ausente o inválido" });
+    }
 
-    // Prisma requiere que los campos TIME de MySQL se formateen como objetos Date
     const horaInicio = new Date(`1970-01-01T${inicio}:00.000Z`);
     const horaFin = new Date(`1970-01-01T${fin}:00.000Z`);
 
     const nuevaDisponibilidad = await prisma.disponibilidad.create({
       data: {
         id_fonoaudiologo: parseInt(id_fonoaudiologo),
+        id_servicio: parseInt(id_servicio), // GUARDAMOS EL ESLABÓN
         dia_semana: dia,
         hora_inicio: horaInicio,
         hora_fin: horaFin
       }
     });
 
-    console.log("✅ Nueva disponibilidad guardada para el día:", nuevaDisponibilidad.dia_semana);
     res.status(201).json(nuevaDisponibilidad);
   } catch (error) {
     console.error("❌ Error al guardar disponibilidad:", error);
