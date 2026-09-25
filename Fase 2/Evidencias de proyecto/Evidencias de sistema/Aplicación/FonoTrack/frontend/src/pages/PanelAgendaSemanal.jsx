@@ -1,30 +1,31 @@
 import React, { useState, useEffect } from 'react';
 
 export default function PanelAgendaSemanal() {
-  // 1. Estados para almacenar las citas reales de MySQL
   const [citas, setCitas] = useState([]);
   const [cargando, setCargando] = useState(true);
 
   const horas = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
-  // Ajustamos la semana para que coincida con la prueba que acabas de hacer (20 de octubre)
+  // Ajustamos la semana para que coincida con tus pruebas (Octubre 2026)
   const dias = [
-    { nombre: 'LUN', num: '19' },
-    { nombre: 'MAR', num: '20' },
-    { nombre: 'MIÉ', num: '21' },
-    { nombre: 'JUE', num: '22' },
-    { nombre: 'VIE', num: '23' }
+    { nombre: 'LUN', num: '19', fecha: '2026-10-19' },
+    { nombre: 'MAR', num: '20', fecha: '2026-10-20' },
+    { nombre: 'MIÉ', num: '21', fecha: '2026-10-21' },
+    { nombre: 'JUE', num: '22', fecha: '2026-10-22' },
+    { nombre: 'VIE', num: '23', fecha: '2026-10-23' }
   ];
 
-  // 2. Petición a tu API de Node.js al abrir la pantalla
   useEffect(() => {
-    // Rescatamos el ID de quien inició sesión
     const perfilId = localStorage.getItem('perfilId');
+    if (!perfilId) {
+       setCargando(false);
+       return;
+    }
 
-    // Se lo pasamos al backend a través de la URL
     fetch(`http://localhost:3000/api/citas?id_fonoaudiologo=${perfilId}`)
       .then(respuesta => respuesta.json())
       .then(datosBackend => {
-        setCitas(datosBackend);
+        const citasOrdenadas = datosBackend.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        setCitas(citasOrdenadas);
         setCargando(false);
       })
       .catch(error => {
@@ -34,9 +35,10 @@ export default function PanelAgendaSemanal() {
   }, []);
 
   const pacientesActivos = new Set(citas.map(c => c.id_paciente)).size;
+  const ingresosProyectados = citas.reduce((total, c) => total + (c.precio || 0), 0);
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
       
       {/* Cabecera Principal */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '30px' }}>
@@ -53,7 +55,7 @@ export default function PanelAgendaSemanal() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
         <MetricCard titulo="Citas agendadas (MySQL)" valor={cargando ? "..." : citas.length} icono="📅" />
         <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} />
-        <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${citas.reduce((total, c) => total + c.precio, 0)}`} icono="💲" />
+        <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${ingresosProyectados.toLocaleString('es-CL')}`} icono="💲" />
       </div>
 
       <div style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
@@ -76,21 +78,43 @@ export default function PanelAgendaSemanal() {
           <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', borderTop: '1px solid #f1f5f9', borderLeft: '1px solid #f1f5f9' }}>
             <div style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '10px' }}></div>
             
+            {/* Cabeceras de Días */}
             {dias.map(d => (
-              <div key={d.nombre} style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '16px 12px' }}>
+              <div key={d.nombre} style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '16px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>{d.nombre}</div>
                 <div style={{ fontSize: '18px', color: '#1a365d', fontWeight: '800', marginTop: '2px' }}>{d.num}</div>
               </div>
             ))}
 
+            {/* Motor del Calendario */}
             {horas.map(hora => (
               <React.Fragment key={hora}>
                 <div style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '16px 0', fontSize: '12px', color: '#64748b', textAlign: 'center', fontWeight: '600' }}>
                   {hora}
                 </div>
-                {[0, 1, 2, 3, 4].map(i => (
-                  <div key={`${hora}-${i}`} style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', minHeight: '65px' }}></div>
-                ))}
+                {/* Revisión de citas para dibujar celdas */}
+                {dias.map(dia => {
+                   const citaEnEstaCasilla = citas.find(c => {
+                     if (!c.fecha || !c.hora_inicio) return false;
+                     const fechaCita = String(c.fecha).split('T')[0];
+                     const horaCita = String(c.hora_inicio).substring(11, 16);
+                     return fechaCita === dia.fecha && horaCita === hora;
+                   });
+
+                   return (
+                     <div key={`${dia.fecha}-${hora}`} style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', minHeight: '65px', padding: '4px' }}>
+                       {citaEnEstaCasilla && (
+                         <div style={{ 
+                           backgroundColor: '#dbeafe', borderLeft: '3px solid #3b82f6', borderRadius: '4px', 
+                           padding: '6px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' 
+                         }}>
+                           <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e40af' }}>Paciente #{citaEnEstaCasilla.id_paciente}</span>
+                           <span style={{ fontSize: '11px', color: '#2563eb' }}>Servicio #{citaEnEstaCasilla.id_servicio}</span>
+                         </div>
+                       )}
+                     </div>
+                   );
+                })}
               </React.Fragment>
             ))}
           </div>
@@ -111,7 +135,6 @@ export default function PanelAgendaSemanal() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {citas.map(cita => {
-                // Formateamos los datos crudos que llegan de la base de datos
                 const fechaLimpia = cita.fecha ? String(cita.fecha).split('T')[0] : 'Sin fecha';
                 const horaLimpia = cita.hora_inicio ? String(cita.hora_inicio).substring(11, 16) : '00:00';
 
@@ -132,10 +155,10 @@ export default function PanelAgendaSemanal() {
                     </div>
                     
                     <div style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
-                      <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 8px', borderRadius: '4px', fontWeight: '600' }}>
+                      <span style={{ backgroundColor: cita.estado_pago === 'Pagado' ? '#dcfce7' : '#fef08a', color: cita.estado_pago === 'Pagado' ? '#166534' : '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '600' }}>
                         Pago: {cita.estado_pago}
                       </span>
-                      <span style={{ backgroundColor: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '600' }}>
+                      <span style={{ backgroundColor: cita.estado_asistencia === 'Asistió' ? '#dcfce7' : '#fef08a', color: cita.estado_asistencia === 'Asistió' ? '#166534' : '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '600' }}>
                         Asistencia: {cita.estado_asistencia}
                       </span>
                     </div>
@@ -152,7 +175,6 @@ export default function PanelAgendaSemanal() {
 }
 
 // --- Componentes Pequeños / Estilos ---
-
 const navButtonStyle = {
   backgroundColor: '#ffffff',
   border: '1px solid #cbd5e1',

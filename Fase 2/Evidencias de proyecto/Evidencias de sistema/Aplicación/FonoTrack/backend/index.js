@@ -2,136 +2,107 @@ const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 
-// Inicializamos la aplicación y las herramientas de Prisma
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares (Configuraciones de seguridad y formato de datos)
-app.use(cors()); // Permitirá que tu futuro Frontend en React se conecte
-app.use(express.json()); // Permite leer datos en formato JSON
+app.use(cors()); 
+app.use(express.json()); 
 
-// --- RUTAS DE NUESTRA API ---
-
-// Ruta de prueba: Obtener los planes de suscripción
+// ==========================================
+// PACIENTES Y PLANES
+// ==========================================
 app.get('/api/planes', async (req, res) => {
   try {
     const listaPlanes = await prisma.planes.findMany();
     res.json(listaPlanes);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: "Hubo un problema al buscar los planes" });
   }
 });
 
-// POST: Ruta para agregar un nuevo paciente
 app.post('/api/pacientes', async (req, res) => {
   try {
     const { id_usuario, nombre_completo, rut, telefono } = req.body; 
 
-    // 1. Verificamos si el paciente ya existe (por su RUT)
     const pacienteExistente = await prisma.pacientes.findUnique({
       where: { rut: rut }
     });
 
     if (pacienteExistente) {
-      console.log("✅ Paciente recurrente encontrado:", pacienteExistente.nombre_completo);
       return res.status(200).json(pacienteExistente);
     }
 
-    // 2. Si no existe, lo creamos
     const pacienteNuevo = await prisma.pacientes.create({
       data: {
         id_usuario: parseInt(id_usuario),
         nombre_completo: nombre_completo,
         rut: rut,
         telefono: telefono,
-        fecha_nacimiento: new Date('2000-01-01') // Valor por defecto obligatorio
+        fecha_nacimiento: new Date('2000-01-01') 
       }
     });
 
     res.status(201).json(pacienteNuevo); 
   } catch (error) {
-    console.error("❌ Hubo un error al guardar en MySQL:", error);
     res.status(500).json({ mensaje: "Error al crear el paciente", detalle: error.message });
   }
 });
 
-// R: LEER (GET) - Traer todos los pacientes
 app.get('/api/pacientes', async (req, res) => {
   try {
     const todosLosPacientes = await prisma.pacientes.findMany();
     res.status(200).json(todosLosPacientes);
   } catch (error) {
-    console.error("❌ Error al buscar pacientes:", error);
     res.status(500).json({ mensaje: "Error al buscar pacientes", detalle: error.message });
   }
 });
 
-// R: LEER UNO (GET) - Buscar por ID exacto
 app.get('/api/pacientes/:id', async (req, res) => {
   try {
     const idBuscado = parseInt(req.params.id); 
-    
     const paciente = await prisma.pacientes.findUnique({
       where: { id_paciente: idBuscado }
     });
-
     if (!paciente) return res.status(404).json({ mensaje: "Paciente no encontrado" });
-    
     res.status(200).json(paciente);
   } catch (error) {
-    console.error("❌ Error al buscar el paciente:", error);
     res.status(500).json({ mensaje: "Error al buscar el paciente", detalle: error.message });
   }
 });
 
-// U: ACTUALIZAR (PUT) - Modificar datos
 app.put('/api/pacientes/:id', async (req, res) => {
   try {
     const idBuscado = parseInt(req.params.id);
     const { telefono, direccion } = req.body;
-
     const pacienteActualizado = await prisma.pacientes.update({
       where: { id_paciente: idBuscado },
-      data: {
-        telefono: telefono,
-        direccion: direccion
-      }
+      data: { telefono: telefono, direccion: direccion }
     });
-
-    console.log(`✅ ¡Éxito! Paciente actualizado`);
     res.status(200).json(pacienteActualizado);
   } catch (error) {
-    console.error("❌ Error al actualizar:", error);
     res.status(500).json({ mensaje: "Error al actualizar", detalle: error.message });
   }
 });
 
-// D: BORRAR (DELETE) - Eliminar un paciente
 app.delete('/api/pacientes/:id', async (req, res) => {
   try {
     const idBuscado = parseInt(req.params.id);
-
     await prisma.pacientes.delete({
       where: { id_paciente: idBuscado }
     });
-
-    console.log(`✅ ¡Éxito! Paciente eliminado de MySQL`);
     res.status(200).json({ mensaje: "Paciente eliminado correctamente" });
   } catch (error) {
-    console.error("❌ Error al eliminar:", error);
     res.status(500).json({ mensaje: "Error al eliminar", detalle: error.message });
   }
 });
 
 // ==========================================
-// Traer lista de Fonoaudiólogos
+// FONOAUDIÓLOGOS, SERVICIOS Y DISPONIBILIDAD
 // ==========================================
 app.get('/api/fonoaudiologos', async (req, res) => {
   try {
     const listaProfesionales = await prisma.fonoaudiologos.findMany({
-      // Esto es clave: le decimos a MySQL que adjunte los servicios de cada profesional
       include: { 
         servicios: true,
         disponibilidad: true
@@ -139,16 +110,13 @@ app.get('/api/fonoaudiologos', async (req, res) => {
     });
     res.status(200).json(listaProfesionales);
   } catch (error) {
-    console.error("❌ Error al buscar profesionales:", error);
     res.status(500).json({ mensaje: "Error al cargar el directorio", detalle: error.message });
   }
 });
 
-// GET: Leer servicios de un profesional específico
 app.get('/api/servicios', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
-    // Candado: Si no hay ID, cortamos la petición
     if (!id_fonoaudiologo || id_fonoaudiologo === 'undefined' || id_fonoaudiologo === 'null') {
       return res.status(400).json({ error: "ID faltante" });
     }
@@ -161,33 +129,27 @@ app.get('/api/servicios', async (req, res) => {
   }
 });
 
-// GET: Leer disponibilidad
 app.get('/api/disponibilidad', async (req, res) => {
   try {
     const { id_fonoaudiologo, id_servicio } = req.query;
-    // Candado: Si no hay ID, cortamos la petición
     if (!id_fonoaudiologo || id_fonoaudiologo === 'undefined' || id_fonoaudiologo === 'null') {
       return res.status(400).json({ error: "ID faltante" });
     }
     const filtro = { id_fonoaudiologo: parseInt(id_fonoaudiologo) };
     if (id_servicio) filtro.id_servicio = parseInt(id_servicio);
 
-    const horarios = await prisma.disponibilidad.findMany({ where: filtro });
+    const horarios = await prisma.disponibilidad.findMany({
+      where: filtro
+    });
     res.status(200).json(horarios);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// ==========================================
-// PERFIL PROFESIONAL: Servicios y Disponibilidad
-// ==========================================
-
-// POST: Registrar un nuevo servicio
 app.post('/api/servicios', async (req, res) => {
   try {
     const { id_fonoaudiologo, nombre, precio } = req.body;
-
     const nuevoServicio = await prisma.servicios.create({
       data: {
         id_fonoaudiologo: parseInt(id_fonoaudiologo),
@@ -195,11 +157,8 @@ app.post('/api/servicios', async (req, res) => {
         precio: parseInt(precio)
       }
     });
-
-    console.log("✅ Nuevo servicio guardado:", nuevoServicio.nombre_servicio);
     res.status(201).json(nuevoServicio);
   } catch (error) {
-    console.error("❌ Error al guardar el servicio:", error);
     res.status(500).json({ mensaje: "Error al crear el servicio", detalle: error.message });
   }
 });
@@ -207,14 +166,8 @@ app.post('/api/servicios', async (req, res) => {
 app.post('/api/disponibilidad', async (req, res) => {
   try {
     const { id_fonoaudiologo, id_servicio, dia, inicio, fin } = req.body;
-    
-    if (!id_fonoaudiologo || isNaN(id_fonoaudiologo)) {
-      return res.status(400).json({ error: "ID de fonoaudiólogo ausente o inválido" });
-    }
-    // NUEVA BARRERA: Exigimos el ID del servicio
-    if (!id_servicio || isNaN(id_servicio)) {
-      return res.status(400).json({ error: "ID de servicio ausente o inválido" });
-    }
+    if (!id_fonoaudiologo || isNaN(id_fonoaudiologo)) return res.status(400).json({ error: "ID de fonoaudiólogo inválido" });
+    if (!id_servicio || isNaN(id_servicio)) return res.status(400).json({ error: "ID de servicio inválido" });
 
     const horaInicio = new Date(`1970-01-01T${inicio}:00.000Z`);
     const horaFin = new Date(`1970-01-01T${fin}:00.000Z`);
@@ -222,23 +175,17 @@ app.post('/api/disponibilidad', async (req, res) => {
     const nuevaDisponibilidad = await prisma.disponibilidad.create({
       data: {
         id_fonoaudiologo: parseInt(id_fonoaudiologo),
-        id_servicio: parseInt(id_servicio), // GUARDAMOS EL ESLABÓN
+        id_servicio: parseInt(id_servicio),
         dia_semana: dia,
         hora_inicio: horaInicio,
         hora_fin: horaFin
       }
     });
-
     res.status(201).json(nuevaDisponibilidad);
   } catch (error) {
-    console.error("❌ Error al guardar disponibilidad:", error);
     res.status(500).json({ mensaje: "Error al crear disponibilidad", detalle: error.message });
   }
 });
-
-// ==========================================
-// MANTENEDOR SERVICIOS: Editar y Eliminar
-// ==========================================
 
 app.put('/api/servicios/:id', async (req, res) => {
   try {
@@ -264,15 +211,10 @@ app.delete('/api/servicios/:id', async (req, res) => {
   }
 });
 
-// ==========================================
-// MANTENEDOR DISPONIBILIDAD: Editar y Eliminar
-// ==========================================
-
 app.put('/api/disponibilidad/:id', async (req, res) => {
   try {
     const idDisp = parseInt(req.params.id);
     const { dia, inicio, fin } = req.body;
-    
     const horaInicio = new Date(`1970-01-01T${inicio}:00.000Z`);
     const horaFin = new Date(`1970-01-01T${fin}:00.000Z`);
     
@@ -302,25 +244,17 @@ app.delete('/api/disponibilidad/:id', async (req, res) => {
 app.get('/api/citas/ocupadas', async (req, res) => {
   try {
     const { fecha, id_fonoaudiologo } = req.query;
-
-    if (!fecha || !id_fonoaudiologo) {
-      return res.status(400).json({ mensaje: "Faltan parámetros 'fecha' o 'id_fonoaudiologo'" });
-    }
+    if (!fecha || !id_fonoaudiologo) return res.status(400).json({ mensaje: "Faltan parámetros" });
 
     const soloFecha = String(fecha).split('T')[0];
-
-    // Buscar citas agendadas para esa fecha y fonoaudiólogo
     const citasOcupadas = await prisma.citas.findMany({
       where: {
         fecha: new Date(`${soloFecha}T00:00:00.000Z`),
         id_fonoaudiologo: Number(id_fonoaudiologo)
       },
-      select: {
-        hora_inicio: true
-      }
+      select: { hora_inicio: true }
     });
 
-    // Formatear las horas encontradas en arreglo HH:MM (ej: ["15:00"])
     const horasOcupadas = citasOcupadas.map(cita => {
       const match = String(cita.hora_inicio).match(/\d{2}:\d{2}/);
       return match ? match[0] : null;
@@ -328,7 +262,6 @@ app.get('/api/citas/ocupadas', async (req, res) => {
 
     res.json(horasOcupadas);
   } catch (error) {
-    console.error("❌ Error al obtener citas ocupadas:", error);
     res.status(500).json({ mensaje: "Error al consultar horas ocupadas", detalle: error.message });
   }
 });
@@ -340,18 +273,12 @@ app.post('/api/citas', async (req, res) => {
   try {
     const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio } = req.body;
 
-    console.log("📥 Datos completos recibidos:", req.body);
-
     const soloFecha = String(fecha).split('T')[0];
-
     let horaLimpia = "00:00";
     if (hora_inicio) {
       const coincidencia = String(hora_inicio).match(/\d{2}:\d{2}/);
-      if (coincidencia) {
-        horaLimpia = coincidencia[0]; 
-      }
+      if (coincidencia) horaLimpia = coincidencia[0]; 
     }
-
     const fechaHoraInicio = new Date(`${soloFecha}T${horaLimpia}:00.000Z`);
 
     const nuevaCita = await prisma.citas.create({
@@ -363,37 +290,60 @@ app.post('/api/citas', async (req, res) => {
         hora_inicio: fechaHoraInicio,
         duracion_minutos: Number(duracion_minutos),
         precio: Number(precio),
-        // 🔥 CAMBIO: Las citas nacen como "Pagado" para la demostración en tiempo real
-        estado_pago: "Pagado",
+        estado_pago: "Pagado", 
         estado_asistencia: "Pendiente"
       }
     });
 
-    console.log("✅ ¡Éxito! Cita creada con ID:", nuevaCita.id_citas);
     res.status(201).json(nuevaCita);
-
   } catch (error) {
-    console.error("❌ Error al agendar cita:", error);
     res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
   }
 });
 
 // ==========================================
-// CITAS: Leer el calendario de horas (GET)
+// CITAS: Leer el calendario de horas (GET) - ACTUALIZADO CON NOMBRES REALES
 // ==========================================
 app.get('/api/citas', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
-
-    const condicion = id_fonoaudiologo 
-      ? { where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) } } 
-      : {}; 
-
+    const condicion = id_fonoaudiologo ? { where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) } } : {}; 
+    
+    // 1. Buscamos el historial básico
     const historialCitas = await prisma.citas.findMany(condicion);
-    res.status(200).json(historialCitas);
+    
+    // 2. Buscamos los catálogos para cruzar
+    const listaPacientes = await prisma.pacientes.findMany();
+    const listaServicios = await prisma.servicios.findMany();
+
+    // 3. Cruzamos la información
+    const citasCompletas = historialCitas.map(cita => {
+        const paciente = listaPacientes.find(p => p.id_paciente === cita.id_paciente);
+        const servicio = listaServicios.find(s => s.id_servicios === cita.id_servicio);
+        
+        return {
+            ...cita,
+            nombre_paciente: paciente ? paciente.nombre_completo : `Paciente #${cita.id_paciente}`,
+            nombre_servicio: servicio ? servicio.nombre_servicio : `Servicio #${cita.id_servicio}`
+        };
+    });
+
+    res.status(200).json(citasCompletas);
   } catch (error) {
-    console.error("❌ Error al cargar el calendario:", error);
     res.status(500).json({ mensaje: "Error al buscar citas", detalle: error.message });
+  }
+});
+
+app.put('/api/citas/:id/pago', async (req, res) => {
+  try {
+    const idCita = parseInt(req.params.id);
+    const citaActualizada = await prisma.citas.update({
+      where: { id_citas: idCita },
+      data: { estado_pago: 'Pagado' }
+    });
+    res.status(200).json(citaActualizada);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al actualizar pago", detalle: error.message });
   }
 });
 
@@ -406,11 +356,7 @@ app.post('/api/registro', async (req, res) => {
 
     const resultado = await prisma.$transaction(async (tx) => {
       const nuevoUsuario = await tx.usuarios.create({
-        data: {
-          email: email,
-          contrasena: password,
-          rol: rol
-        }
+        data: { email: email, contrasena: password, rol: rol }
       });
 
       if (rol === 'fonoaudiologo') {
@@ -433,15 +379,11 @@ app.post('/api/registro', async (req, res) => {
           }
         });
       }
-
       return nuevoUsuario;
     });
 
-    console.log("✅ Nuevo usuario y perfil creados:", resultado.email);
     res.status(201).json(resultado);
-
   } catch (error) {
-    console.error("❌ Error al registrar:", error);
     res.status(500).json({ mensaje: "Error al registrar la cuenta", detalle: error.message });
   }
 });
@@ -449,10 +391,7 @@ app.post('/api/registro', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    const usuario = await prisma.usuarios.findUnique({
-      where: { email: email }
-    });
+    const usuario = await prisma.usuarios.findUnique({ where: { email: email } });
 
     if (!usuario || usuario.contrasena !== password) {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
@@ -460,17 +399,12 @@ app.post('/api/login', async (req, res) => {
 
     let perfilId = null;
     if (usuario.rol === 'fonoaudiologo') {
-      const perfilFono = await prisma.fonoaudiologos.findFirst({
-        where: { id_usuario: usuario.id_usuario }
-      });
+      const perfilFono = await prisma.fonoaudiologos.findFirst({ where: { id_usuario: usuario.id_usuario } });
       perfilId = perfilFono ? perfilFono.id_fonoaudiologo : null;
     }
 
-    console.log("✅ Inicio de sesión exitoso:", usuario.email);
     res.status(200).json({ ...usuario, perfilId });
-
   } catch (error) {
-    console.error("❌ Error en login:", error);
     res.status(500).json({ mensaje: "Error al iniciar sesión", detalle: error.message });
   }
 });
@@ -481,25 +415,17 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/estadisticas', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
-
-    if (!id_fonoaudiologo) {
-      return res.status(400).json({ mensaje: "Acceso denegado: Se requiere el ID del profesional." });
-    }
+    if (!id_fonoaudiologo) return res.status(400).json({ mensaje: "Se requiere el ID del profesional." });
 
     const fonoId = parseInt(id_fonoaudiologo);
     const filtroPrivado = { id_fonoaudiologo: fonoId };
 
-    const todasLasCitas = await prisma.citas.findMany({
-      where: filtroPrivado
-    });
+    const todasLasCitas = await prisma.citas.findMany({ where: filtroPrivado });
     const todosLosServicios = await prisma.servicios.findMany();
 
     const ingresos = await prisma.citas.aggregate({
       _sum: { precio: true },
-      where: { 
-        estado_pago: 'Pagado',
-        ...filtroPrivado 
-      }
+      where: { estado_pago: 'Pagado', ...filtroPrivado }
     });
     const totalDinero = ingresos._sum.precio || 0;
     
@@ -524,16 +450,12 @@ app.get('/api/estadisticas', async (req, res) => {
     const sumarServicio = (obj, id, precio, estado_pago) => {
       if (!obj[id]) obj[id] = { cantidad: 0, ingresos: 0 };
       obj[id].cantidad++; 
-      if (estado_pago === 'Pagado') {
-        obj[id].ingresos += precio; 
-      }
+      if (estado_pago === 'Pagado') obj[id].ingresos += precio; 
     };
 
     todasLasCitas.forEach(cita => {
       if (!cita.fecha) return;
       const f = new Date(cita.fecha);
-      
-      // 🔥 CAMBIO: Se eliminó "if (f > ahora) return;" para permitir leer las citas futuras
 
       const dia = diasNombres[f.getDay()];
       const mes = mesesNombres[f.getMonth()];
@@ -552,7 +474,6 @@ app.get('/api/estadisticas', async (req, res) => {
       const servId = cita.id_servicio;
       const precio = cita.precio || 0;
       
-      // 🔥 CAMBIO: Se quitó la restricción "f <= ahora" en el filtro semanal para contar la demanda proyectada
       if (f >= hace7Dias) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
       if (f.getMonth() === mesActual && f.getFullYear() === anioActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
       if (f.getFullYear() === anioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
@@ -596,27 +517,7 @@ app.get('/api/estadisticas', async (req, res) => {
   }
 });
 
-// ==========================================
-// CITAS: Marcar una cita como Pagada (PUT)
-// ==========================================
-app.put('/api/citas/:id/pago', async (req, res) => {
-  try {
-    const idCita = parseInt(req.params.id);
-
-    const citaActualizada = await prisma.citas.update({
-      where: { id_citas: idCita },
-      data: { estado_pago: 'Pagado' }
-    });
-
-    console.log(`✅ ¡Cha-ching! Cita ID ${idCita} marcada como Pagada.`);
-    res.status(200).json(citaActualizada);
-  } catch (error) {
-    console.error("❌ Error al procesar pago:", error);
-    res.status(500).json({ mensaje: "Error al actualizar pago", detalle: error.message });
-  }
-});
-
 // --- INICIAR EL SERVIDOR ---
 app.listen(PORT, () => {
-  console.log(`Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
 });
