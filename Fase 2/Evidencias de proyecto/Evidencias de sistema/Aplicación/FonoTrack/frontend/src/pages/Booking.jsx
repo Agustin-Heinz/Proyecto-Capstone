@@ -26,7 +26,13 @@ export default function Booking() {
             id: fonoReal.id_fonoaudiologo,
             nombre: fonoReal.nombre_completo,
           });
-          setDisponibilidad(fonoReal.disponibilidad || []);
+          
+          // Filtramos la disponibilidad exigiendo que pertenezca al servicio elegido
+          const horariosDelServicio = (fonoReal.disponibilidad || []).filter(
+            d => d.id_servicio === parseInt(servId)
+          );
+          setDisponibilidad(horariosDelServicio);
+
           const servicioReal = fonoReal.servicios?.find(serv => serv.id_servicios === parseInt(servId));
           if (servicioReal) {
             setS({
@@ -66,7 +72,6 @@ export default function Booking() {
     const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     let fechaActual = new Date();
     
-    // Solo permitimos 1 sola fecha por cada día de la semana configurado
     const diasAgregados = new Set();
     let intentos = 0;
     
@@ -74,7 +79,6 @@ export default function Booking() {
       fechaActual.setDate(fechaActual.getDate() + 1);
       const dayOfWeek = fechaActual.getDay();
       
-      // Si el profesional atiende este día y aún no lo hemos agregado
       if (diasPermitidos.includes(dayOfWeek) && !diasAgregados.has(dayOfWeek)) {
         const year = fechaActual.getFullYear();
         const month = String(fechaActual.getMonth() + 1).padStart(2, '0');
@@ -91,12 +95,13 @@ export default function Booking() {
       intentos++;
     }
     
-    // Ordenar las fechas cronológicamente
     fechas.sort((a, b) => new Date(a.key) - new Date(b.key));
     setFechasDisp(fechas);
   }, [disponibilidad]);
 
-  // Generar horas basadas en el día seleccionado
+  // ========================================================
+  // 🔥 SOLUCIÓN: Generar TODAS las horas basadas en el día seleccionado
+  // ========================================================
   useEffect(() => {
     if (!fecha || disponibilidad.length === 0) {
       setHorasDisp([]);
@@ -109,17 +114,25 @@ export default function Booking() {
     const mapDayNames = { 0: 'dom', 1: 'lun', 2: 'mar', 3: 'mi', 4: 'jue', 5: 'vie', 6: 'sab' };
     const currDayStr = mapDayNames[dayOfWeek];
 
-    const diaDisp = disponibilidad.find(disp => disp.dia_semana.toLowerCase().includes(currDayStr));
+    // Cambiamos .find() por .filter() para obtener TODOS los bloques de ese día
+    const bloquesDelDia = disponibilidad.filter(disp => disp.dia_semana.toLowerCase().includes(currDayStr));
     
-    if (diaDisp) {
-       const startMatch = String(diaDisp.hora_inicio).match(/T(\d{2}:\d{2})/);
-       const endMatch = String(diaDisp.hora_fin).match(/T(\d{2}:\d{2})/);
+    if (bloquesDelDia.length > 0) {
+       // Mapeamos todos los bloques encontrados y extraemos sus horas
+       const todasLasHoras = bloquesDelDia.map(bloque => {
+         const startMatch = String(bloque.hora_inicio).match(/T(\d{2}:\d{2})/);
+         const endMatch = String(bloque.hora_fin).match(/T(\d{2}:\d{2})/);
+         
+         if (startMatch && endMatch) {
+           return `${startMatch[1]} - ${endMatch[1]}`;
+         }
+         return null;
+       }).filter(Boolean); // Limpiamos datos nulos
+
+       // Ordenamos cronológicamente (09:00 antes que 15:00)
+       todasLasHoras.sort();
        
-       if (startMatch && endMatch) {
-         setHorasDisp([`${startMatch[1]} - ${endMatch[1]}`]);
-       } else {
-         setHorasDisp([]);
-       }
+       setHorasDisp(todasLasHoras);
     } else {
        setHorasDisp([]);
     }
