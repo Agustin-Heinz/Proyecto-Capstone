@@ -21,16 +21,13 @@ export default function PanelReportes() {
   useEffect(() => {
     const cargarMétricasBI = async () => {
       try {
-        // 1. Extraemos el 'perfilId' exacto que guardó tu Login.jsx
         const idProfesionalLogueado = localStorage.getItem('perfilId');
 
-        // Si alguien entra por error sin loguearse, detenemos la petición
         if (!idProfesionalLogueado) {
           console.warn("🔒 Acceso denegado: No se detectó una sesión activa.");
           return; 
         }
 
-        // 2. Le pedimos a MySQL exclusivamente los datos de este ID
         const respuesta = await fetch(`http://localhost:3000/api/estadisticas?id_fonoaudiologo=${idProfesionalLogueado}`);
         
         if (respuesta.ok) {
@@ -49,6 +46,9 @@ export default function PanelReportes() {
 
   const datosGraficoBarras = metricas.datosPorTiempo[filtroTiempoAsistencia] || [];
   const topServicios = metricas.distribucionServicios[filtroTiempoServicios] || [];
+  
+  // Calculamos el total de citas de estos servicios para sacar el 100%
+  const totalTopServicios = topServicios.reduce((suma, item) => suma + item.cantidad, 0);
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
@@ -142,9 +142,21 @@ export default function PanelReportes() {
               {topServicios.length === 0 ? (
                 <span style={{ color: '#94a3b8', fontSize: '14px' }}>No hay servicios registrados en este periodo.</span>
               ) : (
-                topServicios.map((servicio, index) => (
-                  <LeyendaItem key={index} color={coloresAnillo[index % coloresAnillo.length]} servicio={servicio.nombre} monto={`$${(servicio.ingresos).toLocaleString('es-CL')}`} />
-                ))
+                topServicios.map((servicio, index) => {
+                  // NUEVO: Cálculo dinámico del porcentaje
+                  const porcentaje = totalTopServicios > 0 
+                    ? Math.round((servicio.cantidad / totalTopServicios) * 100) 
+                    : 0;
+
+                  return (
+                    <LeyendaItem 
+                      key={index} 
+                      color={coloresAnillo[index % coloresAnillo.length]} 
+                      servicio={servicio.nombre} 
+                      monto={`${porcentaje}%`} 
+                    />
+                  );
+                })
               )}
             </div>
           </div>
