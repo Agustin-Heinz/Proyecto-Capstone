@@ -17,7 +17,13 @@ export default function PanelReportes() {
 
   const coloresAnillo = ['#1a365d', '#2563eb', '#60a5fa', '#bfdbfe'];
 
-  // 🔥 EL PUENTE MULTI-TENANT: Buscamos la sesión del Login
+  // Diccionario para cambiar el texto del título dinámicamente
+  const etiquetasFiltro = {
+    semanal: 'Semana',
+    mensual: 'Mes',
+    anual: 'Año'
+  };
+
   useEffect(() => {
     const cargarMétricasBI = async () => {
       try {
@@ -45,10 +51,17 @@ export default function PanelReportes() {
   }, []);
 
   const datosGraficoBarras = metricas.datosPorTiempo[filtroTiempoAsistencia] || [];
-  const topServicios = metricas.distribucionServicios[filtroTiempoServicios] || [];
   
-  // Calculamos el total de citas de estos servicios para sacar el 100%
+  // Extraemos la lista de servicios del periodo exacto que seleccionó el usuario
+  const topServicios = metricas.distribucionServicios[filtroTiempoServicios] || [];
   const totalTopServicios = topServicios.reduce((suma, item) => suma + item.cantidad, 0);
+
+  // 🔥 NUEVO: Calculamos al "Ganador" dinámicamente según el filtro seleccionado
+  const servicioGanador = topServicios.length > 0 ? topServicios[0] : null;
+  const nombreServicioTop = servicioGanador ? servicioGanador.nombre : "Sin datos";
+  const porcentajeServicioTop = servicioGanador && totalTopServicios > 0 
+    ? Math.round((servicioGanador.cantidad / totalTopServicios) * 100) 
+    : 0;
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
@@ -67,11 +80,20 @@ export default function PanelReportes() {
           <div style={{ color: '#0f172a', fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>{metricas.asistenciaPromedio}</div>
           <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '600', marginTop: '4px' }}>Basado en citas totales</div>
         </div>
+        
+        {/* 🔥 TARJETA ACTUALIZADA: Ahora es 100% dinámica */}
         <div style={cardStyle}>
-          <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Servicio más solicitado (Año)</div>
-          <div style={{ color: '#0f172a', fontSize: '24px', fontWeight: '700', marginTop: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{metricas.servicioTopNombre}</div>
-          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500', marginTop: '8px' }}>{metricas.servicioTopPorcentaje} del total histórico</div>
+          <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
+            Servicio más solicitado ({etiquetasFiltro[filtroTiempoServicios]})
+          </div>
+          <div style={{ color: '#0f172a', fontSize: '24px', fontWeight: '700', marginTop: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {nombreServicioTop}
+          </div>
+          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500', marginTop: '8px' }}>
+            {porcentajeServicioTop}% del total del periodo
+          </div>
         </div>
+
         <div style={cardStyle}>
           <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Ingresos totales (Pagados)</div>
           <div style={{ color: '#0f172a', fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>${(metricas.ingresos_totales || 0).toLocaleString('es-CL')}</div>
@@ -143,7 +165,6 @@ export default function PanelReportes() {
                 <span style={{ color: '#94a3b8', fontSize: '14px' }}>No hay servicios registrados en este periodo.</span>
               ) : (
                 topServicios.map((servicio, index) => {
-                  // NUEVO: Cálculo dinámico del porcentaje
                   const porcentaje = totalTopServicios > 0 
                     ? Math.round((servicio.cantidad / totalTopServicios) * 100) 
                     : 0;
