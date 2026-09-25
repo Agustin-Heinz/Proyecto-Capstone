@@ -17,16 +17,33 @@ export default function PanelReportes() {
 
   const coloresAnillo = ['#1a365d', '#2563eb', '#60a5fa', '#bfdbfe'];
 
+  // 🔥 EL PUENTE MULTI-TENANT: Buscamos la sesión del Login
   useEffect(() => {
     const cargarMétricasBI = async () => {
       try {
-        const respuesta = await fetch('http://localhost:3000/api/estadisticas');
-        const datosReales = await respuesta.json();
-        setMetricas(datosReales);
+        // 1. Extraemos el 'perfilId' exacto que guardó tu Login.jsx
+        const idProfesionalLogueado = localStorage.getItem('perfilId');
+
+        // Si alguien entra por error sin loguearse, detenemos la petición
+        if (!idProfesionalLogueado) {
+          console.warn("🔒 Acceso denegado: No se detectó una sesión activa.");
+          return; 
+        }
+
+        // 2. Le pedimos a MySQL exclusivamente los datos de este ID
+        const respuesta = await fetch(`http://localhost:3000/api/estadisticas?id_fonoaudiologo=${idProfesionalLogueado}`);
+        
+        if (respuesta.ok) {
+          const datosReales = await respuesta.json();
+          setMetricas(datosReales);
+        } else {
+          console.error("No se pudieron obtener las estadísticas de este perfil.");
+        }
       } catch (error) {
         console.error("Error al cargar BI:", error);
       }
     };
+    
     cargarMétricasBI();
   }, []);
 
@@ -36,11 +53,11 @@ export default function PanelReportes() {
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
       
-      {/* CABECERA Y TARJETAS RÁPIDAS (Se mantienen intactas) */}
+      {/* CABECERA PRIVADA */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
         <div>
           <div style={{ fontSize: '12px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Análisis Operacional</div>
-          <h1 style={{ margin: 0, fontSize: '28px', color: '#1a365d' }}>Reportes de gestión</h1>
+          <h1 style={{ margin: 0, fontSize: '28px', color: '#1a365d' }}>Mis Reportes de Gestión</h1>
         </div>
       </div>
 
@@ -92,7 +109,7 @@ export default function PanelReportes() {
           </div>
         </div>
 
-        {/* GRÁFICO 2: ANILLO CON FILTROS DINÁMICOS EN RECHARTS */}
+        {/* GRÁFICO 2: ANILLO */}
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
             <div>
@@ -100,7 +117,6 @@ export default function PanelReportes() {
               <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#0f172a' }}>Servicios más solicitados</h2>
             </div>
             
-            {/* NUEVO FILTRO PARA SERVICIOS */}
             <div style={{ display: 'flex', gap: '8px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
               <button onClick={() => setFiltroTiempoServicios('semanal')} style={botonFiltroStyle(filtroTiempoServicios === 'semanal')}>Semana</button>
               <button onClick={() => setFiltroTiempoServicios('mensual')} style={botonFiltroStyle(filtroTiempoServicios === 'mensual')}>Mes</button>
@@ -109,7 +125,6 @@ export default function PanelReportes() {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Reemplazamos el Div de colores por el componente gráfico real */}
             <div style={{ width: '220px', height: '220px' }}>
               <ResponsiveContainer>
                 <PieChart>

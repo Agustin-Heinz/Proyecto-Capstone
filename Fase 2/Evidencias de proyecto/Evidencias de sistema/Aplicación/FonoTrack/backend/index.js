@@ -416,17 +416,40 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-/// ==========================================
-// MÓDULO BI: Estadísticas para Recharts (GET)
+// ==========================================
+// MÓDULO BI: Estadísticas Privadas por Profesional (GET)
 // ==========================================
 app.get('/api/estadisticas', async (req, res) => {
   try {
-    const todasLasCitas = await prisma.citas.findMany();
+    // 1. REQUISITO ESTRICTO: Capturamos el ID del fonoaudiólogo desde la URL
+    const { id_fonoaudiologo } = req.query;
+
+    if (!id_fonoaudiologo) {
+      return res.status(400).json({ mensaje: "Acceso denegado: Se requiere el ID del profesional." });
+    }
+
+    const fonoId = parseInt(id_fonoaudiologo);
+
+    // 2. Filtro maestro que aplicaremos a todas las consultas
+    const filtroPrivado = { id_fonoaudiologo: fonoId };
+
+    // 3. Traemos SOLO las citas de este profesional específico
+    const todasLasCitas = await prisma.citas.findMany({
+      where: filtroPrivado
+    });
     const todosLosServicios = await prisma.servicios.findMany();
 
-    const ingresos = await prisma.citas.aggregate({ _sum: { precio: true }, where: { estado_pago: 'Pagado' }});
+    // 4. MATEMÁTICA: Ingresos Totales SOLO de este profesional
+    const ingresos = await prisma.citas.aggregate({
+      _sum: { precio: true },
+      where: { 
+        estado_pago: 'Pagado',
+        ...filtroPrivado // <- El candado de seguridad
+      }
+    });
     const totalDinero = ingresos._sum.precio || 0;
     
+    // ... La matemática de asistencias se mantiene igual porque "todasLasCitas" ya está filtrado
     const totalCitas = todasLasCitas.length;
     const asistencias = todasLasCitas.filter(c => c.estado_asistencia === 'Asistió').length;
     const porcentajeAsistencia = totalCitas > 0 ? Math.round((asistencias / totalCitas) * 100) : 0;
@@ -445,14 +468,11 @@ app.get('/api/estadisticas', async (req, res) => {
     const servMensual = {};
     const servAnual = {};
 
-    // 🔥 CORRECCIÓN: Separamos la demanda (cantidad) del flujo de caja real (ingresos)
     const sumarServicio = (obj, id, precio, estado_pago) => {
       if (!obj[id]) obj[id] = { cantidad: 0, ingresos: 0 };
-      
-      obj[id].cantidad++; // Siempre sumamos 1 a la cantidad de citas agendadas (Demanda)
-      
+      obj[id].cantidad++; 
       if (estado_pago === 'Pagado') {
-        obj[id].ingresos += precio; // Solo sumamos el dinero si realmente lo pagaron
+        obj[id].ingresos += precio; 
       }
     };
 
@@ -477,7 +497,6 @@ app.get('/api/estadisticas', async (req, res) => {
       const servId = cita.id_servicio;
       const precio = cita.precio || 0;
       
-      // Pasamos el estado de pago a la función matemática
       if (f >= hace7Dias) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
       if (f.getMonth() === mesActual && f.getFullYear() === anioActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
       if (f.getFullYear() === anioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
@@ -520,7 +539,6 @@ app.get('/api/estadisticas', async (req, res) => {
     res.status(500).json({ mensaje: "Error al calcular BI", detalle: error.message });
   }
 });
-
 // ==========================================
 // CITAS: Marcar una cita como Pagada (PUT)
 // ==========================================
