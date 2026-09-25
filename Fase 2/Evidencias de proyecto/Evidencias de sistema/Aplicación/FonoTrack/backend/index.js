@@ -145,9 +145,14 @@ app.get('/api/fonoaudiologos', async (req, res) => {
 });
 
 // GET: Leer servicios de un profesional específico
+// GET: Leer servicios
 app.get('/api/servicios', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
+    // Candado: Si no hay ID, cortamos la petición
+    if (!id_fonoaudiologo || id_fonoaudiologo === 'undefined' || id_fonoaudiologo === 'null') {
+      return res.status(400).json({ error: "ID faltante" });
+    }
     const servicios = await prisma.servicios.findMany({
       where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) }
     });
@@ -157,19 +162,18 @@ app.get('/api/servicios', async (req, res) => {
   }
 });
 
+// GET: Leer disponibilidad
 app.get('/api/disponibilidad', async (req, res) => {
   try {
     const { id_fonoaudiologo, id_servicio } = req.query;
-    
-    // Filtramos por profesional y, si nos envían el servicio, también por servicio
-    const filtro = { id_fonoaudiologo: parseInt(id_fonoaudiologo) };
-    if (id_servicio) {
-      filtro.id_servicio = parseInt(id_servicio);
+    // Candado: Si no hay ID, cortamos la petición
+    if (!id_fonoaudiologo || id_fonoaudiologo === 'undefined' || id_fonoaudiologo === 'null') {
+      return res.status(400).json({ error: "ID faltante" });
     }
+    const filtro = { id_fonoaudiologo: parseInt(id_fonoaudiologo) };
+    if (id_servicio) filtro.id_servicio = parseInt(id_servicio);
 
-    const horarios = await prisma.disponibilidad.findMany({
-      where: filtro
-    });
+    const horarios = await prisma.disponibilidad.findMany({ where: filtro });
     res.status(200).json(horarios);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -519,7 +523,6 @@ app.get('/api/estadisticas', async (req, res) => {
     });
     const totalDinero = ingresos._sum.precio || 0;
     
-    // ... La matemática de asistencias se mantiene igual porque "todasLasCitas" ya está filtrado
     const totalCitas = todasLasCitas.length;
     const asistencias = todasLasCitas.filter(c => c.estado_asistencia === 'Asistió').length;
     const porcentajeAsistencia = totalCitas > 0 ? Math.round((asistencias / totalCitas) * 100) : 0;
@@ -550,6 +553,9 @@ app.get('/api/estadisticas', async (req, res) => {
       if (!cita.fecha) return;
       const f = new Date(cita.fecha);
       
+      // 🔥 LA MURALLA TEMPORAL: Ignoramos por completo las citas agendadas en el futuro
+      if (f > ahora) return;
+
       const dia = diasNombres[f.getDay()];
       const mes = mesesNombres[f.getMonth()];
       const anio = f.getFullYear().toString();
@@ -567,7 +573,8 @@ app.get('/api/estadisticas', async (req, res) => {
       const servId = cita.id_servicio;
       const precio = cita.precio || 0;
       
-      if (f >= hace7Dias) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
+      // La matemática se procesa solo si pasó el filtro de tiempo real
+      if (f >= hace7Dias && f <= ahora) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
       if (f.getMonth() === mesActual && f.getFullYear() === anioActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
       if (f.getFullYear() === anioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
     });

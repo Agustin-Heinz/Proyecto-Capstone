@@ -34,6 +34,7 @@ export default function PanelReportes() {
           return; 
         }
 
+        // 🔥 AQUÍ ESTÁ LA LLAVE: Le enviamos el ID en la URL para que el backend sepa quién pregunta
         const respuesta = await fetch(`http://localhost:3000/api/estadisticas?id_fonoaudiologo=${idProfesionalLogueado}`);
         
         if (respuesta.ok) {
@@ -56,7 +57,7 @@ export default function PanelReportes() {
   const topServicios = metricas.distribucionServicios[filtroTiempoServicios] || [];
   const totalTopServicios = topServicios.reduce((suma, item) => suma + item.cantidad, 0);
 
-  // 🔥 NUEVO: Calculamos al "Ganador" dinámicamente según el filtro seleccionado
+  // Calculamos al "Ganador" dinámicamente según el filtro seleccionado
   const servicioGanador = topServicios.length > 0 ? topServicios[0] : null;
   const nombreServicioTop = servicioGanador ? servicioGanador.nombre : "Sin datos";
   const porcentajeServicioTop = servicioGanador && totalTopServicios > 0 
@@ -81,7 +82,7 @@ export default function PanelReportes() {
           <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '600', marginTop: '4px' }}>Basado en citas totales</div>
         </div>
         
-        {/* 🔥 TARJETA ACTUALIZADA: Ahora es 100% dinámica */}
+        {/* TARJETA ACTUALIZADA: Ahora es 100% dinámica */}
         <div style={cardStyle}>
           <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
             Servicio más solicitado ({etiquetasFiltro[filtroTiempoServicios]})
