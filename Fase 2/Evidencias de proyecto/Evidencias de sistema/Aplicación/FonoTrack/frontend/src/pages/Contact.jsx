@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Contact() {
@@ -6,19 +6,52 @@ export default function Contact() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { fecha, hora, p, s } = location.state || {};
+  const { fecha, hora } = location.state || {};
 
-  // 1. Ampliamos la memoria de React para capturar los campos obligatorios
+  // 1. Estados para los datos reales de la base de datos
+  const [p, setP] = useState(null);
+  const [s, setS] = useState(null);
+  const [cargandoInfo, setCargandoInfo] = useState(true);
+
+  // 2. Memoria para capturar lo que escribe el paciente
   const [datosPaciente, setDatosPaciente] = useState({
     nombre_completo: '',
     rut: '',
     telefono: '',
-    email: '' // Opcional visualmente, pero se guarda en el state
+    email: '' 
   });
 
-  if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
+  // ==============================================================
+  // 3. CARGAMOS LOS DATOS REALES DEL PROFESIONAL Y SERVICIO
+  // ==============================================================
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        const resFonos = await fetch('http://localhost:3000/api/fonoaudiologos');
+        const fonos = await resFonos.json();
+        
+        const resServs = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${profId}`);
+        const servs = await resServs.json();
 
-  // 2. Función que captura cada letra que el paciente escribe en las cajas
+        const fonoReal = fonos.find(f => f.id_fonoaudiologo === parseInt(profId));
+        const servReal = servs.find(srv => srv.id_servicios === parseInt(servId));
+
+        setP(fonoReal);
+        setS(servReal);
+        setCargandoInfo(false);
+      } catch (error) {
+        console.error("Error al cargar datos desde MySQL:", error);
+        setCargandoInfo(false);
+      }
+    };
+    if (profId && servId) cargarDatos();
+  }, [profId, servId]);
+
+  // Pantallas de espera
+  if (cargandoInfo) return <div style={{padding: '100px', textAlign: 'center'}}>Cargando resumen de tu cita...</div>;
+  if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos. Servicio no encontrado.</div>;
+
+  // 4. Capturamos lo que el paciente escribe
   const manejarCambio = (e) => {
     setDatosPaciente({
       ...datosPaciente,
@@ -26,16 +59,18 @@ export default function Contact() {
     });
   };
 
-  // 3. EL PUENTE A MYSQL: Guardar el paciente y pasar al pago
+  // ==============================================================
+  // 5. GUARDAMOS EN MYSQL Y NAVEGAMOS AL PAGO
+  // ==============================================================
   const handleSubmit = async (e) => {
     e.preventDefault(); 
     
     try {
       console.log("Creando paciente en la base de datos...");
 
-      // Construimos el paquete para crear el paciente real
+      // Construimos el paquete para el paciente
       const paquetePaciente = {
-        id_usuario: 1, // Usamos 1 como usuario 'invitado/temporal' para no frenar el flujo
+        id_usuario: 1, // Invitado/temporal
         nombre_completo: datosPaciente.nombre_completo,
         rut: datosPaciente.rut,
         telefono: datosPaciente.telefono
@@ -55,16 +90,15 @@ export default function Contact() {
       }
 
       const nuevoPaciente = await respuestaPaciente.json();
-      console.log("Paciente creado con ID:", nuevoPaciente.id_paciente);
       
-      // 2. Creamos la cita de inmediato para que quede registrada (incluso si no paga)
+      // 2. Creamos la cita conectando paciente, profesional y servicio
       const paqueteCita = {
         id_paciente: nuevoPaciente.id_paciente,
         id_fonoaudiologo: parseInt(profId),
         id_servicio: parseInt(servId),
         fecha: fecha,
-        hora_inicio: hora,
-        duracion_minutos: s.duracion,
+        hora_inicio: hora, 
+        duracion_minutos: 50, // Estándar de la plataforma
         precio: s.precio
       };
 
@@ -74,13 +108,11 @@ export default function Contact() {
         body: JSON.stringify(paqueteCita)
       });
 
-      if (!respuestaCita.ok) {
-        throw new Error("Error al crear la cita");
-      }
+      if (!respuestaCita.ok) throw new Error("Error al crear la cita");
 
       const nuevaCita = await respuestaCita.json();
 
-      // 3. Navegamos al pago enviando el ID de la cita generada
+      // 3. Navegamos al pago enviando TODOS los datos
       navigate(`/pago/${profId}/${servId}`, { 
         state: { 
           fecha, 
@@ -164,9 +196,9 @@ export default function Contact() {
             <span className="ico">📅</span>
             <span className="txt">Reserva: {fecha} — {hora}</span>
           </div>
-          <div className="summary-row"><div className="lbl">Modalidad</div><div className="val">{s.modalidad}</div></div>
+          <div className="summary-row"><div className="lbl">Modalidad</div><div className="val">Presencial</div></div>
           <div className="summary-row"><div className="lbl">Precio</div><div className="val">${s.precio} CLP</div></div>
-          <div className="summary-row"><div className="lbl">Duración</div><div className="val">{s.duracion} min</div></div>
+          <div className="summary-row"><div className="lbl">Duración</div><div className="val">50 min</div></div>
         </div>
       </div>
     </main>

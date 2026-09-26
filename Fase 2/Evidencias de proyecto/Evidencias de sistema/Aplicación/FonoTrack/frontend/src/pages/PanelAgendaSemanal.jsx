@@ -4,15 +4,14 @@ export default function PanelAgendaSemanal() {
   const [citas, setCitas] = useState([]);
   const [cargando, setCargando] = useState(true);
 
+  // Eje de horas (Y) - Definimos el rango horario de la consulta
+  const horaInicioCalendario = 8; // 08:00 AM
   const horas = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
-  // Ajustamos la semana para que coincida con tus pruebas (Octubre 2026)
-  const dias = [
-    { nombre: 'LUN', num: '19', fecha: '2026-10-19' },
-    { nombre: 'MAR', num: '20', fecha: '2026-10-20' },
-    { nombre: 'MIÉ', num: '21', fecha: '2026-10-21' },
-    { nombre: 'JUE', num: '22', fecha: '2026-10-22' },
-    { nombre: 'VIE', num: '23', fecha: '2026-10-23' }
-  ];
+
+  // ==============================================================
+  // 1. LÓGICA DEL CALENDARIO DINÁMICO (Autocentrado y Navegación)
+  // ==============================================================
+  const [fechaReferencia, setFechaReferencia] = useState(new Date());
 
   useEffect(() => {
     const perfilId = localStorage.getItem('perfilId');
@@ -26,140 +25,258 @@ export default function PanelAgendaSemanal() {
       .then(datosBackend => {
         const citasOrdenadas = datosBackend.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         setCitas(citasOrdenadas);
+        
+        // --- AUTOCENTRADO INTELIGENTE ---
+        // Buscamos la primera cita que sea de hoy o del futuro
+        const hoyStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
+        const fechasUnicas = [...new Set(citasOrdenadas.map(c => String(c.fecha).split('T')[0]))].sort();
+        const fechaFutura = fechasUnicas.find(f => f >= hoyStr);
+
+        if (fechaFutura) {
+          // Si hay citas futuras, centramos la agenda en ese día
+          const [y, m, d] = fechaFutura.split('-');
+          setFechaReferencia(new Date(Number(y), Number(m)-1, Number(d), 12, 0, 0));
+        } else {
+          // Si no hay nada, mostramos el día de hoy
+          setFechaReferencia(new Date());
+        }
+        
         setCargando(false);
       })
       .catch(error => {
-        console.error("Error cargando citas desde MySQL:", error);
+        console.error("Error cargando citas:", error);
         setCargando(false);
       });
   }, []);
 
+  // Generamos los 5 días visibles a partir de la fecha de referencia
+  const diasMostrados = [];
+  const diasSemanaNombres = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+  const mesesNombres = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  for (let i = 0; i < 5; i++) {
+    const f = new Date(fechaReferencia);
+    f.setDate(fechaReferencia.getDate() + i);
+
+    const yyyy = f.getFullYear();
+    const mm = String(f.getMonth() + 1).padStart(2, '0');
+    const dd = String(f.getDate()).padStart(2, '0');
+
+    diasMostrados.push({
+      nombre: diasSemanaNombres[f.getDay()],
+      num: String(f.getDate()),
+      fecha: `${yyyy}-${mm}-${dd}`,
+      mesStr: mesesNombres[f.getMonth()],
+      anio: yyyy
+    });
+  }
+
+  // Funciones para las flechas de navegación
+  const avanzarFechas = () => {
+    setFechaReferencia(prev => {
+      const nueva = new Date(prev);
+      nueva.setDate(nueva.getDate() + 5); // Avanza 5 días
+      return nueva;
+    });
+  };
+
+  const retrocederFechas = () => {
+    setFechaReferencia(prev => {
+      const nueva = new Date(prev);
+      nueva.setDate(nueva.getDate() - 5); // Retrocede 5 días
+      return nueva;
+    });
+  };
+
+  const irAEstaSemana = () => {
+    setFechaReferencia(new Date());
+  };
+
+  // Texto dinámico del título (Ej: 19 oct — 23 oct 2026)
+  let tituloRango = "Cargando...";
+  if (diasMostrados.length === 5) {
+    const inicio = diasMostrados[0];
+    const fin = diasMostrados[4];
+    tituloRango = `${inicio.num} ${inicio.mesStr} — ${fin.num} ${fin.mesStr} ${fin.anio}`;
+  }
+
+  // ==============================================================
+  // 2. CÁLCULOS Y PAGINACIÓN DE RESERVAS (Columna derecha)
+  // ==============================================================
   const pacientesActivos = new Set(citas.map(c => c.id_paciente)).size;
   const ingresosProyectados = citas.reduce((total, c) => total + (c.precio || 0), 0);
+
+  const [indiceReserva, setIndiceReserva] = useState(0);
+  const reservasPorPagina = 3;
+  
+  const avanzarReservas = () => {
+    if (indiceReserva + reservasPorPagina < citas.length) setIndiceReserva(indiceReserva + reservasPorPagina);
+  };
+  const retrocederReservas = () => {
+    if (indiceReserva > 0) setIndiceReserva(indiceReserva - reservasPorPagina);
+  };
+  const reservasVisibles = citas.slice(indiceReserva, indiceReserva + reservasPorPagina);
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
       
-      {/* Cabecera Principal */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '30px' }}>
         <div>
           <div style={{ fontSize: '12px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Gestión Clínica</div>
-          <h1 style={{ margin: 0, fontSize: '28px', color: '#1a365d' }}>Mi Agenda y Horarios</h1>
+          <h1 style={{ margin: 0, fontSize: '28px', color: '#1a365d' }}>Mi Agenda Semanal</h1>
         </div>
-        <button style={{ backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(26, 54, 93, 0.1)' }}>
-          <span style={{ fontSize: '18px', lineHeight: '1' }}>+</span> Bloquear horas
-        </button>
       </div>
 
-      {/* Tarjetas de Métricas Dinámicas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-        <MetricCard titulo="Citas agendadas (MySQL)" valor={cargando ? "..." : citas.length} />
+        <MetricCard titulo="Citas agendadas" valor={cargando ? "..." : citas.length} icono="📅" />
         <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} />
         <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${ingresosProyectados.toLocaleString('es-CL')}`} icono="💲" />
       </div>
 
       <div style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
         
-        {/* Columna Izquierda: Calendario Semanal */}
+        {/* ========================================================================= */}
+        {/* COLUMNA IZQUIERDA: CALENDARIO ESTILO UNIVERSITARIO (TETRIS)               */}
+        {/* ========================================================================= */}
         <div style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase' }}>Vista Semanal</div>
-              <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#0f172a' }}>19 oct — 23 oct 2026</h2>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase' }}>Vista Dinámica</div>
+              <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#0f172a' }}>{tituloRango}</h2>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button style={navButtonStyle}>&lt;</button>
-              <button style={{ ...navButtonStyle, width: 'auto', padding: '0 16px' }}>Esta semana</button>
-              <button style={navButtonStyle}>&gt;</button>
+              <button onClick={retrocederFechas} style={navButtonStyle}>&lt;</button>
+              <button onClick={irAEstaSemana} style={{ ...navButtonStyle, width: 'auto', padding: '0 16px' }}>Hoy</button>
+              <button onClick={avanzarFechas} style={navButtonStyle}>&gt;</button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', borderTop: '1px solid #f1f5f9', borderLeft: '1px solid #f1f5f9' }}>
-            <div style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '10px' }}></div>
+          <div style={{ borderTop: '1px solid #f1f5f9', borderLeft: '1px solid #f1f5f9' }}>
             
-            {/* Cabeceras de Días */}
-            {dias.map(d => (
-              <div key={d.nombre} style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '16px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>{d.nombre}</div>
-                <div style={{ fontSize: '18px', color: '#1a365d', fontWeight: '800', marginTop: '2px' }}>{d.num}</div>
-              </div>
-            ))}
-
-            {/* Motor del Calendario */}
-            {horas.map(hora => (
-              <React.Fragment key={hora}>
-                <div style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '16px 0', fontSize: '12px', color: '#64748b', textAlign: 'center', fontWeight: '600' }}>
-                  {hora}
+            {/* Cabeceras de los Días Generados */}
+            <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)' }}>
+              <div style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '10px' }}></div>
+              {diasMostrados.map(d => (
+                <div key={d.fecha} style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', padding: '16px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>{d.nombre}</div>
+                  <div style={{ fontSize: '18px', color: '#1a365d', fontWeight: '800', marginTop: '2px' }}>{d.num}</div>
                 </div>
-                {/* Revisión de citas para dibujar celdas */}
-                {dias.map(dia => {
-                   const citaEnEstaCasilla = citas.find(c => {
-                     if (!c.fecha || !c.hora_inicio) return false;
-                     const fechaCita = String(c.fecha).split('T')[0];
-                     const horaCita = String(c.hora_inicio).substring(11, 16);
-                     return fechaCita === dia.fecha && horaCita === hora;
-                   });
+              ))}
+            </div>
 
-                   return (
-                     <div key={`${dia.fecha}-${hora}`} style={{ borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', minHeight: '65px', padding: '4px' }}>
-                       {citaEnEstaCasilla && (
-                         <div style={{ 
-                           backgroundColor: '#dbeafe', borderLeft: '3px solid #3b82f6', borderRadius: '4px', 
-                           padding: '6px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' 
-                         }}>
-                           <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e40af' }}>Paciente #{citaEnEstaCasilla.id_paciente}</span>
-                           <span style={{ fontSize: '11px', color: '#2563eb' }}>Servicio #{citaEnEstaCasilla.id_servicio}</span>
-                         </div>
-                       )}
-                     </div>
-                   );
-                })}
-              </React.Fragment>
-            ))}
+            {/* Cuadrícula Tetris */}
+            <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', position: 'relative' }}>
+              
+              <div style={{ borderRight: '1px solid #f1f5f9' }}>
+                {horas.map(hora => (
+                  <div key={hora} style={{ height: '60px', borderBottom: '1px solid #f1f5f9', padding: '10px 0', fontSize: '12px', color: '#64748b', textAlign: 'center', fontWeight: '600', boxSizing: 'border-box' }}>
+                    {hora}
+                  </div>
+                ))}
+              </div>
+
+              {/* Columnas para los bloques por cada día mostrado */}
+              {diasMostrados.map(dia => (
+                <div key={dia.fecha} style={{ borderRight: '1px solid #f1f5f9', position: 'relative', height: `${horas.length * 60}px` }}>
+                  
+                  {horas.map((h, i) => (
+                    <div key={`linea-${i}`} style={{ height: '60px', borderBottom: '1px dashed #e2e8f0', boxSizing: 'border-box' }}></div>
+                  ))}
+
+                  {/* Motor Matemático de Bloques */}
+                  {citas.filter(c => String(c.fecha).split('T')[0] === dia.fecha).map(cita => {
+                    const horaCitaStr = cita.hora_inicio ? String(cita.hora_inicio).substring(11, 16) : '00:00';
+                    const [horaC, minC] = horaCitaStr.split(':').map(Number);
+                    
+                    const posicionTop = ((horaC - horaInicioCalendario) * 60) + minC;
+                    const alturaBloque = cita.duracion_minutos || 50; 
+                    
+                    const horaFinObj = new Date(`1970-01-01T${horaCitaStr}:00`);
+                    horaFinObj.setMinutes(horaFinObj.getMinutes() + alturaBloque);
+                    const horaFinStr = horaFinObj.toTimeString().substring(0, 5);
+
+                    return (
+                      <div key={cita.id_citas} style={{
+                        position: 'absolute',
+                        top: `${posicionTop}px`,
+                        height: `${alturaBloque}px`,
+                        left: '4px', right: '4px',
+                        backgroundColor: '#dbeafe', 
+                        borderLeft: '4px solid #3b82f6', 
+                        borderRadius: '6px',
+                        padding: '6px 8px',
+                        overflow: 'hidden',
+                        boxShadow: '0 2px 4px rgba(59, 130, 246, 0.1)',
+                        zIndex: 10,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center'
+                      }}>
+                        <div style={{ fontSize: '10px', color: '#1e40af', fontWeight: '800', marginBottom: '2px' }}>
+                          {horaCitaStr} - {horaFinStr}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          👤 {cita.nombre_paciente}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
-
         </div>
 
-        {/* Columna Derecha: Panel de Control Dinámico */}
+        {/* ========================================================================= */}
+        {/* COLUMNA DERECHA: CONTROL DE RESERVAS ENTRANTES (Paginación de a 3)        */}
+        {/* ========================================================================= */}
         <div style={{ width: '320px', flexShrink: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px' }}>Control Administrativo</div>
-          <h2 style={{ margin: '0 0 24px 0', fontSize: '24px', color: '#1a365d', letterSpacing: '-0.5px' }}>Reservas entrantes</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px' }}>Control Administrativo</div>
+              <h2 style={{ margin: 0, fontSize: '24px', color: '#1a365d', letterSpacing: '-0.5px' }}>Reservas</h2>
+            </div>
+            
+            {citas.length > reservasPorPagina && (
+               <div style={{ display: 'flex', gap: '4px' }}>
+                 <button onClick={retrocederReservas} disabled={indiceReserva === 0} style={{ ...navBtnPequeno, opacity: indiceReserva === 0 ? 0.3 : 1 }}>▲</button>
+                 <button onClick={avanzarReservas} disabled={indiceReserva + reservasPorPagina >= citas.length} style={{ ...navBtnPequeno, opacity: indiceReserva + reservasPorPagina >= citas.length ? 0.3 : 1 }}>▼</button>
+               </div>
+            )}
+          </div>
           
           {cargando ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Buscando citas en MySQL...</div>
+            <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Buscando citas...</div>
           ) : citas.length === 0 ? (
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', color: '#64748b', fontSize: '15px', lineHeight: '1.6' }}>
-              Aún no hay citas registradas en la base de datos.
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', color: '#64748b', fontSize: '15px' }}>
+              Aún no hay citas registradas.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {citas.map(cita => {
+              {reservasVisibles.map(cita => {
                 const fechaLimpia = cita.fecha ? String(cita.fecha).split('T')[0] : 'Sin fecha';
                 const horaLimpia = cita.hora_inicio ? String(cita.hora_inicio).substring(11, 16) : '00:00';
 
                 return (
-                  <div key={cita.id_citas} style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <span style={{ fontWeight: '700', color: '#1a365d', fontSize: '15px' }}>{fechaLimpia}</span>
-                      <span style={{ backgroundColor: '#e2e8f0', color: '#1a365d', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+                  <div key={cita.id_citas} style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontWeight: '700', color: '#1a365d', fontSize: '14px' }}>{fechaLimpia}</span>
+                      <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
                         🕒 {horaLimpia}
                       </span>
                     </div>
                     
-                    <div style={{ fontSize: '14px', color: '#475569', marginBottom: '8px' }}>
-                      <strong>ID Paciente:</strong> #{cita.id_paciente}
+                    <div style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>
+                      <strong>Paciente:</strong> {cita.nombre_paciente || `ID: ${cita.id_paciente}`}
                     </div>
-                    <div style={{ fontSize: '14px', color: '#475569', marginBottom: '16px' }}>
-                      <strong>Monto:</strong> ${cita.precio}
+                    <div style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
+                      <strong>Servicio:</strong> {cita.nombre_servicio || 'Evaluación'}
                     </div>
                     
-                    <div style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
-                      <span style={{ backgroundColor: cita.estado_pago === 'Pagado' ? '#dcfce7' : '#fef08a', color: cita.estado_pago === 'Pagado' ? '#166534' : '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '600' }}>
-                        Pago: {cita.estado_pago}
-                      </span>
-                      <span style={{ backgroundColor: cita.estado_asistencia === 'Asistió' ? '#dcfce7' : '#fef08a', color: cita.estado_asistencia === 'Asistió' ? '#166534' : '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '600' }}>
-                        Asistencia: {cita.estado_asistencia}
+                    <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
+                      <span style={{ backgroundColor: cita.estado_pago === 'Pagado' ? '#dcfce7' : '#fef08a', color: cita.estado_pago === 'Pagado' ? '#166534' : '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                        {cita.estado_pago}
                       </span>
                     </div>
                   </div>
@@ -174,30 +291,23 @@ export default function PanelAgendaSemanal() {
   );
 }
 
-// --- Componentes Pequeños / Estilos ---
 const navButtonStyle = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #cbd5e1',
-  color: '#1a365d',
-  width: '38px',
-  height: '38px',
-  borderRadius: '8px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontWeight: '600',
-  cursor: 'pointer',
-  fontSize: '14px'
+  backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#1a365d', width: '38px', height: '38px',
+  borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', cursor: 'pointer', fontSize: '14px'
+};
+
+const navBtnPequeno = {
+  backgroundColor: '#f1f5f9', border: 'none', color: '#475569', width: '28px', height: '28px',
+  borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px'
 };
 
 function MetricCard({ titulo, valor, icono }) {
   return (
-    <div style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '15px' }}>{titulo}</div>
-      <div style={{ color: '#1a365d', fontSize: '40px', fontWeight: '800', letterSpacing: '-1px' }}>{valor}</div>
-      
+    <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ color: '#64748b', fontSize: '13px', fontWeight: '700', marginBottom: '10px' }}>{titulo}</div>
+      <div style={{ color: '#1a365d', fontSize: '32px', fontWeight: '800', letterSpacing: '-1px' }}>{valor}</div>
       {icono && (
-        <div style={{ position: 'absolute', top: '24px', right: '24px', fontSize: '24px', color: '#1a365d', opacity: 0.8, backgroundColor: '#f1f5f9', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', top: '20px', right: '20px', fontSize: '20px', color: '#1a365d', opacity: 0.8, backgroundColor: '#f1f5f9', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {icono}
         </div>
       )}
