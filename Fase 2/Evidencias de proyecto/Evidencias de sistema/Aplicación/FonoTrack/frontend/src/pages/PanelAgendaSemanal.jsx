@@ -53,7 +53,7 @@ export default function PanelAgendaSemanal() {
 
       {/* Tarjetas de Métricas Dinámicas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-        <MetricCard titulo="Citas agendadas (MySQL)" valor={cargando ? "..." : citas.length} icono="📅" />
+        <MetricCard titulo="Citas agendadas (MySQL)" valor={cargando ? "..." : citas.length} />
         <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} />
         <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${ingresosProyectados.toLocaleString('es-CL')}`} icono="💲" />
       </div>

@@ -36,7 +36,7 @@ export default function PanelPerfil() {
         const horFormateados = datos.map(d => ({
           id: d.id_disponibilidad,
           id_servicio: d.id_servicio, // EL NUEVO ESLABÓN PERDIDO
-          dia: d.dia_semana,
+          dia: d.dia_semana ? String(d.dia_semana).split('T')[0] : '', // Formato YYYY-MM-DD
           inicio: d.hora_inicio ? String(d.hora_inicio).substring(11, 16) : '',
           fin: d.hora_fin ? String(d.hora_fin).substring(11, 16) : ''
         }));
@@ -129,7 +129,7 @@ export default function PanelPerfil() {
     );
 
     if (duplicado) {
-      alert(`⚠️ Ya tienes el bloque de ${horarioData.inicio} a ${horarioData.fin} asignado para este mismo servicio los días ${horarioData.dia}.`);
+      alert(`⚠️ Ya tienes el bloque de ${horarioData.inicio} a ${horarioData.fin} asignado para este mismo servicio el día ${horarioData.dia}.`);
       return;
     }
 
@@ -254,14 +254,16 @@ export default function PanelPerfil() {
 // SUBCOMPONENTE DE REACT: Tarjeta Independiente para cada Servicio
 // ===========================================================================
 function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteServicio, onGuardarHorario, onEliminarHorario }) {
-   const [horarioForm, setHorarioForm] = useState({ dia: 'Lunes', inicio: '09:00', fin: '13:00' });
+   // 🔥 CAMBIO: Iniciamos el formulario de fecha vacío
+   const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00', fin: '13:00' });
    const [idEditando, setIdEditando] = useState(null);
 
    const onSubmitHorario = (e) => {
        e.preventDefault();
        // Le pasamos el ID del servicio padre para que se guarde en MySQL amarrado a él
        onGuardarHorario(servicio.id, horarioForm, idEditando);
-       setHorarioForm({ dia: 'Lunes', inicio: '09:00', fin: '13:00' });
+       // Limpiamos el formulario
+       setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' });
        setIdEditando(null);
    };
 
@@ -320,10 +322,15 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
             {/* Formulario Interno para añadir horas solo a este servicio */}
             <form onSubmit={onSubmitHorario} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '16px', borderRadius: '8px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
               <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Día</label>
-                <select style={inputStyle} value={horarioForm.dia} onChange={e => setHorarioForm({...horarioForm, dia: e.target.value})}>
-                  {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(dia => <option key={dia} value={dia}>{dia}</option>)}
-                </select>
+                <label style={labelStyle}>Fecha</label>
+                {/* 🔥 CAMBIO: Reemplazamos el select por el input de fecha nativo */}
+                <input 
+                  type="date" 
+                  required 
+                  style={inputStyle} 
+                  value={horarioForm.dia} 
+                  onChange={e => setHorarioForm({...horarioForm, dia: e.target.value})} 
+                />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={labelStyle}>Inicio</label>
@@ -337,7 +344,7 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
                 {idEditando ? 'Guardar' : '+ Añadir Horario'}
               </button>
               {idEditando && (
-                <button type="button" onClick={() => { setIdEditando(null); setHorarioForm({ dia: 'Lunes', inicio: '09:00', fin: '13:00' }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
+                <button type="button" onClick={() => { setIdEditando(null); setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
               )}
             </form>
 
