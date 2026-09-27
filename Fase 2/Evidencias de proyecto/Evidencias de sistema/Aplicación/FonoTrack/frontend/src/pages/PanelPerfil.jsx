@@ -1,56 +1,154 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function PanelPerfil() {
+  // ==============================================================
+  // ESTADOS GENERALES Y NAVEGACIÓN
+  // ==============================================================
+  const [pestanaActiva, setPestanaActiva] = useState('perfil'); // 'perfil' o 'servicios'
+  const [cargando, setCargando] = useState(true);
+
+  // ==============================================================
+  // ESTADOS PARA LA PESTAÑA: MI PERFIL
+  // ==============================================================
+  const [perfil, setPerfil] = useState({
+    nombre_completo: '',
+    rut: '',
+    subespecialidad: '',
+    acerca_de_mi: '',
+    comuna: '' 
+  });
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [mensajePerfil, setMensajePerfil] = useState({ texto: '', tipo: '' });
+
+  // ==============================================================
+  // ESTADOS PARA LA PESTAÑA: MIS SERVICIOS (Tu código original)
+  // ==============================================================
   const [servicios, setServicios] = useState([]);
   const [disponibilidad, setDisponibilidad] = useState([]);
-  
   const [nuevoServicio, setNuevoServicio] = useState({ nombre: '', precio: '', duracion: 50 });
   const [servicioEditando, setServicioEditando] = useState(null);
 
+  // ==============================================================
+  // 1. CARGAR TODOS LOS DATOS AL ABRIR LA PANTALLA
+  // ==============================================================
   useEffect(() => {
     cargarDatos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cargarDatos = () => {
-    const perfilId = localStorage.getItem('perfilId');
-    if (!perfilId) return;
+  const cargarDatos = async () => {
+    const perfilIdStr = localStorage.getItem('perfilId');
+    const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; // 2 como fallback
 
-    // Cargar Servicios
-    fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${perfilId}`)
-      .then(res => res.json())
-      .then(datos => {
-        const servFormateados = datos.map(s => ({
-          id: s.id_servicios,
-          nombre: s.nombre_servicio,
-          precio: s.precio,
-          duracion: 50
-        }));
-        setServicios(servFormateados);
-      }).catch(err => console.error("Error al cargar servicios:", err));
+    try {
+      // 1. Cargar datos del perfil
+      const resPerfil = await fetch('http://localhost:3000/api/fonoaudiologos');
+      const datosPerfil = await resPerfil.json();
+      const miInfo = datosPerfil.find(f => f.id_fonoaudiologo === idFonoaudiologo);
+      
+      if (miInfo) {
+        setPerfil({
+          nombre_completo: miInfo.nombre_completo || '',
+          rut: miInfo.rut || '',
+          subespecialidad: miInfo.subespecialidad || '',
+          acerca_de_mi: miInfo.acerca_de_mi || '',
+          comuna: miInfo.comuna || '' 
+        });
+      }
 
-    // Cargar Horarios (AHORA TRAEN EL id_servicio OBLIGATORIO)
-    fetch(`http://localhost:3000/api/disponibilidad?id_fonoaudiologo=${perfilId}`)
-      .then(res => res.json())
-      .then(datos => {
-        const horFormateados = datos.map(d => ({
-          id: d.id_disponibilidad,
-          id_servicio: d.id_servicio, // EL NUEVO ESLABÓN PERDIDO
-          dia: d.dia_semana ? String(d.dia_semana).split('T')[0] : '', // Formato YYYY-MM-DD
-          inicio: d.hora_inicio ? String(d.hora_inicio).substring(11, 16) : '',
-          fin: d.hora_fin ? String(d.hora_fin).substring(11, 16) : ''
-        }));
-        setDisponibilidad(horFormateados);
-      }).catch(err => console.error("Error al cargar disponibilidad:", err));
+      // 2. Cargar Servicios
+      const resServs = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${idFonoaudiologo}`);
+      const datosServs = await resServs.json();
+      const servFormateados = datosServs.map(s => ({
+        id: s.id_servicios,
+        nombre: s.nombre_servicio,
+        precio: s.precio,
+        duracion: 50
+      }));
+      setServicios(servFormateados);
+
+      // 3. Cargar Horarios
+      const resDisp = await fetch(`http://localhost:3000/api/disponibilidad?id_fonoaudiologo=${idFonoaudiologo}`);
+      const datosDisp = await resDisp.json();
+      const horFormateados = datosDisp.map(d => ({
+        id: d.id_disponibilidad,
+        id_servicio: d.id_servicio,
+        dia: d.dia_semana ? String(d.dia_semana).split('T')[0] : '',
+        inicio: d.hora_inicio ? String(d.hora_inicio).substring(11, 16) : '',
+        fin: d.hora_fin ? String(d.hora_fin).substring(11, 16) : ''
+      }));
+      setDisponibilidad(horFormateados);
+
+      setCargando(false);
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+      setCargando(false);
+    }
   };
 
-  // ==========================================
-  // LÓGICA DE SERVICIOS (Formulario Maestro)
-  // ==========================================
+  // ==============================================================
+  // FUNCIONES DE LA PESTAÑA: MI PERFIL
+  // ==============================================================
+  const manejarCambioPerfil = (e) => {
+    setPerfil({ ...perfil, [e.target.name]: e.target.value });
+  };
+
+  const guardarPerfil = async (e) => {
+    e.preventDefault();
+    setGuardandoPerfil(true);
+    setMensajePerfil({ texto: '', tipo: '' });
+
+    const perfilIdStr = localStorage.getItem('perfilId');
+    const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2;
+
+    try {
+      const respuesta = await fetch(`http://localhost:3000/api/fonoaudiologos/${idFonoaudiologo}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subespecialidad: perfil.subespecialidad,
+          acerca_de_mi: perfil.acerca_de_mi
+          // comuna: perfil.comuna // Actívalo en el backend si lo agregaste a schema.prisma
+        })
+      });
+
+      if (respuesta.ok) {
+        setMensajePerfil({ texto: '¡Perfil actualizado correctamente!', tipo: 'exito' });
+      } else {
+        throw new Error('Error al actualizar');
+      }
+    } catch (error) {
+      console.error(error);
+      setMensajePerfil({ texto: 'Error al guardar los cambios.', tipo: 'error' });
+    } finally {
+      setGuardandoPerfil(false);
+    }
+  };
+
+  const detectarUbicacion = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          alert(`Coordenadas detectadas: Lat ${lat.toFixed(2)}, Lon ${lon.toFixed(2)}\n\n(En un entorno real, esto se traduciría a una comuna de Santiago)`);
+          setPerfil(prev => ({ ...prev, comuna: 'Providencia' }));
+        },
+        (error) => {
+          alert("No pudimos obtener tu ubicación. Verifica los permisos del navegador.");
+        }
+      );
+    } else {
+      alert("La geolocalización no está soportada por este navegador.");
+    }
+  };
+
+  // ==============================================================
+  // FUNCIONES DE LA PESTAÑA: MIS SERVICIOS (Tu lógica original intacta)
+  // ==============================================================
   const handleGuardarServicio = async (e) => {
     e.preventDefault();
     
-    // Filtro Anti-Duplicidad de Servicio
     const esDuplicado = servicios.some(s => 
       s.nombre.toLowerCase().trim() === nuevoServicio.nombre.toLowerCase().trim() && 
       (!servicioEditando || s.id !== servicioEditando.id)
@@ -61,7 +159,8 @@ export default function PanelPerfil() {
       return;
     }
 
-    const perfilId = localStorage.getItem('perfilId');
+    const perfilIdStr = localStorage.getItem('perfilId');
+    const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2;
 
     try {
       let respuesta;
@@ -75,7 +174,7 @@ export default function PanelPerfil() {
         respuesta = await fetch('http://localhost:3000/api/servicios', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id_fonoaudiologo: perfilId, nombre: nuevoServicio.nombre, precio: nuevoServicio.precio })
+          body: JSON.stringify({ id_fonoaudiologo: idFonoaudiologo, nombre: nuevoServicio.nombre, precio: nuevoServicio.precio })
         });
       }
 
@@ -95,7 +194,6 @@ export default function PanelPerfil() {
   const iniciarEdicionServicio = (servicio) => {
     setServicioEditando(servicio);
     setNuevoServicio({ nombre: servicio.nombre, precio: servicio.precio, duracion: servicio.duracion });
-    // Sube la pantalla suavemente hasta el formulario maestro
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -114,12 +212,7 @@ export default function PanelPerfil() {
     }
   };
 
-  // ==========================================
-  // LÓGICA DE HORARIOS (Llamada desde cada Tarjeta)
-  // ==========================================
   const handleGuardarHorario = async (id_servicio, horarioData, idEditando) => {
-    
-    // Filtro Anti-Duplicidad: Ahora revisa que no se repita EL MISMO DÍA Y HORA DENTRO DEL MISMO SERVICIO
     const duplicado = disponibilidad.some(d => 
       d.id_servicio === id_servicio &&
       d.dia === horarioData.dia && 
@@ -133,7 +226,8 @@ export default function PanelPerfil() {
       return;
     }
 
-    const perfilId = localStorage.getItem('perfilId');
+    const perfilIdStr = localStorage.getItem('perfilId');
+    const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2;
 
     try {
       let respuesta;
@@ -147,9 +241,8 @@ export default function PanelPerfil() {
         respuesta = await fetch('http://localhost:3000/api/disponibilidad', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // AHORA ENVIAMOS EL ID DEL SERVICIO OBLIGATORIO AL BACKEND
           body: JSON.stringify({ 
-            id_fonoaudiologo: perfilId, 
+            id_fonoaudiologo: idFonoaudiologo, 
             id_servicio: id_servicio, 
             dia: horarioData.dia, 
             inicio: horarioData.inicio, 
@@ -183,86 +276,151 @@ export default function PanelPerfil() {
     }
   };
 
+  // ==============================================================
+  // RENDERIZADO VISUAL
+  // ==============================================================
+  if (cargando) return <div style={{ padding: '50px', textAlign: 'center' }}>Cargando información...</div>;
+
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '60px' }}>
       
-      <div style={{ marginBottom: '30px' }}>
+      {/* Título de la página */}
+      <div style={{ marginBottom: '20px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Configuración Clínica</div>
         <h1 style={{ margin: 0, fontSize: '28px', color: '#1a365d' }}>Mi Perfil Profesional</h1>
-        <p style={{ color: '#64748b', marginTop: '6px' }}>Gestiona tus servicios clínicos y asígnales horarios de atención exclusivos a cada uno.</p>
+        <p style={{ color: '#64748b', marginTop: '6px' }}>Gestiona tu información pública, tus servicios clínicos y horarios de atención.</p>
       </div>
 
-      {/* ================================================================= */}
-      {/* 1. FORMULARIO MAESTRO PARA CREAR EL SERVICIO BASE                 */}
-      {/* ================================================================= */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', padding: '24px', marginBottom: '40px', border: servicioEditando ? '2px solid #fbbf24' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
-         <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0f172a' }}>
-           {servicioEditando ? '✏️ Editando Catálogo de Servicio' : '➕ Crear Nuevo Servicio al Catálogo'}
-         </h2>
-         <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
-            <div style={{ flex: 2 }}>
-              <label style={labelStyle}>Nombre del servicio</label>
-              <input type="text" required style={inputStyle} placeholder="Ej: Evaluación de Lenguaje" value={nuevoServicio.nombre} onChange={e => setNuevoServicio({...nuevoServicio, nombre: e.target.value})} />
+      {/* Navegación de Pestañas */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
+        <button 
+          onClick={() => setPestanaActiva('perfil')}
+          style={{ ...btnPestanaStyle, borderBottom: pestanaActiva === 'perfil' ? '3px solid #1d4ed8' : '3px solid transparent', color: pestanaActiva === 'perfil' ? '#1d4ed8' : '#64748b' }}
+        >
+          👤 Mi Perfil
+        </button>
+        <button 
+          onClick={() => setPestanaActiva('servicios')}
+          style={{ ...btnPestanaStyle, borderBottom: pestanaActiva === 'servicios' ? '3px solid #1d4ed8' : '3px solid transparent', color: pestanaActiva === 'servicios' ? '#1d4ed8' : '#64748b' }}
+        >
+          ⚙️ Mis Servicios y Precios
+        </button>
+      </div>
+
+      {/* ================================================== */}
+      {/* PANTALLA 1: MI PERFIL */}
+      {/* ================================================== */}
+      {pestanaActiva === 'perfil' && (
+        <div style={panelContainerStyle}>
+          <form onSubmit={guardarPerfil} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div><label style={labelStyle}>Nombre Completo (Fijo)</label><input type="text" value={perfil.nombre_completo} disabled style={inputDisabledStyle} /></div>
+              <div><label style={labelStyle}>RUT (Fijo)</label><input type="text" value={perfil.rut} disabled style={inputDisabledStyle} /></div>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Precio (CLP)</label>
-              <input type="number" required style={inputStyle} placeholder="35000" value={nuevoServicio.precio} onChange={e => setNuevoServicio({...nuevoServicio, precio: e.target.value})} />
+
+            <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div>
+                <label style={labelStyle}>Subespecialidad</label>
+                <input type="text" name="subespecialidad" value={perfil.subespecialidad} onChange={manejarCambioPerfil} placeholder="Ej: Fonoaudiología Infantil" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Comuna de Atención</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input type="text" name="comuna" value={perfil.comuna} onChange={manejarCambioPerfil} placeholder="Ej: Providencia" style={{ ...inputStyle, flex: 1 }} />
+                  <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle}>📍 Detectar</button>
+                </div>
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Duración (min)</label>
-              <input type="number" required style={inputStyle} value={nuevoServicio.duracion} onChange={e => setNuevoServicio({...nuevoServicio, duracion: e.target.value})} />
+
+            <div>
+              <label style={labelStyle}>Acerca de mí (Se mostrará a los pacientes)</label>
+              <textarea name="acerca_de_mi" value={perfil.acerca_de_mi} onChange={manejarCambioPerfil} placeholder="Escribe una breve presentación..." style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }} />
             </div>
-            <button type="submit" style={btnStyle}>
-              {servicioEditando ? 'Guardar Cambios' : '+ Añadir Catálogo'}
-            </button>
-            {servicioEditando && (
-              <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ nombre: '', precio: '', duracion: 50 }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
+
+            {mensajePerfil.texto && (
+              <div style={mensajeStyleObj(mensajePerfil.tipo)}>{mensajePerfil.texto}</div>
             )}
-         </form>
-      </div>
 
-      {/* ================================================================= */}
-      {/* 2. LISTA DE SERVICIOS (Cada uno dibuja sus propios horarios)      */}
-      {/* ================================================================= */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-        {servicios.length === 0 ? (
-           <div style={{ textAlign: 'center', padding: '50px 0', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
-              <p style={{ color: '#64748b', fontSize: '16px', fontWeight: '500' }}>No tienes servicios registrados aún.</p>
-              <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '5px' }}>Crea tu primer servicio arriba para asignarle horarios.</p>
-           </div>
-        ) : (
-           servicios.map(s => (
-             <TarjetaServicio 
-                key={s.id}
-                servicio={s}
-                // Filtramos mágicamente solo los horarios que le pertenecen a este ID
-                disponibilidad={disponibilidad.filter(d => d.id_servicio === s.id)}
-                onEditServicio={() => iniciarEdicionServicio(s)}
-                onDeleteServicio={() => handleEliminarServicio(s.id)}
-                onGuardarHorario={handleGuardarHorario}
-                onEliminarHorario={handleEliminarHorario}
-             />
-           ))
-        )}
-      </div>
+            <div style={{ textAlign: 'right' }}>
+              <button type="submit" disabled={guardandoPerfil} style={btnPrimarioStyle}>
+                {guardandoPerfil ? 'Guardando...' : 'Guardar Perfil'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ================================================== */}
+      {/* PANTALLA 2: MIS SERVICIOS (Tu diseño original) */}
+      {/* ================================================== */}
+      {pestanaActiva === 'servicios' && (
+        <>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', padding: '24px', marginBottom: '40px', border: servicioEditando ? '2px solid #fbbf24' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
+             <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0f172a' }}>
+               {servicioEditando ? '✏️ Editando Catálogo de Servicio' : '➕ Crear Nuevo Servicio al Catálogo'}
+             </h2>
+             <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
+                <div style={{ flex: 2 }}>
+                  <label style={labelStyle}>Nombre del servicio</label>
+                  <input type="text" required style={inputStyle} placeholder="Ej: Evaluación de Lenguaje" value={nuevoServicio.nombre} onChange={e => setNuevoServicio({...nuevoServicio, nombre: e.target.value})} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Precio (CLP)</label>
+                  <input type="number" required style={inputStyle} placeholder="35000" value={nuevoServicio.precio} onChange={e => setNuevoServicio({...nuevoServicio, precio: e.target.value})} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Duración (min)</label>
+                  <input type="number" required style={inputStyle} value={nuevoServicio.duracion} onChange={e => setNuevoServicio({...nuevoServicio, duracion: e.target.value})} />
+                </div>
+                <button type="submit" style={btnStyle}>
+                  {servicioEditando ? 'Guardar Cambios' : '+ Añadir Catálogo'}
+                </button>
+                {servicioEditando && (
+                  <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ nombre: '', precio: '', duracion: 50 }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
+                )}
+             </form>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+            {servicios.length === 0 ? (
+               <div style={{ textAlign: 'center', padding: '50px 0', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+                  <p style={{ color: '#64748b', fontSize: '16px', fontWeight: '500' }}>No tienes servicios registrados aún.</p>
+                  <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '5px' }}>Crea tu primer servicio arriba para asignarle horarios.</p>
+               </div>
+            ) : (
+               servicios.map(s => (
+                 <TarjetaServicio 
+                    key={s.id}
+                    servicio={s}
+                    disponibilidad={disponibilidad.filter(d => d.id_servicio === s.id)}
+                    onEditServicio={() => iniciarEdicionServicio(s)}
+                    onDeleteServicio={() => handleEliminarServicio(s.id)}
+                    onGuardarHorario={handleGuardarHorario}
+                    onEliminarHorario={handleEliminarHorario}
+                 />
+               ))
+            )}
+          </div>
+        </>
+      )}
 
     </div>
   );
 }
 
 // ===========================================================================
-// SUBCOMPONENTE DE REACT: Tarjeta Independiente para cada Servicio
+// SUBCOMPONENTE DE REACT: Tarjeta Independiente para cada Servicio (Tu código)
 // ===========================================================================
 function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteServicio, onGuardarHorario, onEliminarHorario }) {
-   // 🔥 CAMBIO: Iniciamos el formulario de fecha vacío
    const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00', fin: '13:00' });
    const [idEditando, setIdEditando] = useState(null);
 
    const onSubmitHorario = (e) => {
        e.preventDefault();
-       // Le pasamos el ID del servicio padre para que se guarde en MySQL amarrado a él
        onGuardarHorario(servicio.id, horarioForm, idEditando);
-       // Limpiamos el formulario
        setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' });
        setIdEditando(null);
    };
@@ -304,7 +462,6 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
                     <span style={{ fontWeight: '700', color: '#2563eb' }}>{d.dia}</span>
                     <div style={{ display: 'flex', gap: '15px', color: '#475569', fontSize: '14px', fontWeight: '600', alignItems: 'center' }}>
                       <span>{d.inicio} hrs - {d.fin} hrs</span>
-                      
                       <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid #e2e8f0', paddingLeft: '15px' }}>
                         <button onClick={() => iniciarEdicion(d)} style={iconBtnStyle}>✏️</button>
                         <button onClick={() => onEliminarHorario(d.id)} style={iconBtnStyle}>🗑️</button>
@@ -323,7 +480,6 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
             <form onSubmit={onSubmitHorario} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '16px', borderRadius: '8px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
               <div style={{ flex: 1 }}>
                 <label style={labelStyle}>Fecha</label>
-                {/* 🔥 CAMBIO: Reemplazamos el select por el input de fecha nativo */}
                 <input 
                   type="date" 
                   required 
@@ -347,14 +503,21 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
                 <button type="button" onClick={() => { setIdEditando(null); setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
               )}
             </form>
-
          </div>
       </div>
    );
 }
 
-// Estilos compartidos
-const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' };
-const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', fontFamily: 'inherit' };
-const btnStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', height: '40px', whiteSpace: 'nowrap' }; 
+// ==============================================================
+// ESTILOS COMPARTIDOS
+// ==============================================================
+const btnPestanaStyle = { backgroundColor: 'transparent', border: 'none', padding: '10px 15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', transition: '0.2s', marginBottom: '-12px' };
+const panelContainerStyle = { backgroundColor: '#ffffff', borderRadius: '16px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' };
+const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '8px' };
+const inputStyle = { width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box' };
+const inputDisabledStyle = { ...inputStyle, backgroundColor: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' };
+const btnPrimarioStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' };
+const btnUbicacionStyle = { backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0 15px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' };
+const btnStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', height: '44px', whiteSpace: 'nowrap' }; 
 const iconBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '4px', opacity: 0.7 };
+const mensajeStyleObj = (tipo) => ({ padding: '12px', borderRadius: '8px', backgroundColor: tipo === 'exito' ? '#dcfce7' : '#fee2e2', color: tipo === 'exito' ? '#166534' : '#991b1b', fontWeight: '600', fontSize: '14px', textAlign: 'center' });
