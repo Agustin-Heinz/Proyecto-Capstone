@@ -519,5 +519,5 @@ app.get('/api/estadisticas', async (req, res) => {
 
 // --- INICIAR EL SERVIDOR ---
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
+  console.log(` Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
 });
