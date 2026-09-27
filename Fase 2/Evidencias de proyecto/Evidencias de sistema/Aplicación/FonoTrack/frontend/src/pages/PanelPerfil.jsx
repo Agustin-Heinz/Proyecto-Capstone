@@ -445,7 +445,7 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
          {/* CUERPO: LOS HORARIOS EXCLUSIVOS DE ESTE SERVICIO */}
          <div style={{ padding: '24px', backgroundColor: '#f8fafc' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
-               🕒 Bloques de agenda exclusivos para este servicio:
+               Bloques de agenda exclusivos para este servicio:
             </h3>
 
             {/* Listado de horas */}

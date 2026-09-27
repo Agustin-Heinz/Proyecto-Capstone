@@ -98,18 +98,42 @@ app.delete('/api/pacientes/:id', async (req, res) => {
 });
 
 
-// GET DE FONOAUDIÓLOGOS, SERVICIOS Y DISPONIBILIDAD
 app.get('/api/fonoaudiologos', async (req, res) => {
   try {
-    const listaProfesionales = await prisma.fonoaudiologos.findMany({
-      include: { 
-        servicios: true,
-        disponibilidad: true
-      } 
+    // Buscamos los catálogos por separado para evitar el error de relación en Prisma
+    const listaProfesionales = await prisma.fonoaudiologos.findMany();
+    const todosServicios = await prisma.servicios.findMany();
+    const todaDisponibilidad = await prisma.disponibilidad.findMany();
+
+    // Cruzamos la información manualmente
+    const directorioCompleto = listaProfesionales.map(prof => {
+      return {
+        ...prof,
+        servicios: todosServicios.filter(s => s.id_fonoaudiologo === prof.id_fonoaudiologo),
+        disponibilidad: todaDisponibilidad.filter(d => d.id_fonoaudiologo === prof.id_fonoaudiologo)
+      };
     });
-    res.status(200).json(listaProfesionales);
+
+    res.status(200).json(directorioCompleto);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al cargar el directorio", detalle: error.message });
+  }
+});
+
+app.get('/api/fonoaudiologos/:id', async (req, res) => {
+  try {
+    const idFono = parseInt(req.params.id);
+    const perfil = await prisma.fonoaudiologos.findUnique({
+      where: { id_fonoaudiologo: idFono }
+    });
+    
+    if (!perfil) {
+      return res.status(404).json({ error: "Profesional no encontrado" });
+    }
+    
+    res.status(200).json(perfil);
+  } catch (error) {
+    res.status(500).json({ error: "Error al cargar el perfil individual", detalle: error.message });
   }
 });
 

@@ -32,11 +32,7 @@ model disponibilidad {
   dia_semana        String   @db.VarChar(20)
   hora_inicio       DateTime @db.Time(0)
   hora_fin          DateTime @db.Time(0)
-  id_servicio       Int      // <--- Este campo es el que exige el create
-
-  // Relaciones opcionales u obligatorias
-  servicio          servicios @relation(fields: [id_servicio], references: [id_servicios], onDelete: Cascade)
-  fonoaudiologos    fonoaudiologos @relation(fields: [id_fonoaudiologo], references: [id_fonoaudiologo])
+  id_servicio       Int
 
   @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
   @@index([id_servicio], map: "id_servicio")
@@ -52,19 +48,17 @@ model evoluciones_sesion {
 }
 
 model fonoaudiologos {
-  id_fonoaudiologo Int      @id @default(autoincrement())
+  id_fonoaudiologo Int     @id @default(autoincrement())
   id_usuario       Int
-  nombre_completo  String   @db.VarChar(100)
-  rut              String   @unique(map: "rut") @db.VarChar(15)
-  subespecialidad  String?  @db.VarChar(100)
-  acerca_de_mi     String?  @db.Text
+  nombre_completo  String  @db.VarChar(100)
+  rut              String  @unique(map: "rut") @db.VarChar(15)
+  subespecialidad  String? @db.VarChar(100)
+  acerca_de_mi     String? @db.Text
+  comuna String? @db.VarChar(100)
 
   @@index([id_usuario], map: "id_usuario")
-
-  // Conexiones hacia los hijos
-  servicios        servicios[]
-  disponibilidad   disponibilidad[]
 }
+
 model pacientes {
   id_paciente      Int      @id @default(autoincrement())
   id_usuario       Int
@@ -107,12 +101,6 @@ model servicios {
   nombre_servicio  String @db.VarChar(100)
   precio           Int
 
-  // Relación inversa con fonoaudiologos
-  fonoaudiologos   fonoaudiologos @relation(fields: [id_fonoaudiologo], references: [id_fonoaudiologo])
-  
-  // SOLUCIÓN: Relación inversa con disponibilidad
-  disponibilidad   disponibilidad[]
-  
   @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
 }
 
