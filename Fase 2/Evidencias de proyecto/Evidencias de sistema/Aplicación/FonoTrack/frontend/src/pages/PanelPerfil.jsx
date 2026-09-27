@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 
 export default function PanelPerfil() {
-  // ==============================================================
-  // ESTADOS GENERALES Y NAVEGACIÓN
-  // ==============================================================
+
+  // NAVEGACIÓN
+
   const [pestanaActiva, setPestanaActiva] = useState('perfil'); // 'perfil' o 'servicios'
   const [cargando, setCargando] = useState(true);
 
-  // ==============================================================
-  // ESTADOS PARA LA PESTAÑA: MI PERFIL
-  // ==============================================================
+  
+  // ESTADOS PARA LA PESTAÑA DE MI PERFIL
+
   const [perfil, setPerfil] = useState({
     nombre_completo: '',
     rut: '',
@@ -20,17 +20,14 @@ export default function PanelPerfil() {
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [mensajePerfil, setMensajePerfil] = useState({ texto: '', tipo: '' });
 
-  // ==============================================================
-  // ESTADOS PARA LA PESTAÑA: MIS SERVICIOS (Tu código original)
-  // ==============================================================
+  // ESTADOS PARA LA PESTAÑA DE MIS SERVICIOS
+ 
   const [servicios, setServicios] = useState([]);
   const [disponibilidad, setDisponibilidad] = useState([]);
   const [nuevoServicio, setNuevoServicio] = useState({ nombre: '', precio: '', duracion: 50 });
   const [servicioEditando, setServicioEditando] = useState(null);
 
-  // ==============================================================
-  // 1. CARGAR TODOS LOS DATOS AL ABRIR LA PANTALLA
-  // ==============================================================
+  // CARGAR TODOS LOS DATOS 
   useEffect(() => {
     cargarDatos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,7 +38,7 @@ export default function PanelPerfil() {
     const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; // 2 como fallback
 
     try {
-      // 1. Cargar datos del perfil
+      // Cargar datos del perfil
       const resPerfil = await fetch('http://localhost:3000/api/fonoaudiologos');
       const datosPerfil = await resPerfil.json();
       const miInfo = datosPerfil.find(f => f.id_fonoaudiologo === idFonoaudiologo);
@@ -56,7 +53,7 @@ export default function PanelPerfil() {
         });
       }
 
-      // 2. Cargar Servicios
+      // Cargar Servicios
       const resServs = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${idFonoaudiologo}`);
       const datosServs = await resServs.json();
       const servFormateados = datosServs.map(s => ({
@@ -67,7 +64,7 @@ export default function PanelPerfil() {
       }));
       setServicios(servFormateados);
 
-      // 3. Cargar Horarios
+      // Cargar Horarios
       const resDisp = await fetch(`http://localhost:3000/api/disponibilidad?id_fonoaudiologo=${idFonoaudiologo}`);
       const datosDisp = await resDisp.json();
       const horFormateados = datosDisp.map(d => ({
@@ -86,9 +83,8 @@ export default function PanelPerfil() {
     }
   };
 
-  // ==============================================================
-  // FUNCIONES DE LA PESTAÑA: MI PERFIL
-  // ==============================================================
+  // FUNCIONES DE "MI PERFIL"
+
   const manejarCambioPerfil = (e) => {
     setPerfil({ ...perfil, [e.target.name]: e.target.value });
   };
@@ -143,9 +139,8 @@ export default function PanelPerfil() {
     }
   };
 
-  // ==============================================================
-  // FUNCIONES DE LA PESTAÑA: MIS SERVICIOS (Tu lógica original intacta)
-  // ==============================================================
+  // FUNCIONES DE LA PESTAÑA: MIS SERVICIOS 
+  
   const handleGuardarServicio = async (e) => {
     e.preventDefault();
     
@@ -155,7 +150,7 @@ export default function PanelPerfil() {
     );
 
     if (esDuplicado) {
-      alert("⚠️ Ya tienes un servicio registrado con este mismo nombre exacto.");
+      alert("Ya tienes un servicio registrado con este mismo nombre exacto.");
       return;
     }
 
@@ -179,15 +174,15 @@ export default function PanelPerfil() {
       }
 
       if (respuesta.ok) {
-        alert(servicioEditando ? "✅ Servicio actualizado" : "✅ Servicio creado con éxito");
+        alert(servicioEditando ? "Servicio actualizado" : "Servicio creado con éxito");
         setServicioEditando(null);
         setNuevoServicio({ nombre: '', precio: '', duracion: 50 }); 
         cargarDatos();
       } else {
-        alert(`❌ Error al guardar el servicio en el servidor.`);
+        alert(`Error al guardar el servicio en el servidor.`);
       }
     } catch (error) {
-      alert("❌ Error de red al intentar guardar.");
+      alert("Error de red al intentar guardar.");
     }
   };
 
@@ -202,13 +197,13 @@ export default function PanelPerfil() {
     try {
       const respuesta = await fetch(`http://localhost:3000/api/servicios/${id}`, { method: 'DELETE' });
       if (respuesta.ok) {
-        alert("✅ Servicio y sus horarios eliminados");
+        alert("Servicio y sus horarios eliminados");
         cargarDatos();
       } else {
-        alert("❌ MySQL bloqueó la eliminación. (Probablemente este servicio ya tiene pacientes agendados históricamente).");
+        alert("MySQL bloqueó la eliminación. (Probablemente este servicio ya tiene pacientes agendados históricamente).");
       }
     } catch (error) {
-      alert("❌ Error de conexión.");
+      alert("Error de conexión.");
     }
   };
 
@@ -222,7 +217,7 @@ export default function PanelPerfil() {
     );
 
     if (duplicado) {
-      alert(`⚠️ Ya tienes el bloque de ${horarioData.inicio} a ${horarioData.fin} asignado para este mismo servicio el día ${horarioData.dia}.`);
+      alert(`Ya tienes el bloque de ${horarioData.inicio} a ${horarioData.fin} asignado para este mismo servicio el día ${horarioData.dia}.`);
       return;
     }
 
@@ -252,13 +247,13 @@ export default function PanelPerfil() {
       }
 
       if (respuesta.ok) {
-        alert(idEditando ? "✅ Horario actualizado" : "✅ Horario añadido al servicio");
+        alert(idEditando ? "Horario actualizado" : "Horario añadido al servicio");
         cargarDatos();
       } else {
-        alert(`❌ Error al guardar el horario.`);
+        alert(`Error al guardar el horario.`);
       }
     } catch (error) {
-      alert("❌ Error de red.");
+      alert("Error de red.");
     }
   };
 
@@ -269,16 +264,16 @@ export default function PanelPerfil() {
       if (respuesta.ok) {
         cargarDatos();
       } else {
-        alert("❌ Error al eliminar el horario.");
+        alert("Error al eliminar el horario.");
       }
     } catch (error) {
-      alert("❌ Error de red.");
+      alert("Error de red.");
     }
   };
 
-  // ==============================================================
+
   // RENDERIZADO VISUAL
-  // ==============================================================
+  
   if (cargando) return <div style={{ padding: '50px', textAlign: 'center' }}>Cargando información...</div>;
 
   return (
@@ -297,19 +292,19 @@ export default function PanelPerfil() {
           onClick={() => setPestanaActiva('perfil')}
           style={{ ...btnPestanaStyle, borderBottom: pestanaActiva === 'perfil' ? '3px solid #1d4ed8' : '3px solid transparent', color: pestanaActiva === 'perfil' ? '#1d4ed8' : '#64748b' }}
         >
-          👤 Mi Perfil
+          Mi Perfil
         </button>
         <button 
           onClick={() => setPestanaActiva('servicios')}
           style={{ ...btnPestanaStyle, borderBottom: pestanaActiva === 'servicios' ? '3px solid #1d4ed8' : '3px solid transparent', color: pestanaActiva === 'servicios' ? '#1d4ed8' : '#64748b' }}
         >
-          ⚙️ Mis Servicios y Precios
+           Mis Servicios y Precios
         </button>
       </div>
 
-      {/* ================================================== */}
-      {/* PANTALLA 1: MI PERFIL */}
-      {/* ================================================== */}
+
+      {/* PESTAÑA MI PERFIL */}
+
       {pestanaActiva === 'perfil' && (
         <div style={panelContainerStyle}>
           <form onSubmit={guardarPerfil} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -353,14 +348,14 @@ export default function PanelPerfil() {
         </div>
       )}
 
-      {/* ================================================== */}
-      {/* PANTALLA 2: MIS SERVICIOS (Tu diseño original) */}
-      {/* ================================================== */}
+
+   {/* PESTAÑA 2: MIS SERVICIOS */}
+  
       {pestanaActiva === 'servicios' && (
         <>
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', padding: '24px', marginBottom: '40px', border: servicioEditando ? '2px solid #fbbf24' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
              <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0f172a' }}>
-               {servicioEditando ? '✏️ Editando Catálogo de Servicio' : '➕ Crear Nuevo Servicio al Catálogo'}
+               {servicioEditando ? 'Editando Catálogo de Servicio' : 'Crear Nuevo Servicio al Catálogo'}
              </h2>
              <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
                 <div style={{ flex: 2 }}>
@@ -411,9 +406,8 @@ export default function PanelPerfil() {
   );
 }
 
-// ===========================================================================
-// SUBCOMPONENTE DE REACT: Tarjeta Independiente para cada Servicio (Tu código)
-// ===========================================================================
+// 
+// Tarjeta Independiente para cada Servicio
 function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteServicio, onGuardarHorario, onEliminarHorario }) {
    const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00', fin: '13:00' });
    const [idEditando, setIdEditando] = useState(null);
@@ -436,11 +430,11 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
          {/* CABEZA: LOS DATOS DEL SERVICIO */}
          <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              📍 {servicio.nombre}
+               {servicio.nombre}
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#cbd5e1', fontSize: '14px', fontWeight: '500' }}>
-               <span>⏱️ {servicio.duracion} min</span>
-               <span>💰 ${(servicio.precio || 0).toLocaleString('es-CL')} CLP</span>
+               <span> {servicio.duracion} min</span>
+               <span> ${(servicio.precio || 0).toLocaleString('es-CL')} CLP</span>
                <div style={{ display: 'flex', gap: '8px', marginLeft: '10px' }}>
                   <button onClick={onEditServicio} style={{...iconBtnStyle, color: 'white'}} title="Editar nombre/precio">✏️</button>
                   <button onClick={onDeleteServicio} style={{...iconBtnStyle, color: '#f87171'}} title="Eliminar servicio">🗑️</button>
@@ -508,9 +502,7 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
    );
 }
 
-// ==============================================================
-// ESTILOS COMPARTIDOS
-// ==============================================================
+
 const btnPestanaStyle = { backgroundColor: 'transparent', border: 'none', padding: '10px 15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', transition: '0.2s', marginBottom: '-12px' };
 const panelContainerStyle = { backgroundColor: '#ffffff', borderRadius: '16px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' };
 const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '8px' };
