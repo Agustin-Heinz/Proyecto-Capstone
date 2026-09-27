@@ -7,15 +7,20 @@ export default function PanelPacientes() {
   const [listaPacientes, setListaPacientes] = useState([]);
   const [cargando, setCargando] = useState(true);
 
+  // =====================================================================
+  // NUEVOS ESTADOS: Para la Ficha Clínica y el Historial
+  // =====================================================================
+  const [historialFichas, setHistorialFichas] = useState([]);
+  const [observaciones, setObservaciones] = useState('');
+  const [tareas, setTareas] = useState('');
+
   // useEffect se ejecuta automáticamente al abrir la pantalla para buscar los datos
   useEffect(() => {
     // 1. Buscamos todas las citas para saber cuáles pacientes son del fonoaudiólogo actual
     fetch('http://localhost:3000/api/citas')
       .then(res => res.json())
       .then(citas => {
-        // Obtenemos el ID del fonoaudiólogo logueado desde localStorage
         const perfilIdStr = localStorage.getItem('perfilId');
-        // Si no hay sesión activa en desarrollo, usamos el 2 como fallback (Agustin)
         const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; 
 
         const citasFonoaudiologo = citas.filter(c => c.id_fonoaudiologo === idFonoaudiologo);
@@ -25,19 +30,20 @@ export default function PanelPacientes() {
         return fetch('http://localhost:3000/api/pacientes')
           .then(res => res.json())
           .then(datosBackend => {
-            // Filtrar para dejar solo los del fonoaudiólogo actual
             const misPacientes = datosBackend.filter(p => idsMisPacientes.has(p.id_paciente));
 
-            // Transformamos los datos al formato visual de nuestra tabla
             const pacientesFormateados = misPacientes.map(p => {
-              // Buscar citas de este paciente
               const citasDelPaciente = citasFonoaudiologo.filter(c => c.id_paciente === p.id_paciente);
               
               let ultimaSesionTexto = 'Primera evaluación';
+              let idUltimaCita = null; // Lo necesitamos para asociarle la ficha clínica
+
               if (citasDelPaciente.length > 0) {
-                 // Tomar la cita más reciente o próxima (por simplicidad la primera en la lista)
+                 // Tomar la cita más reciente
                  const ultimaCita = citasDelPaciente[citasDelPaciente.length - 1]; 
-                 const fechaLimpia = String(ultimaCita.fecha).split('T')[0]; // Ej: 2026-10-20
+                 idUltimaCita = ultimaCita.id_citas;
+
+                 const fechaLimpia = String(ultimaCita.fecha).split('T')[0]; 
                  const [year, month, day] = fechaLimpia.split('-');
                  
                  let horaLimpia = '';
@@ -50,6 +56,7 @@ export default function PanelPacientes() {
 
               return {
                 id: p.id_paciente,
+                idUltimaCita: idUltimaCita, // Guardamos este ID secretamente para usarlo al guardar la ficha
                 nombre: p.nombre_completo,
                 rut: p.rut,
                 fono: p.telefono,
@@ -74,7 +81,74 @@ export default function PanelPacientes() {
       });
   }, []);
 
-  // Pantalla de carga mientras esperamos a MySQL
+  // =====================================================================
+  // EFECTO: Cargar el historial cuando seleccionamos "Ver Ficha"
+  // =====================================================================
+ // =====================================================================
+  // EFECTO: Cargar el historial cuando seleccionamos "Ver Ficha"
+  // =====================================================================
+  useEffect(() => {
+    if (pacienteActivo) {
+      fetch(`http://localhost:3000/api/fichas/${pacienteActivo.id}`)
+        .then(res => res.json())
+        .then(data => {
+          // Escudo protector: Si el backend envía un error, evitamos que React colapse
+          if (Array.isArray(data)) {
+            setHistorialFichas(data);
+          } else {
+            console.error("El backend devolvió un error en lugar de una lista:", data);
+            setHistorialFichas([]); // Lo forzamos a ser una lista vacía
+          }
+        })
+        .catch(err => {
+          console.error("Error cargando el historial clínico:", err);
+          setHistorialFichas([]);
+        });
+    }
+  }, [pacienteActivo]);
+
+  // =====================================================================
+  // ACCIÓN: Guardar el nuevo registro en MySQL
+  // =====================================================================
+  const handleGuardarRegistro = async () => {
+    if (!observaciones.trim()) {
+      alert("⚠️ Debes ingresar al menos una observación clínica.");
+      return;
+    }
+    if (!pacienteActivo.idUltimaCita) {
+      alert("❌ Este paciente no tiene citas previas registradas para asociarle esta evolución.");
+      return;
+    }
+
+    try {
+      const respuesta = await fetch('http://localhost:3000/api/fichas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_cita: pacienteActivo.idUltimaCita,
+          observaciones_clinicas: observaciones,
+          actividades_hogar: tareas
+        })
+      });
+
+      if (respuesta.ok) {
+        alert("✅ Registro clínico guardado con éxito.");
+        setObservaciones(''); // Limpiamos las cajas
+        setTareas('');
+        
+        // Recargamos el historial automáticamente para que aparezca en pantalla
+        const resHistorial = await fetch(`http://localhost:3000/api/fichas/${pacienteActivo.id}`);
+        const dataHistorial = await resHistorial.json();
+        setHistorialFichas(dataHistorial);
+      } else {
+        alert("❌ Hubo un error al guardar el registro.");
+      }
+    } catch (error) {
+      console.error("Error de red:", error);
+      alert("❌ Error de conexión al intentar guardar la ficha.");
+    }
+  };
+
   if (cargando) {
     return <div style={{ padding: '50px', textAlign: 'center', fontSize: '18px', color: '#1a365d' }}>Cargando directorio de pacientes...</div>;
   }
@@ -177,14 +251,39 @@ export default function PanelPacientes() {
                 🕒 Sesiones Previas
               </h3>
 
-              <div style={{ borderLeft: '2px solid #e2e8f0', marginLeft: '10px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '40px' }}>
-                <div style={{ position: 'relative' }}>
-                  <div style={timelineDotStyle}></div>
-                  <div style={{ color: '#64748b', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>{pacienteActivo.ultimaSesion}</div>
-                  <div style={{ backgroundColor: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '14px', marginBottom: '6px' }}><strong>Observaciones:</strong> Paciente derivado a evaluación.</div>
-                  </div>
-                </div>
+              <div style={{ borderLeft: '2px solid #e2e8f0', marginLeft: '10px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', marginBottom: '40px' }}>
+                
+                {/* DIBUJAMOS EL HISTORIAL REAL */}
+                {historialFichas.length === 0 ? (
+                  <p style={{ color: '#94a3b8', fontSize: '14px', fontStyle: 'italic', margin: 0 }}>No hay evoluciones registradas para este paciente.</p>
+                ) : (
+                  historialFichas.map(cita => {
+                    const fechaLimpia = String(cita.fecha).split('T')[0];
+                    const [year, month, day] = fechaLimpia.split('-');
+                    const horaLimpia = cita.hora_inicio ? String(cita.hora_inicio).substring(11, 16) : '';
+                    const fechaFormateada = `${day}/${month}/${year} - ${horaLimpia} hrs`;
+
+                    // Una cita puede tener múltiples evoluciones, mapeamos la relación
+                    return cita.evoluciones_Sesion?.map((evo, i) => (
+                      <div key={`evo-${cita.id_citas}-${i}`} style={{ position: 'relative', marginBottom: '25px' }}>
+                        <div style={timelineDotStyle}></div>
+                        <div style={{ color: '#64748b', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>{fechaFormateada}</div>
+                        <div style={{ backgroundColor: '#f8fafc', padding: '14px 18px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ fontSize: '14px', marginBottom: evo.actividades_hogar ? '10px' : '0' }}>
+                            <strong style={{ color: '#1a365d' }}>Observaciones:</strong> <br/>
+                            {evo.observaciones_clinicas}
+                          </div>
+                          {evo.actividades_hogar && (
+                            <div style={{ fontSize: '14px', color: '#475569', borderTop: '1px dashed #cbd5e1', paddingTop: '10px' }}>
+                              <strong style={{ color: '#1a365d' }}>Tareas asignadas:</strong> <br/>
+                              {evo.actividades_hogar}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ));
+                  })
+                )}
               </div>
 
               <h3 style={{ margin: '0 0 20px 0', color: '#1a365d', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -194,14 +293,29 @@ export default function PanelPacientes() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>Observaciones Clínicas</label>
-                  <textarea placeholder="Ingresa las observaciones de hoy..." style={textareaStyle}></textarea>
+                  <textarea 
+                    placeholder="Ingresa las observaciones de hoy..." 
+                    style={textareaStyle}
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                  ></textarea>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>Tareas Asignadas</label>
-                  <textarea placeholder="Ejercicios para la casa..." style={{ ...textareaStyle, minHeight: '60px' }}></textarea>
+                  <textarea 
+                    placeholder="Ejercicios para la casa..." 
+                    style={{ ...textareaStyle, minHeight: '60px' }}
+                    value={tareas}
+                    onChange={(e) => setTareas(e.target.value)}
+                  ></textarea>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <button style={{ backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                  <button 
+                    onClick={handleGuardarRegistro}
+                    style={{ backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', transition: '0.2s' }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#1e40af'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = '#1a365d'}
+                  >
                     Guardar Registro
                   </button>
                 </div>

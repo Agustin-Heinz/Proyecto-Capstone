@@ -9,9 +9,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors()); 
 app.use(express.json()); 
 
-// ==========================================
-// PACIENTES Y PLANES
-// ==========================================
+
+//GETS DE PACIENTES Y PLANES
+
 app.get('/api/planes', async (req, res) => {
   try {
     const listaPlanes = await prisma.planes.findMany();
@@ -97,9 +97,8 @@ app.delete('/api/pacientes/:id', async (req, res) => {
   }
 });
 
-// ==========================================
-// FONOAUDIÓLOGOS, SERVICIOS Y DISPONIBILIDAD
-// ==========================================
+
+// GET DE FONOAUDIÓLOGOS, SERVICIOS Y DISPONIBILIDAD
 app.get('/api/fonoaudiologos', async (req, res) => {
   try {
     const listaProfesionales = await prisma.fonoaudiologos.findMany({
@@ -238,9 +237,7 @@ app.delete('/api/disponibilidad/:id', async (req, res) => {
   }
 });
 
-// ==========================================
-// CITAS: Obtener horas ocupadas (GET)
-// ==========================================
+//GET CITAS, EL GET PARA LAS CITAS OCUPADAS
 app.get('/api/citas/ocupadas', async (req, res) => {
   try {
     const { fecha, id_fonoaudiologo } = req.query;
@@ -266,9 +263,9 @@ app.get('/api/citas/ocupadas', async (req, res) => {
   }
 });
 
-// ==========================================
-// CITAS: Crear una nueva hora (POST)
-// ==========================================
+
+//POST CITAS: Crear una nueva hora 
+
 app.post('/api/citas', async (req, res) => {
   try {
     const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio } = req.body;
@@ -301,22 +298,22 @@ app.post('/api/citas', async (req, res) => {
   }
 });
 
-// ==========================================
-// CITAS: Leer el calendario de horas (GET) - ACTUALIZADO CON NOMBRES REALES
-// ==========================================
+
+// GET CITAS, Leer el calendario de horas 
+
 app.get('/api/citas', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
     const condicion = id_fonoaudiologo ? { where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) } } : {}; 
     
-    // 1. Buscamos el historial básico
+    //Buscamos el historial básico
     const historialCitas = await prisma.citas.findMany(condicion);
     
-    // 2. Buscamos los catálogos para cruzar
+    //Buscamos los catálogos para cruzar
     const listaPacientes = await prisma.pacientes.findMany();
     const listaServicios = await prisma.servicios.findMany();
 
-    // 3. Cruzamos la información
+    //Cruzamos la información
     const citasCompletas = historialCitas.map(cita => {
         const paciente = listaPacientes.find(p => p.id_paciente === cita.id_paciente);
         const servicio = listaServicios.find(s => s.id_servicios === cita.id_servicio);
@@ -347,9 +344,8 @@ app.put('/api/citas/:id/pago', async (req, res) => {
   }
 });
 
-// ==========================================
 // AUTENTICACIÓN: Registro y Login
-// ==========================================
+
 app.post('/api/registro', async (req, res) => {
   try {
     const { nombre, email, password, rol } = req.body;
@@ -409,9 +405,9 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ==========================================
-// MÓDULO BI: Estadísticas Privadas por Profesional (GET)
-// ==========================================
+
+// MÓDULO BUISNESS INTELLEGINCE Estadísticas, Privadas por Profesional (GET)
+
 app.get('/api/estadisticas', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
@@ -517,7 +513,74 @@ app.get('/api/estadisticas', async (req, res) => {
   }
 });
 
-// --- INICIAR EL SERVIDOR ---
+
+
+
+// FICHAS CLÍNICAS: Guardar y anotar observaciones
+
+
+// POST, Guardar una nueva observación clínica (Con el nombre exacto de tu schema)
+app.post('/api/fichas', async (req, res) => {
+  try {
+    const { id_cita, observaciones_clinicas, actividades_hogar } = req.body;
+    
+    // Usamos evoluciones_sesion TODO EN MINÚSCULA tal cual está en tu schema
+    const nuevaFicha = await prisma.evoluciones_sesion.create({
+      data: {
+        id_cita: parseInt(id_cita),
+        observaciones_clinicas: observaciones_clinicas,
+        actividades_hogar: actividades_hogar || ""
+      }
+    });
+    
+    res.status(201).json(nuevaFicha);
+  } catch (error) {
+    console.error("Error al guardar la ficha:", error);
+    res.status(500).json({ mensaje: "Error al guardar la ficha", detalle: error.message });
+  }
+});
+
+// GET, Leer el historial clínico (include daba error, así que usamos esto)
+app.get('/api/fichas/:id_paciente', async (req, res) => {
+  try {
+    const idPaciente = parseInt(req.params.id_paciente);
+    
+    // Buscamos todas las citas de este paciente
+    const historialCitas = await prisma.citas.findMany({
+      where: { id_paciente: idPaciente },
+      orderBy: { fecha: 'desc' }
+    });
+    
+    if (historialCitas.length === 0) return res.status(200).json([]);
+
+    // Extraemos los IDs de las citas que encontramos
+    const idsCitas = historialCitas.map(c => c.id_citas);
+
+    // Buscamos todas las evoluciones que correspondan a esas citas
+    const evoluciones = await prisma.evoluciones_sesion.findMany({
+      where: { id_cita: { in: idsCitas } }
+    });
+
+    // Cruzamos los datos manualmente en Node.js
+    const citasConFicha = historialCitas.map(cita => {
+      // Filtramos las evoluciones que le pertenecen solo a esta cita en específico
+      const evolucionesDeEstaCita = evoluciones.filter(evo => evo.id_cita === cita.id_citas);
+      
+      return {
+        ...cita,
+        // Le pasamos la S mayúscula a React porque así lo programamos en el PanelPacientes.jsx
+        evoluciones_Sesion: evolucionesDeEstaCita 
+      };
+    }).filter(cita => cita.evoluciones_Sesion.length > 0); // Ocultamos las citas que aún no tienen diagnóstico escrito
+    
+    res.status(200).json(citasConFicha);
+  } catch (error) {
+    console.error("Error al cargar el historial:", error);
+    res.status(500).json({ mensaje: "Error al cargar el historial", detalle: error.message });
+  }
+});
+
+// Arranca el server
 app.listen(PORT, () => {
   console.log(` Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
 });
