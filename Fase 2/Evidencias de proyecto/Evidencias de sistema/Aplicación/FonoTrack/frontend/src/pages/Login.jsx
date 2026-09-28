@@ -18,11 +18,12 @@ export default function Login() {
       if (respuesta.ok) {
         const usuario = await respuesta.json();
         
-        // Guardamos el ID del perfil en el navegador
+        // Guarda el ID del perfil y el nombre en el navegador
         localStorage.setItem('perfilId', usuario.perfilId);
         localStorage.setItem('rol', usuario.rol);
+        localStorage.setItem('nombre', usuario.nombre);
 
-        alert(`¡Bienvenido!`);
+        alert(`¡Bienvenido ${usuario.nombre}!`);
         
         if (usuario.rol === 'fonoaudiologo') {
           navigate('/panel');
