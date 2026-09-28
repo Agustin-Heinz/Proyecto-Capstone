@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
+import {MapPin, Pencil, Trash } from 'lucide-react';
 export default function PanelPerfil() {
 
   // NAVEGACIÓN
@@ -104,7 +104,7 @@ export default function PanelPerfil() {
         body: JSON.stringify({
           subespecialidad: perfil.subespecialidad,
           acerca_de_mi: perfil.acerca_de_mi
-          // comuna: perfil.comuna // Actívalo en el backend si lo agregaste a schema.prisma
+          // comuna: perfil.comuna
         })
       });
 
@@ -193,7 +193,7 @@ export default function PanelPerfil() {
   };
 
   const handleEliminarServicio = async (id) => {
-    if (!window.confirm("🚨 PELIGRO: ¿Seguro que deseas eliminar este servicio? También se ELIMINARÁN TODOS LOS HORARIOS asociados a él automáticamente.")) return;
+    if (!window.confirm("AVISO ¿Seguro que deseas eliminar este servicio? También se ELIMINARÁN TODOS LOS HORARIOS asociados a él automáticamente.")) return;
     try {
       const respuesta = await fetch(`http://localhost:3000/api/servicios/${id}`, { method: 'DELETE' });
       if (respuesta.ok) {
@@ -325,7 +325,7 @@ export default function PanelPerfil() {
                 <label style={labelStyle}>Comuna de Atención</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <input type="text" name="comuna" value={perfil.comuna} onChange={manejarCambioPerfil} placeholder="Ej: Providencia" style={{ ...inputStyle, flex: 1 }} />
-                  <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle}>📍 Detectar</button>
+                  <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle} ><MapPin size={20} color="#1e40af" /> Detectar</button>
                 </div>
               </div>
             </div>
@@ -436,8 +436,8 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
                <span> {servicio.duracion} min</span>
                <span> ${(servicio.precio || 0).toLocaleString('es-CL')} CLP</span>
                <div style={{ display: 'flex', gap: '8px', marginLeft: '10px' }}>
-                  <button onClick={onEditServicio} style={{...iconBtnStyle, color: 'white'}} title="Editar nombre/precio">✏️</button>
-                  <button onClick={onDeleteServicio} style={{...iconBtnStyle, color: '#f87171'}} title="Eliminar servicio">🗑️</button>
+                  <button onClick={onEditServicio} style={{...iconBtnStyle, color: 'white'}} title="Editar nombre/precio"><Pencil size={20} color="#ffffff" /></button>
+                  <button onClick={onDeleteServicio} style={{...iconBtnStyle, color: '#f87171'}} title="Eliminar servicio"><Trash size={20} color="#ffffff"/></button>
                </div>
             </div>
          </div>
@@ -457,8 +457,8 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
                     <div style={{ display: 'flex', gap: '15px', color: '#475569', fontSize: '14px', fontWeight: '600', alignItems: 'center' }}>
                       <span>{d.inicio} hrs - {d.fin} hrs</span>
                       <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid #e2e8f0', paddingLeft: '15px' }}>
-                        <button onClick={() => iniciarEdicion(d)} style={iconBtnStyle}>✏️</button>
-                        <button onClick={() => onEliminarHorario(d.id)} style={iconBtnStyle}>🗑️</button>
+                        <button onClick={() => iniciarEdicion(d)} style={iconBtnStyle}><Pencil size={20} color="#1a365d" /></button>
+                        <button onClick={() => onEliminarHorario(d.id)} style={iconBtnStyle}><Trash size={20} color="#1a365d"/></button>
                       </div>
                     </div>
                   </div>
@@ -509,7 +509,7 @@ const labelStyle = { display: 'block', fontSize: '13px', fontWeight: '700', colo
 const inputStyle = { width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box' };
 const inputDisabledStyle = { ...inputStyle, backgroundColor: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' };
 const btnPrimarioStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' };
-const btnUbicacionStyle = { backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0 15px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' };
+const btnUbicacionStyle = { backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0 15px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' };
 const btnStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', height: '44px', whiteSpace: 'nowrap' }; 
 const iconBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '4px', opacity: 0.7 };
 const mensajeStyleObj = (tipo) => ({ padding: '12px', borderRadius: '8px', backgroundColor: tipo === 'exito' ? '#dcfce7' : '#fee2e2', color: tipo === 'exito' ? '#166534' : '#991b1b', fontWeight: '600', fontSize: '14px', textAlign: 'center' });

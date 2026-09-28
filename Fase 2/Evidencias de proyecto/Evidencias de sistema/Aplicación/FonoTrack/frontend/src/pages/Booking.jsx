@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Calendar } from 'lucide-react';
 
 
 export default function Booking() {
@@ -123,7 +124,9 @@ export default function Booking() {
         
         {/* Banner Superior, conectado a MySQL */}
         <div className="booking-banner">
-          <div className="eyebrow2">📅 Agenda de atención</div>
+          <div className="eyebrow2" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Calendar size={16} /> Agenda de atención
+            </div>
           <h2>{s.nombre_servicio}</h2>
           <div className="note">Atención con {p.nombre_completo}</div>
         </div>

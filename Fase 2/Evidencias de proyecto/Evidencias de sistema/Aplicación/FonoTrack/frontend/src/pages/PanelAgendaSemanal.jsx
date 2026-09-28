@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CalendarFold , UserRoundGroup, CalendarDays, HandCoins } from 'lucide-react';
 
 export default function PanelAgendaSemanal() {
   const [citas, setCitas] = useState([]);
@@ -125,9 +126,9 @@ export default function PanelAgendaSemanal() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-        <MetricCard titulo="Citas agendadas" valor={cargando ? "..." : citas.length} icono="📅" />
-        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} />
-        <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${ingresosProyectados.toLocaleString('es-CL')}`} icono="💲" />
+        <MetricCard titulo="Citas agendadas" valor={cargando ? "..." : citas.length} icono={<CalendarFold  size={24} color="#1e40af" />} />
+        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} icono={<UserRoundGroup size={24} color="#1e40af" />}/>
+        <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${ingresosProyectados.toLocaleString('es-CL')}`} icono={<HandCoins size={24} color="#1e40af" />} />
       </div>
 
       <div style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
@@ -214,7 +215,7 @@ export default function PanelAgendaSemanal() {
                           {horaCitaStr} - {horaFinStr}
                         </div>
                         <div style={{ fontSize: '11px', color: '#0f172a', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          👤 {cita.nombre_paciente}
+                          {cita.nombre_paciente}
                         </div>
                       </div>
                     );
@@ -260,7 +261,7 @@ export default function PanelAgendaSemanal() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontWeight: '700', color: '#1a365d', fontSize: '14px' }}>{fechaLimpia}</span>
                       <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
-                        🕒 {horaLimpia}
+                         {horaLimpia}
                       </span>
                     </div>
                     

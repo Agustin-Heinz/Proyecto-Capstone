@@ -1,4 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { House, Calendar, Users, UserRound, BarChart2 } from 'lucide-react';
+
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -26,19 +28,19 @@ export default function DashboardLayout() {
         {/* Menú de navegación */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '5px', padding: '0 15px' }}>
           <Link to="/panel" style={navItemStyle(isActive('/panel'))}>
-            <span style={{ marginRight: '10px' }}>🏠</span> Inicio
+            <span style={{ marginRight: '10px' }}><House size={20} /></span> Inicio
           </Link>
           <Link to="/panel/agenda" style={navItemStyle(isActive('/panel/agenda'))}>
-            <span style={{ marginRight: '10px' }}>📅</span> Mi Agenda
+            <span style={{ marginRight: '10px' }}><Calendar size={20} /></span> Mi Agenda
           </Link>
           <Link to="/panel/pacientes" style={navItemStyle(isActive('/panel/pacientes'))}>
-            <span style={{ marginRight: '10px' }}>👥</span> Pacientes
+            <span style={{ marginRight: '10px' }}><Users size={20} /></span> Pacientes
           </Link>
           <Link to="/panel/reportes" style={navItemStyle(isActive('/panel/reportes'))}>
-            <span style={{ marginRight: '10px' }}>📊</span> Reportes
+            <span style={{ marginRight: '10px' }}><BarChart2 size={20} /></span> Reportes
           </Link>
           <Link to="/panel/perfil" style={navItemStyle(isActive('/panel/perfil'))}>
-            <span style={{ marginRight: '10px' }}>👤</span> Mi Perfil
+            <span style={{ marginRight: '10px' }}><UserRound size={20} /></span> Mi Perfil
           </Link>
         </nav>
       </aside>
