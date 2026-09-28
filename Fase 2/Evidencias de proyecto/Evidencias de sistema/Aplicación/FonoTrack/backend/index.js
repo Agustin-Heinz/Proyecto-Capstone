@@ -414,22 +414,35 @@ app.post('/api/registro', async (req, res) => {
   }
 });
 
+// Metodo post para iniciiar sesion
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
     const usuario = await prisma.usuarios.findUnique({ where: { email: email } });
 
     if (!usuario || usuario.contrasena !== password) {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
 
+    //Busca el Id y el nombre dependendo del rol
     let perfilId = null;
+    let nombre = "Usuario";
+
     if (usuario.rol === 'fonoaudiologo') {
-      const perfilFono = await prisma.fonoaudiologos.findFirst({ where: { id_usuario: usuario.id_usuario } });
-      perfilId = perfilFono ? perfilFono.id_fonoaudiologo : null;
+      const perfil = await prisma.fonoaudiologos.findFirst({ where: { id_usuario: usuario.id_usuario } });
+      perfilId = perfil ? perfil.id_fonoaudiologo : null;
+      nombre = perfil ? perfil.nombre_completo : "Fonoaudiólogo";
+
+    } else if (usuario.rol === 'paciente') {
+      const perfil = await prisma.pacientes.findFirst({ where: { id_usuario: usuario.id_usuario } });
+      perfilId = perfil ? perfil.id_paciente : null;
+      nombre = perfil ? perfil.nombre_completo : "Paciente";
     }
 
-    res.status(200).json({ ...usuario, perfilId });
+    console.log("Inicio de sesión exitoso:", usuario.email);
+    res.status(200).json({ ...usuario, perfilId, nombre });
+    
   } catch (error) {
     res.status(500).json({ mensaje: "Error al iniciar sesión", detalle: error.message });
   }
