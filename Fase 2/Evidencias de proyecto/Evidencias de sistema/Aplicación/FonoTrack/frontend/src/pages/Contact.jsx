@@ -8,12 +8,12 @@ export default function Contact() {
 
   const { fecha, hora } = location.state || {};
 
-  // 1. Estados para los datos reales de la base de datos
+  // Estados para los datos reales de la base de datos
   const [p, setP] = useState(null);
   const [s, setS] = useState(null);
   const [cargandoInfo, setCargandoInfo] = useState(true);
 
-  // 2. Memoria para capturar lo que escribe el paciente
+  // Memoria para capturar lo que escribe el paciente
   const [datosPaciente, setDatosPaciente] = useState({
     nombre_completo: '',
     rut: '',

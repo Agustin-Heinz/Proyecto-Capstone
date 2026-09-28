@@ -604,7 +604,7 @@ app.get('/api/fichas/:id_paciente', async (req, res) => {
   }
 });
 
-// Arranca el server
+// Arrancar el server
 app.listen(PORT, () => {
   console.log(` Servidor FonoTrack corriendo perfectamente en http://localhost:${PORT}`);
 });

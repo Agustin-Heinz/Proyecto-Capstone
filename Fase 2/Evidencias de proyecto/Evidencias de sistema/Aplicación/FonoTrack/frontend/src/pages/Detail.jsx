@@ -115,7 +115,7 @@ export default function Detail() {
           <div className="side-box">
             <h4>Contacto</h4>
             <div className="contact-line">📞 {p.telefono}</div>
-            <div className="contact-line">✉️ {p.email}</div>
+            <div className="contact-line"> {p.email}</div>
           </div>
         </div>
       </div>
