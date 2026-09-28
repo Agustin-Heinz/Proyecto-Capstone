@@ -68,6 +68,7 @@ model pacientes {
   rut              String   @unique(map: "rut") @db.VarChar(15)
   fecha_nacimiento DateTime @db.Date
   telefono         String?  @db.VarChar(20)
+  genero           String?  @db.VarChar(30)
 
   @@index([id_ubicacion], map: "id_ubicacion")
   @@index([id_usuario], map: "id_usuario")

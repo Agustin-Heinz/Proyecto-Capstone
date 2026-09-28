@@ -372,11 +372,14 @@ app.put('/api/citas/:id/pago', async (req, res) => {
 
 app.post('/api/registro', async (req, res) => {
   try {
-    const { nombre, email, password, rol } = req.body;
+    const { nombre, email, password, rol, rut, fechaNacimiento, genero } = req.body;
 
     const resultado = await prisma.$transaction(async (tx) => {
       const nuevoUsuario = await tx.usuarios.create({
-        data: { email: email, contrasena: password, rol: rol }
+        data: {
+          email: email,
+          contrasena: password,
+          rol: rol }
       });
 
       if (rol === 'fonoaudiologo') {
@@ -394,8 +397,9 @@ app.post('/api/registro', async (req, res) => {
           data: {
             id_usuario: nuevoUsuario.id_usuario,
             nombre_completo: nombre,
-            rut: `PD-${Date.now().toString().slice(-6)}`,
-            fecha_nacimiento: new Date('2000-01-01')
+            rut: rut,
+            fecha_nacimiento: new Date(fechaNacimiento),
+            genero: genero
           }
         });
       }
@@ -403,7 +407,9 @@ app.post('/api/registro', async (req, res) => {
     });
 
     res.status(201).json(resultado);
+
   } catch (error) {
+    console.error("Error al registrar:", error);
     res.status(500).json({ mensaje: "Error al registrar la cuenta", detalle: error.message });
   }
 });
