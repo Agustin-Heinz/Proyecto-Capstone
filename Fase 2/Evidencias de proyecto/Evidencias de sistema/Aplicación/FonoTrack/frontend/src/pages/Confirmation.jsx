@@ -1,5 +1,5 @@
 import { useLocation, useParams, Link } from 'react-router-dom';
-import { User, Settings, MapPin, Trash2, Edit, Plus } from 'lucide-react';
+
 
 export default function Confirmation() {
   const { profId, servId } = useParams();

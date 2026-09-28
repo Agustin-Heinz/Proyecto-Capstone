@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { User, Settings, MapPin, CalendarDays, Edit, Plus } from 'lucide-react';
 
 export default function PanelAgenda() {
   const [citasHoy, setCitasHoy] = useState([]);
@@ -42,13 +43,13 @@ export default function PanelAgenda() {
   const ingresosMes = citasHoy.reduce((total, c) => total + (c.precio || 0), 0);
   const pacientesActivos = new Set(citasHoy.map(c => c.id_paciente)).size;
   
-  // Obtener fecha actual en formato legible (ej: "Lunes, 24 de agosto")
+  // Obtener fecha actual en formato legible 
   const fechaHoyStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // Función para manejar el clic en asistencia (visual por ahora)
   const marcarAsistencia = (id, estado) => {
     setCitasHoy(prev => prev.map(c => c.id_citas === id ? { ...c, estado_asistencia: estado } : c));
-    // Aquí a futuro se puede agregar un fetch(PUT) al backend para guardarlo en MySQL
+    // Aquí a futuro podríamos agregar un fetch(PUT) al backend para guardarlo en MySQL
   };
 
   return (
@@ -66,8 +67,8 @@ export default function PanelAgenda() {
           <p style={{ color: '#64748b', marginTop: '6px', fontSize: '14px' }}>Aquí tienes el resumen operativo de tu jornada.</p>
         </div>
         <div style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '10px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          📅 {fechaHoyStr.charAt(0).toUpperCase() + fechaHoyStr.slice(1)}
-        </div>
+          <CalendarDays size={18} color="#1e40af" /> {fechaHoyStr.charAt(0).toUpperCase() + fechaHoyStr.slice(1)}
+          </div> 
       </div>
 
       {/* MÉTRICAS SUPERIORES */}
@@ -77,7 +78,7 @@ export default function PanelAgenda() {
         <MetricCard titulo="Ingresos acumulados del mes" valor={cargando ? "..." : `$${ingresosMes.toLocaleString('es-CL')}`} color="#f0fdf4" />
       </div>
 
-      {/* ÁREA DE ACCIÓN RÁPIDA (Fondo gris claro) */}
+      {/* ÁREA DE ACCIÓN RÁPIDA */}
       <div style={{ backgroundColor: '#f1f5f9', padding: '30px', borderRadius: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
@@ -105,7 +106,7 @@ export default function PanelAgenda() {
               return (
                 <div key={c.id_citas} style={{ display: 'flex', alignItems: 'center', backgroundColor: '#ffffff', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                   
-                  {/* Pastilla de Hora */}
+                  {/* Parte de Hora */}
                   <div style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '8px 14px', borderRadius: '8px', fontWeight: '800', fontSize: '14px', marginRight: '20px', minWidth: '55px', textAlign: 'center' }}>
                     {horaLimpia}
                   </div>
