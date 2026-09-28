@@ -1,4 +1,5 @@
 import { useLocation, useParams, Link } from 'react-router-dom';
+import { User, Settings, MapPin, Trash2, Edit, Plus } from 'lucide-react';
 
 export default function Confirmation() {
   const { profId, servId } = useParams();
@@ -7,7 +8,7 @@ export default function Confirmation() {
   // Rescatamos los datos finales
   const { fecha, hora, contacto, p, s, reservaId: reservaIdState } = location.state || {};
 
-  // Generamos un código de reserva aleatorio tipo "FT-X8J9K"
+  // Generamos un código de reserva aleatorio tipo alfanúmerico
   const reservaId = reservaIdState || 'FT-' + Math.random().toString(36).slice(2, 8).toUpperCase();
 
   if (!p || !s || !contacto) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando la reserva.</div>;
@@ -16,8 +17,8 @@ export default function Confirmation() {
     <main>
       <div className="confirm-wrap">
         <div className="confirm-icon">✓</div>
-        <h1>¡Hora confirmada!</h1>
-        <div className="sub">Te enviamos el detalle a tu correo. Aquí tienes tu comprobante.</div>
+        <h1>Su hora ha sido confirmada</h1>
+        <div className="sub">Le enviamos el detalle a tu correo. Aquí tienes tu comprobante.</div>
         
         <div className="receipt">
           <div className="r-row">
@@ -54,7 +55,7 @@ export default function Confirmation() {
           {/* El botón para imprimir usa la función nativa del navegador */}
           <button className="btn-ghost" onClick={() => window.print()}>Descargar comprobante</button>
           
-          {/* Volvemos al inicio reseteando el flujo */}
+          {/* Volvemos al inicio reseteando el proceso */}
           <Link to="/" className="btn-primary" style={{textDecoration: 'none', display: 'inline-block'}}>
             Volver al inicio
           </Link>

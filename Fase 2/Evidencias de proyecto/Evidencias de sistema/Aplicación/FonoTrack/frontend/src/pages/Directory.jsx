@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { User, MapPin, Star, Sparkles } from 'lucide-react';
 
 export default function Directory() {
   const [profesionalesBD, setProfesionalesBD] = useState([]);
@@ -43,9 +44,7 @@ export default function Directory() {
     return cumpleEsp && cumpleUbicacion && cumpleCalif;
   });
 
-  // ✅ NUEVO: Extraemos las especialidades únicas directamente desde MySQL para los filtros
   const especialidadesUnicas = [...new Set(profesionalesBD.flatMap(p => p.especialidades))].filter(Boolean).sort();
-  
   const comunasUnicas = [...new Set(profesionalesBD.map(p => p.comuna))].sort();
 
   const cambiarPestana = (id, pestana) => {
@@ -67,7 +66,6 @@ export default function Directory() {
           <div className="filters-row">
             <select value={filtroEsp} onChange={e => setFiltroEsp(e.target.value)}>
               <option value="">Subespecialidad</option>
-              {/* ✅ Mapeamos el filtro usando las especialidades de tu base de datos */}
               {especialidadesUnicas.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
             
@@ -104,12 +102,16 @@ export default function Directory() {
                 return (
                   <article className="prof-card" key={p.id}>
                     <div className="prof-card-top">
-                      <div className="avatar-circle">👤</div>
+                      <div className="avatar-circle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <User size={24} color="#64748b" />
+                      </div>
                       <div className="info">
                         <h3>{p.nombre}</h3>
                         <div className="resumen">{p.resumen}</div>
-                        <div className="stars">
-                          <span className="rating-num">{p.rating.toFixed(1)}</span> ⭐ <span style={{color: 'var(--ink-soft)', fontWeight: 600}}>({p.resenas})</span>
+                        <div className="stars" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span className="rating-num">{p.rating.toFixed(1)}</span>
+                          <Star size={16} color="#fbbf24" fill="#fbbf24" />
+                          <span style={{color: 'var(--ink-soft)', fontWeight: 600}}>({p.resenas})</span>
                         </div>
                       </div>
                       <Link to={`/profesional/${p.id}`} className="agendar-btn" style={{ textDecoration: 'none', textAlign: 'center', display: 'inline-block' }}>
@@ -125,8 +127,14 @@ export default function Directory() {
                     <div className="tab-panel">
                       {currentTab === 'general' ? (
                         <>
-                          <div className="mini-row">✨ {p.especialidades.join(', ')}</div>
-                          <div className="mini-row">📍 {p.comuna} {p.modalidad !== 'Presencial' ? ' · también online' : ''}</div>
+                          <div className="mini-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Sparkles size={16} color="#64748b" /> 
+                            {p.especialidades.join(', ')}
+                          </div>
+                          <div className="mini-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                            <MapPin size={16} color="#64748b" /> 
+                            {p.comuna} {p.modalidad !== 'Presencial' ? ' · también online' : ''}
+                          </div>
                         </>
                       ) : (
                         <p style={{margin: 0}}>{p.acerca}</p>

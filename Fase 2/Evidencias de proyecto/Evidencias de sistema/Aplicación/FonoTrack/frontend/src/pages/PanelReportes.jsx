@@ -34,7 +34,7 @@ export default function PanelReportes() {
           return; 
         }
 
-        // 🔥 AQUÍ ESTÁ LA LLAVE: Le enviamos el ID en la URL para que el backend sepa quién pregunta
+        // Le enviamos el ID en la URL para que el sistema sepa de quien se trata
         const respuesta = await fetch(`http://localhost:3000/api/estadisticas?id_fonoaudiologo=${idProfesionalLogueado}`);
         
         if (respuesta.ok) {
@@ -82,7 +82,7 @@ export default function PanelReportes() {
           <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '600', marginTop: '4px' }}>Basado en citas totales</div>
         </div>
         
-        {/* TARJETA ACTUALIZADA: Ahora es 100% dinámica */}
+        {/* Dashboards dinamicos */}
         <div style={cardStyle}>
           <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
             Servicio más solicitado ({etiquetasFiltro[filtroTiempoServicios]})
@@ -104,7 +104,7 @@ export default function PanelReportes() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         
-        {/* GRÁFICO 1: BARRAS */}
+        {/* GRÁFICO DE BARRAS */}
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
             <div>
@@ -132,7 +132,7 @@ export default function PanelReportes() {
           </div>
         </div>
 
-        {/* GRÁFICO 2: ANILLO */}
+        {/* GRÁFICO DE CIRCULO */}
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
             <div>

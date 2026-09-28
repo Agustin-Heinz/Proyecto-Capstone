@@ -27,7 +27,7 @@ export default function Detail() {
             acerca: fonoReal.acerca_de_mi || 'Sin descripción disponible.',
             telefono: 'No registrado', 
             email: 'No registrado',    
-            // ✅ EL CAMBIO ESTÁ AQUÍ: Ahora inyectamos los servicios reales que vienen de MySQL
+            // Ahora inyectamos los servicios reales que vienen de MySQL
             servicios: fonoReal.servicios || [],
             reviews: [] 
           });

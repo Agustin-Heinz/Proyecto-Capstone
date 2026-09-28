@@ -4,13 +4,12 @@ export default function PanelAgendaSemanal() {
   const [citas, setCitas] = useState([]);
   const [cargando, setCargando] = useState(true);
 
-  // Eje de horas (Y) - Definimos el rango horario de la consulta
+  // Eje de horas (Definimos un rango horario de la consulta)
   const horaInicioCalendario = 8; // 08:00 AM
   const horas = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
-  // ==============================================================
-  // 1. LÓGICA DEL CALENDARIO DINÁMICO (Autocentrado y Navegación)
-  // ==============================================================
+  //LÓGICA DEL CALENDARIO DINÁMICO (Autocentrado y Navegación)
+
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
 
   useEffect(() => {
@@ -26,8 +25,7 @@ export default function PanelAgendaSemanal() {
         const citasOrdenadas = datosBackend.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         setCitas(citasOrdenadas);
         
-        // --- AUTOCENTRADO INTELIGENTE ---
-        // Buscamos la primera cita que sea de hoy o del futuro
+        // Buscamos la primera cita registrada
         const hoyStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
         const fechasUnicas = [...new Set(citasOrdenadas.map(c => String(c.fecha).split('T')[0]))].sort();
         const fechaFutura = fechasUnicas.find(f => f >= hoyStr);
@@ -37,7 +35,7 @@ export default function PanelAgendaSemanal() {
           const [y, m, d] = fechaFutura.split('-');
           setFechaReferencia(new Date(Number(y), Number(m)-1, Number(d), 12, 0, 0));
         } else {
-          // Si no hay nada, mostramos el día de hoy
+          // Si no hay ninguna, mostramos el día de hoy
           setFechaReferencia(new Date());
         }
         
@@ -92,7 +90,7 @@ export default function PanelAgendaSemanal() {
     setFechaReferencia(new Date());
   };
 
-  // Texto dinámico del título (Ej: 19 oct — 23 oct 2026)
+  // Texto dinámico del título. Para mostrar el día actual y un rango de 4
   let tituloRango = "Cargando...";
   if (diasMostrados.length === 5) {
     const inicio = diasMostrados[0];
@@ -100,9 +98,8 @@ export default function PanelAgendaSemanal() {
     tituloRango = `${inicio.num} ${inicio.mesStr} — ${fin.num} ${fin.mesStr} ${fin.anio}`;
   }
 
-  // ==============================================================
-  // 2. CÁLCULOS Y PAGINACIÓN DE RESERVAS (Columna derecha)
-  // ==============================================================
+  // CÁLCULOS Y NUMERACIÓN DE RESERVAS 
+  
   const pacientesActivos = new Set(citas.map(c => c.id_paciente)).size;
   const ingresosProyectados = citas.reduce((total, c) => total + (c.precio || 0), 0);
 
@@ -135,9 +132,9 @@ export default function PanelAgendaSemanal() {
 
       <div style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
         
-        {/* ========================================================================= */}
-        {/* COLUMNA IZQUIERDA: CALENDARIO ESTILO UNIVERSITARIO (TETRIS)               */}
-        {/* ========================================================================= */}
+        
+        {/* CALENDARIO CON BLOQUES GUARDADOS */}
+  
         <div style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -165,7 +162,7 @@ export default function PanelAgendaSemanal() {
               ))}
             </div>
 
-            {/* Cuadrícula Tetris */}
+            {/* Cuadrícula de bloques */}
             <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', position: 'relative' }}>
               
               <div style={{ borderRight: '1px solid #f1f5f9' }}>
@@ -184,7 +181,7 @@ export default function PanelAgendaSemanal() {
                     <div key={`linea-${i}`} style={{ height: '60px', borderBottom: '1px dashed #e2e8f0', boxSizing: 'border-box' }}></div>
                   ))}
 
-                  {/* Motor Matemático de Bloques */}
+                  {/* calculo matematico de los bloques */}
                   {citas.filter(c => String(c.fecha).split('T')[0] === dia.fecha).map(cita => {
                     const horaCitaStr = cita.hora_inicio ? String(cita.hora_inicio).substring(11, 16) : '00:00';
                     const [horaC, minC] = horaCitaStr.split(':').map(Number);
@@ -228,9 +225,9 @@ export default function PanelAgendaSemanal() {
           </div>
         </div>
 
-        {/* ========================================================================= */}
-        {/* COLUMNA DERECHA: CONTROL DE RESERVAS ENTRANTES (Paginación de a 3)        */}
-        {/* ========================================================================= */}
+      
+        {/* CUADROS DE LAS RESERVAS ENTRANTES (numeración de a 3) */}
+
         <div style={{ width: '320px', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
             <div>

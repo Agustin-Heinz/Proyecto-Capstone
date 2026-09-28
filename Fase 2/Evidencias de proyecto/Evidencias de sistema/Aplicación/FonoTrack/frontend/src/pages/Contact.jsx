@@ -21,9 +21,9 @@ export default function Contact() {
     email: '' 
   });
 
-  // ==============================================================
-  // 3. CARGAMOS LOS DATOS REALES DEL PROFESIONAL Y SERVICIO
-  // ==============================================================
+
+  // CARGAMOS LOS DATOSDEL PROFESIONAL Y SERVICIO
+
   useEffect(() => {
     const cargarDatos = async () => {
       try {
@@ -59,9 +59,8 @@ export default function Contact() {
     });
   };
 
-  // ==============================================================
-  // 5. GUARDAMOS EN MYSQL Y NAVEGAMOS AL PAGO
-  // ==============================================================
+  // GUARDAMOS EN MYSQL Y REDIRECCIONAMOS AL PAGO
+
   const handleSubmit = async (e) => {
     e.preventDefault(); 
     
@@ -76,7 +75,7 @@ export default function Contact() {
         telefono: datosPaciente.telefono
       };
 
-      // 1. Guardamos al paciente real
+      // Guardamos al paciente
       const respuestaPaciente = await fetch('http://localhost:3000/api/pacientes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -91,7 +90,7 @@ export default function Contact() {
 
       const nuevoPaciente = await respuestaPaciente.json();
       
-      // 2. Creamos la cita conectando paciente, profesional y servicio
+      // Se genera la cita conectando paciente, profesional y servicio
       const paqueteCita = {
         id_paciente: nuevoPaciente.id_paciente,
         id_fonoaudiologo: parseInt(profId),
@@ -112,7 +111,7 @@ export default function Contact() {
 
       const nuevaCita = await respuestaCita.json();
 
-      // 3. Navegamos al pago enviando TODOS los datos
+      // Redireccionamos al pago enviando TODOS los datos
       navigate(`/pago/${profId}/${servId}`, { 
         state: { 
           fecha, 

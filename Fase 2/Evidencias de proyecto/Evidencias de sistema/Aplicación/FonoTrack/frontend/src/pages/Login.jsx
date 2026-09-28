@@ -18,7 +18,7 @@ export default function Login() {
       if (respuesta.ok) {
         const usuario = await respuesta.json();
         
-        // ✅ NUEVO: Guardamos el ID del perfil en el navegador
+        // Guardamos el ID del perfil en el navegador
         localStorage.setItem('perfilId', usuario.perfilId);
         localStorage.setItem('rol', usuario.rol);
 

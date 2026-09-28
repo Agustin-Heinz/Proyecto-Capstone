@@ -7,16 +7,16 @@ export default function PanelPacientes() {
   const [listaPacientes, setListaPacientes] = useState([]);
   const [cargando, setCargando] = useState(true);
 
-  // =====================================================================
-  // NUEVOS ESTADOS: Para la Ficha Clínica y el Historial
-  // =====================================================================
+
+  // Estados para la Ficha Clínica y el Historial
+
   const [historialFichas, setHistorialFichas] = useState([]);
   const [observaciones, setObservaciones] = useState('');
   const [tareas, setTareas] = useState('');
 
   // useEffect se ejecuta automáticamente al abrir la pantalla para buscar los datos
   useEffect(() => {
-    // 1. Buscamos todas las citas para saber cuáles pacientes son del fonoaudiólogo actual
+    // Buscamos todas las citas para saber cuáles pacientes son del fonoaudiólogo actual
     fetch('http://localhost:3000/api/citas')
       .then(res => res.json())
       .then(citas => {
@@ -26,7 +26,7 @@ export default function PanelPacientes() {
         const citasFonoaudiologo = citas.filter(c => c.id_fonoaudiologo === idFonoaudiologo);
         const idsMisPacientes = new Set(citasFonoaudiologo.map(c => c.id_paciente));
 
-        // 2. Buscamos todos los pacientes y los filtramos
+        // Buscamos todos los pacientes y los filtramos
         return fetch('http://localhost:3000/api/pacientes')
           .then(res => res.json())
           .then(datosBackend => {
@@ -81,12 +81,9 @@ export default function PanelPacientes() {
       });
   }, []);
 
-  // =====================================================================
-  // EFECTO: Cargar el historial cuando seleccionamos "Ver Ficha"
-  // =====================================================================
- // =====================================================================
-  // EFECTO: Cargar el historial cuando seleccionamos "Ver Ficha"
-  // =====================================================================
+
+ // Cargar el historial cuando seleccionamos "Ver Ficha"
+  
   useEffect(() => {
     if (pacienteActivo) {
       fetch(`http://localhost:3000/api/fichas/${pacienteActivo.id}`)
@@ -107,9 +104,9 @@ export default function PanelPacientes() {
     }
   }, [pacienteActivo]);
 
-  // =====================================================================
-  // ACCIÓN: Guardar el nuevo registro en MySQL
-  // =====================================================================
+  
+  // Guardar el nuevo registro en MySQL
+  
   const handleGuardarRegistro = async () => {
     if (!observaciones.trim()) {
       alert("⚠️ Debes ingresar al menos una observación clínica.");
@@ -132,7 +129,7 @@ export default function PanelPacientes() {
       });
 
       if (respuesta.ok) {
-        alert("✅ Registro clínico guardado con éxito.");
+        alert("Registro clínico guardado con éxito.");
         setObservaciones(''); // Limpiamos las cajas
         setTareas('');
         
@@ -141,11 +138,11 @@ export default function PanelPacientes() {
         const dataHistorial = await resHistorial.json();
         setHistorialFichas(dataHistorial);
       } else {
-        alert("❌ Hubo un error al guardar el registro.");
+        alert("Hubo un error al guardar el registro.");
       }
     } catch (error) {
       console.error("Error de red:", error);
-      alert("❌ Error de conexión al intentar guardar la ficha.");
+      alert("Error de conexión al intentar guardar la ficha.");
     }
   };
 

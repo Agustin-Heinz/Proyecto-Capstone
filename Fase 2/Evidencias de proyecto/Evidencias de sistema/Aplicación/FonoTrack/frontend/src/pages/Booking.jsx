@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
+
 export default function Booking() {
   const { profId, servId } = useParams();
   const navigate = useNavigate();
@@ -8,16 +9,16 @@ export default function Booking() {
   // Estados para la base de datos real
   const [p, setP] = useState(null);
   const [s, setS] = useState(null);
-  const [disponibilidad, setDisponibilidad] = useState([]); // 🔥 NUEVO: Guardará los horarios reales
+  const [disponibilidad, setDisponibilidad] = useState([]); //Guardar los horarios 
   const [cargandoInfo, setCargandoInfo] = useState(true);
 
   const [fecha, setFecha] = useState(null);
   const [hora, setHora] = useState(null);
   const [horasOcupadas, setHorasOcupadas] = useState([]);
 
-  // ==============================================================
-  // 1. CARGA DE DATOS REALES Y DISPONIBILIDAD DESDE MYSQL
-  // ==============================================================
+
+  // CARGA DE LOS DATOS Y DISPONIBILIDAD DESDE MYSQL
+
   useEffect(() => {
     const cargarDatos = async () => {
       try {
@@ -46,9 +47,9 @@ export default function Booking() {
     if(profId && servId) cargarDatos();
   }, [profId, servId]);
 
-  // ==============================================================
-  // 2. CONSTRUCTOR DINÁMICO DEL CARRUSEL (Basado en MySQL)
-  // ==============================================================
+
+  // CARRUSEL HORARIO PARA EL APARTADO DE SELECCIÓN DE HORAS
+  
   const diasSemana = ['DOM.', 'LUN.', 'MAR.', 'MIÉ.', 'JUE.', 'VIE.', 'SÁB.'];
   const meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
   const mesesCompletos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -56,11 +57,11 @@ export default function Booking() {
   // Extraemos solo los DÍAS ÚNICOS en los que el profesional atiende
   const fechasUnicas = [...new Set(disponibilidad.map(d => {
     return d.dia_semana ? String(d.dia_semana).split('T')[0] : '';
-  }))].filter(Boolean).sort(); // Las ordenamos cronológicamente
+  }))].filter(Boolean).sort(); // Las ordenamos de forma cronológica
 
   // Transformamos esos días al formato visual de la tarjeta
   const listaFechas = fechasUnicas.map(fechaStr => {
-    const f = new Date(`${fechaStr}T12:00:00`); // T12 para evitar desfases de zona horaria
+    const f = new Date(`${fechaStr}T12:00:00`); // T12 para evitar desfases de zona horaria 
     return {
       key: fechaStr,
       dow: diasSemana[f.getDay()],
@@ -86,9 +87,9 @@ export default function Booking() {
   const mesActual = fechasMostradas[0]?.mesCompleto || 'Sin horarios';
   const anioActual = fechasMostradas[0]?.anio || '';
 
-  // ==============================================================
-  // 3. CONSTRUCTOR DINÁMICO DE HORAS (Basado en la fecha elegida)
-  // ==============================================================
+
+  // CREACIÓN DE UN CONSTRUCTOR DINÁMICO DE HORAS (Basado en la fecha elegida)
+  
   // Filtramos la disponibilidad para encontrar las horas exactas creadas para el día que el paciente clickeó
   const bloquesDelDia = disponibilidad.filter(d => {
     const dStr = d.dia_semana ? String(d.dia_semana).split('T')[0] : '';
@@ -100,9 +101,9 @@ export default function Booking() {
     return d.hora_inicio ? String(d.hora_inicio).substring(11, 16) : '';
   }).filter(Boolean).sort();
 
-  // ==============================================================
-  // 4. BLOQUEO DE HORAS YA RESERVADAS (MySQL Citas)
-  // ==============================================================
+  
+  // BLOQUEO DE HORAS YA RESERVADAS (Las registradas en MySQL)
+
   useEffect(() => {
     if (!fecha || !profId) return;
 
@@ -120,7 +121,7 @@ export default function Booking() {
     <main>
       <div className="booking-wrap">
         
-        {/* Banner Superior conectado a MySQL */}
+        {/* Banner Superior, conectado a MySQL */}
         <div className="booking-banner">
           <div className="eyebrow2">📅 Agenda de atención</div>
           <h2>{s.nombre_servicio}</h2>
@@ -133,7 +134,7 @@ export default function Booking() {
           <div className="cell"><div className="lbl">Duración</div><div className="val">50 min</div></div>
         </div>
 
-        {/* 1. SECCIÓN DE FECHAS (CARRUSEL REAL) */}
+        {/* CARRUSEL DE SECCIÓN DE FECHAS REGISTRADAS POR EL FONOAUDIOLOGO  */}
         <div className="step-label">1. ELIGE UNA FECHA</div>
         
         {listaFechas.length === 0 ? (
@@ -171,7 +172,7 @@ export default function Booking() {
           </>
         )}
 
-        {/* 2. SECCIÓN DE HORARIOS REALES */}
+        {/* SECCIÓN DE HORAS */}
         <div className="step-label" style={{ marginTop: '30px' }}>2. ELIGE UN HORARIO</div>
         <div id="horariosWrap">
           {!fecha ? (
@@ -228,7 +229,7 @@ export default function Booking() {
   );
 }
 
-// Estilo auxiliar para los botones de las flechitas
+// Estilo para los botones de las flechitas
 const btnNavStyle = {
   backgroundColor: '#ffffff',
   border: '1px solid #cbd5e1',

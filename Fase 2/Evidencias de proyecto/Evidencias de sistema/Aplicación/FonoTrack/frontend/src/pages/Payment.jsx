@@ -6,7 +6,7 @@ export default function Payment() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 1. Recibimos los datos acumulados, incluyendo el pacienteId que generó el Contacto
+  // Recibimos los datos acumulados, incluyendo el pacienteId que generó el Contacto
   const { fecha, hora, contacto, pacienteId, p, s } = location.state || {};
 
   const [metodo, setMetodo] = useState('debito');
@@ -14,16 +14,16 @@ export default function Payment() {
 
   if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
 
-  // 2. Simulamos el pago (la cita ya se creó en el paso anterior)
+  // Simulamos el pago (la cita ya se creó en el paso anterior)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setProcesando(true);
 
     try {
-      // Obtenemos el ID de reserva que viene desde Contact.jsx
+      // Obtenemos el ID de reserva (que viene desde Contact.jsx)
       const idReserva = location.state?.reservaId || 0;
 
-      // Simulamos el retraso del banco y avanzamos
+      // Simulamos el retraso del banco y avanzamos 
       setTimeout(() => {
         navigate(`/confirmacion/${profId}/${servId}`, { 
           state: { fecha, hora, contacto, reservaId: idReserva, p, s } 
