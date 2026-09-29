@@ -48,27 +48,14 @@ model evoluciones_sesion {
 }
 
 model fonoaudiologos {
-
 id_fonoaudiologo Int @id @default(autoincrement())
-
 id_usuario Int
-
 nombre_completo String @db.VarChar(100)
-
 rut String @unique(map: "rut") @db.VarChar(15)
-
 subespecialidad String? @db.VarChar(100)
-
 acerca_de_mi String? @db.Text
-
-
-// Conexión a la tabla "ubicacion" para acceder a "comuna"
-
-id_ubicacion Int?
-
+id_ubicacion Int? // Conexión a la tabla "ubicacion" para acceder a "comuna"
 ubicacion ubicacion? @relation(fields: [id_ubicacion], references: [id_ubicacion])
-
-
 
 @@index([id_usuario], map: "id_usuario")
 

@@ -83,8 +83,7 @@ export default function Directory() {
             
             <select value={filtroUbicacion} onChange={e => setFiltroUbicacion(e.target.value)}>
               <option value="">Ubicación</option>
-              {/* Opción online fija arriba */}
-              <option value="Online">Atiende online</option>
+              
               {/* Cargamos las comunas de la BD */}
               {listaComunas.map(c => (
                 <option key={c.id_ubicacion} value={c.comuna}>{c.comuna}</option>
