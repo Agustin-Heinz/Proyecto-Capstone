@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -8,6 +11,23 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors()); 
 app.use(express.json()); 
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir);
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-')); 
+  }
+});
+const upload = multer({ storage: storage });
 
 
 //GETS DE PACIENTES Y PLANES
@@ -152,18 +172,24 @@ app.get('/api/fonoaudiologos/:id', async (req, res) => {
   }
 });
 
-app.put('/api/fonoaudiologos/:id', async (req, res) => {
+app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, res) => {
   try {
     const idFono = parseInt(req.params.id);
-    const { nombre_completo, subespecialidad, acerca_de_mi, id_ubicacion } = req.body;
+    const { nombre_completo, subespecialidad, acerca_de_mi, id_ubicacion, foto_perfil } = req.body;
     
+    // Si el usuario subió una imagen, armamos la URL local. Si no, mantenemos la que ya estaba.
+    let rutaImagen = foto_perfil;
+    if (req.file) {
+      rutaImagen = `http://localhost:3000/uploads/${req.file.filename}`;
+    }
+
     const perfilActualizado = await prisma.fonoaudiologos.update({
       where: { id_fonoaudiologo: idFono },
       data: { 
         nombre_completo,
         subespecialidad,
         acerca_de_mi,
-        // Si viene un id_ubicacion lo convertimos a número, sino se queda como null
+        foto_perfil: rutaImagen,
         id_ubicacion: id_ubicacion ? parseInt(id_ubicacion) : null 
       }
     });
@@ -171,7 +197,7 @@ app.put('/api/fonoaudiologos/:id', async (req, res) => {
     res.status(200).json(perfilActualizado);
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
-    res.status(500).json({ mensaje: "Error al actualizar el perfil", detalle: error.message });
+    res.status(500).json({ mensaje: "Error al actualizar", detalle: error.message });
   }
 });
 

@@ -13,11 +13,13 @@ export default function PanelPerfil() {
     rut: '',
     subespecialidad: '',
     acerca_de_mi: '',
-    id_ubicacion: '' // Cambiado de comuna a id_ubicacion
+    id_ubicacion: '',
+    foto_perfil: ''
   });
   const [listaComunas, setListaComunas] = useState([]); // Nuevo estado para las comunas
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [mensajePerfil, setMensajePerfil] = useState({ texto: '', tipo: '' });
+  const [fotoArchivo, setFotoArchivo] = useState(null);
 
   // ESTADOS PARA LA PESTAÑA DE MIS SERVICIOS
   const [servicios, setServicios] = useState([]);
@@ -52,7 +54,8 @@ export default function PanelPerfil() {
           rut: miInfo.rut || '',
           subespecialidad: miInfo.subespecialidad || '',
           acerca_de_mi: miInfo.acerca_de_mi || '',
-          id_ubicacion: miInfo.id_ubicacion || '' // Ahora lee el ID foráneo
+          id_ubicacion: miInfo.id_ubicacion || '',
+          foto_perfil: miInfo.foto_perfil || '' 
         });
       }
 
@@ -92,12 +95,11 @@ export default function PanelPerfil() {
     const { name, value } = e.target;
     setPerfil({ 
       ...perfil, 
-      // Si el campo es id_ubicacion, lo convertimos a número para mantener la coherencia
       [name]: name === 'id_ubicacion' ? (value ? parseInt(value) : '') : value 
     });
   };
 
-  const guardarPerfil = async (e) => {
+const guardarPerfil = async (e) => {
     e.preventDefault();
     setGuardandoPerfil(true);
     setMensajePerfil({ texto: '', tipo: '' });
@@ -106,18 +108,25 @@ export default function PanelPerfil() {
     const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2;
 
     try {
+      const formData = new FormData();
+      formData.append('subespecialidad', perfil.subespecialidad);
+      formData.append('acerca_de_mi', perfil.acerca_de_mi);
+      if (perfil.id_ubicacion) formData.append('id_ubicacion', perfil.id_ubicacion);
+      
+      if (fotoArchivo) {
+        formData.append('foto_archivo', fotoArchivo);
+      } else if (perfil.foto_perfil) {
+        formData.append('foto_perfil', perfil.foto_perfil);
+      }
+
       const respuesta = await fetch(`http://localhost:3000/api/fonoaudiologos/${idFonoaudiologo}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subespecialidad: perfil.subespecialidad,
-          acerca_de_mi: perfil.acerca_de_mi,
-          id_ubicacion: perfil.id_ubicacion // Enviamos el ID al backend
-        })
+        body: formData 
       });
 
       if (respuesta.ok) {
         setMensajePerfil({ texto: '¡Perfil actualizado correctamente!', tipo: 'exito' });
+        cargarDatos();
       } else {
         throw new Error('Error al actualizar');
       }
@@ -391,6 +400,26 @@ const detectarUbicacion = () => {
             <div>
               <label style={labelStyle}>Acerca de mí (Se mostrará a los pacientes)</label>
               <textarea name="acerca_de_mi" value={perfil.acerca_de_mi} onChange={manejarCambioPerfil} placeholder="Escribe una breve presentación..." style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }} />
+            </div>
+
+            <div style={{ marginTop: '20px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
+                Foto de Perfil (Opcional)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                {/* Muestra la foto actual si existe */}
+                {perfil.foto_perfil && (
+                  <img src={perfil.foto_perfil} alt="Actual" style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                )}
+                
+                {/* El botón para abrir el explorador de archivos */}
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg"
+                  onChange={e => setFotoArchivo(e.target.files[0])}
+                  style={{ ...inputStyle, padding: '9px 14px', cursor: 'pointer' }}
+                />
+              </div>
             </div>
 
             {mensajePerfil.texto && (

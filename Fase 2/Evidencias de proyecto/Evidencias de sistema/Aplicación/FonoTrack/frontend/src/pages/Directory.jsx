@@ -38,7 +38,8 @@ export default function Directory() {
           resenas: 0,
           resumen: fono.subespecialidad || 'Fonoaudiólogo Especialista',
           acerca: fono.acerca_de_mi || 'Sin descripción disponible.',
-          especialidades: fono.subespecialidad ? [fono.subespecialidad] : ['General']
+          especialidades: fono.subespecialidad ? [fono.subespecialidad] : ['General'],
+          foto_perfil: fono.foto_perfil
         }));
 
         setProfesionalesBD(datosAdaptados);
@@ -117,9 +118,19 @@ export default function Directory() {
                 return (
                   <article className="prof-card" key={p.id}>
                     <div className="prof-card-top">
-                      <div className="avatar-circle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <User size={24} color="#64748b" />
+                      
+                      <div className="avatar-circle" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {p.foto_perfil ? (
+                          <img 
+                            src={p.foto_perfil} 
+                            alt={`Perfil de ${p.nombre}`} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        ) : (
+                          <span style={{ fontSize: '24px' }}>👤</span>
+                        )}
                       </div>
+
                       <div className="info">
                         <h3>{p.nombre}</h3>
                         <div className="resumen">{p.resumen}</div>
