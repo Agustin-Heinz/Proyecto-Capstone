@@ -1,27 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import {MapPin, Pencil, Trash } from 'lucide-react';
+import { MapPin, Pencil, Trash } from 'lucide-react';
+
 export default function PanelPerfil() {
 
   // NAVEGACIÓN
-
   const [pestanaActiva, setPestanaActiva] = useState('perfil'); // 'perfil' o 'servicios'
   const [cargando, setCargando] = useState(true);
 
-  
   // ESTADOS PARA LA PESTAÑA DE MI PERFIL
-
   const [perfil, setPerfil] = useState({
     nombre_completo: '',
     rut: '',
     subespecialidad: '',
     acerca_de_mi: '',
-    comuna: '' 
+    id_ubicacion: '' // Cambiado de comuna a id_ubicacion
   });
+  const [listaComunas, setListaComunas] = useState([]); // Nuevo estado para las comunas
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [mensajePerfil, setMensajePerfil] = useState({ texto: '', tipo: '' });
 
   // ESTADOS PARA LA PESTAÑA DE MIS SERVICIOS
- 
   const [servicios, setServicios] = useState([]);
   const [disponibilidad, setDisponibilidad] = useState([]);
   const [nuevoServicio, setNuevoServicio] = useState({ nombre: '', precio: '', duracion: 50 });
@@ -38,6 +36,11 @@ export default function PanelPerfil() {
     const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; // 2 como fallback
 
     try {
+      // Cargar lista de comunas
+      const resComunas = await fetch('http://localhost:3000/api/comunas');
+      const comunasBD = await resComunas.json();
+      setListaComunas(comunasBD);
+
       // Cargar datos del perfil
       const resPerfil = await fetch('http://localhost:3000/api/fonoaudiologos');
       const datosPerfil = await resPerfil.json();
@@ -49,7 +52,7 @@ export default function PanelPerfil() {
           rut: miInfo.rut || '',
           subespecialidad: miInfo.subespecialidad || '',
           acerca_de_mi: miInfo.acerca_de_mi || '',
-          comuna: miInfo.comuna || '' 
+          id_ubicacion: miInfo.id_ubicacion || '' // Ahora lee el ID foráneo
         });
       }
 
@@ -86,7 +89,12 @@ export default function PanelPerfil() {
   // FUNCIONES DE "MI PERFIL"
 
   const manejarCambioPerfil = (e) => {
-    setPerfil({ ...perfil, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setPerfil({ 
+      ...perfil, 
+      // Si el campo es id_ubicacion, lo convertimos a número para mantener la coherencia
+      [name]: name === 'id_ubicacion' ? (value ? parseInt(value) : '') : value 
+    });
   };
 
   const guardarPerfil = async (e) => {
@@ -103,8 +111,8 @@ export default function PanelPerfil() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subespecialidad: perfil.subespecialidad,
-          acerca_de_mi: perfil.acerca_de_mi
-          // comuna: perfil.comuna
+          acerca_de_mi: perfil.acerca_de_mi,
+          id_ubicacion: perfil.id_ubicacion // Enviamos el ID al backend
         })
       });
 
@@ -123,15 +131,16 @@ export default function PanelPerfil() {
 
   const detectarUbicacion = () => {
     if ("geolocation" in navigator) {
+      alert("Detectando ubicación... Por favor acepta el permiso del navegador.");
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          alert(`Coordenadas detectadas: Lat ${lat.toFixed(2)}, Lon ${lon.toFixed(2)}\n\n(En un entorno real, esto se traduciría a una comuna de Santiago)`);
-          setPerfil(prev => ({ ...prev, comuna: 'Providencia' }));
+          // En un sistema real usarías position.coords con la API de Google Maps.
+          // Para esta prueba, simularemos la detección de la comuna Maipú (ID 18).
+          alert("¡Ubicación detectada exitosamente (Maipú)!");
+          setPerfil(prev => ({ ...prev, id_ubicacion: 18 }));
         },
         (error) => {
-          alert("No pudimos obtener tu ubicación. Verifica los permisos del navegador.");
+          alert("No pudimos obtener tu ubicación. Puedes seleccionarla manualmente.");
         }
       );
     } else {
@@ -302,9 +311,7 @@ export default function PanelPerfil() {
         </button>
       </div>
 
-
       {/* PESTAÑA MI PERFIL */}
-
       {pestanaActiva === 'perfil' && (
         <div style={panelContainerStyle}>
           <form onSubmit={guardarPerfil} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -324,8 +331,22 @@ export default function PanelPerfil() {
               <div>
                 <label style={labelStyle}>Comuna de Atención</label>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <input type="text" name="comuna" value={perfil.comuna} onChange={manejarCambioPerfil} placeholder="Ej: Providencia" style={{ ...inputStyle, flex: 1 }} />
-                  <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle} ><MapPin size={20} color="#1e40af" /> Detectar</button>
+                  <select 
+                    name="id_ubicacion" 
+                    value={perfil.id_ubicacion} 
+                    onChange={manejarCambioPerfil} 
+                    style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
+                  >
+                    <option value="">Selecciona tu comuna...</option>
+                    {listaComunas.map(c => (
+                      <option key={c.id_ubicacion} value={c.id_ubicacion}>
+                        {c.comuna}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle}>
+                    <MapPin size={18} color="#1d4ed8" /> Detectar
+                  </button>
                 </div>
               </div>
             </div>
@@ -348,9 +369,7 @@ export default function PanelPerfil() {
         </div>
       )}
 
-
    {/* PESTAÑA 2: MIS SERVICIOS */}
-  
       {pestanaActiva === 'servicios' && (
         <>
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', padding: '24px', marginBottom: '40px', border: servicioEditando ? '2px solid #fbbf24' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
@@ -406,7 +425,6 @@ export default function PanelPerfil() {
   );
 }
 
-// 
 // Tarjeta Independiente para cada Servicio
 function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteServicio, onGuardarHorario, onEliminarHorario }) {
    const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00', fin: '13:00' });
@@ -427,7 +445,7 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
    return (
       <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.04)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
          
-         {/* CABEZA: LOS DATOS DEL SERVICIO */}
+         {/* HEADER LOS DATOS DEL SERVICIO */}
          <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '10px' }}>
                {servicio.nombre}
@@ -442,7 +460,7 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
             </div>
          </div>
          
-         {/* CUERPO: LOS HORARIOS EXCLUSIVOS DE ESTE SERVICIO */}
+         {/* BODY LOS HORARIOS EXCLUSIVOS DE ESTE SERVICIO */}
          <div style={{ padding: '24px', backgroundColor: '#f8fafc' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
                Bloques de agenda exclusivos para este servicio:
@@ -501,7 +519,6 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
       </div>
    );
 }
-
 
 const btnPestanaStyle = { backgroundColor: 'transparent', border: 'none', padding: '10px 15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', transition: '0.2s', marginBottom: '-12px' };
 const panelContainerStyle = { backgroundColor: '#ffffff', borderRadius: '16px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' };

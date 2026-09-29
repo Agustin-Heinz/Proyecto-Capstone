@@ -97,15 +97,30 @@ app.delete('/api/pacientes/:id', async (req, res) => {
   }
 });
 
+app.get('/api/comunas', async (req, res) => {
+  try {
+    const comunas = await prisma.ubicacion.findMany({
+      orderBy: { comuna: 'asc' } // Orden alfabético
+    });
+    res.json(comunas);
+  } catch (error) {
+    console.error("Error al obtener comunas:", error);
+    res.status(500).json({ error: "Hubo un problema al buscar las comunas" });
+  }
+});
 
 app.get('/api/fonoaudiologos', async (req, res) => {
   try {
-    // Buscamos los catálogos por separado para evitar el error de relación en Prisma
-    const listaProfesionales = await prisma.fonoaudiologos.findMany();
+    // filtro para llamar a lacomuna
+    const listaProfesionales = await prisma.fonoaudiologos.findMany({
+      include: {
+        ubicacion: true // Esto es para traer el nombre de la comuna automáticamente
+      }
+    });
     const todosServicios = await prisma.servicios.findMany();
     const todaDisponibilidad = await prisma.disponibilidad.findMany();
 
-    // Cruzamos la información manualmente
+    // Cruce de info
     const directorioCompleto = listaProfesionales.map(prof => {
       return {
         ...prof,
@@ -134,6 +149,29 @@ app.get('/api/fonoaudiologos/:id', async (req, res) => {
     res.status(200).json(perfil);
   } catch (error) {
     res.status(500).json({ error: "Error al cargar el perfil individual", detalle: error.message });
+  }
+});
+
+app.put('/api/fonoaudiologos/:id', async (req, res) => {
+  try {
+    const idFono = parseInt(req.params.id);
+    const { nombre_completo, subespecialidad, acerca_de_mi, id_ubicacion } = req.body;
+    
+    const perfilActualizado = await prisma.fonoaudiologos.update({
+      where: { id_fonoaudiologo: idFono },
+      data: { 
+        nombre_completo,
+        subespecialidad,
+        acerca_de_mi,
+        // Si viene un id_ubicacion lo convertimos a número, sino se queda como null
+        id_ubicacion: id_ubicacion ? parseInt(id_ubicacion) : null 
+      }
+    });
+    
+    res.status(200).json(perfilActualizado);
+  } catch (error) {
+    console.error("Error al actualizar perfil:", error);
+    res.status(500).json({ mensaje: "Error al actualizar el perfil", detalle: error.message });
   }
 });
 

@@ -4,6 +4,9 @@ import { User, MapPin, Star, Sparkles } from 'lucide-react';
 
 export default function Directory() {
   const [profesionalesBD, setProfesionalesBD] = useState([]);
+  
+  // Listado de comunas
+  const [listaComunas, setListaComunas] = useState([]);
 
   const [filtroEsp, setFiltroEsp] = useState('');
   const [filtroUbicacion, setFiltroUbicacion] = useState('');
@@ -11,15 +14,25 @@ export default function Directory() {
   const [activeTabs, setActiveTabs] = useState({});
 
   useEffect(() => {
-    const cargarDirectorio = async () => {
+    const cargarDatos = async () => {
       try {
-        const respuesta = await fetch('http://localhost:3000/api/fonoaudiologos');
-        const datosReales = await respuesta.json();
+        // Ejecutamos las 2 peticiones al mismo tiempo para que cargue más rápido
+        const [resFonos, resComunas] = await Promise.all([
+          fetch('http://localhost:3000/api/fonoaudiologos'),
+          fetch('http://localhost:3000/api/comunas')
+        ]);
 
-        const datosAdaptados = datosReales.map(fono => ({
+        const datosFonos = await resFonos.json();
+        const datosComunas = await resComunas.json();
+
+        // Guardamos las comunas 
+        setListaComunas(datosComunas);
+
+        const datosAdaptados = datosFonos.map(fono => ({
           id: fono.id_fonoaudiologo, 
           nombre: fono.nombre_completo,
-          comuna: fono.ubicacion || 'Providencia', 
+          // AHORA lee la comuna desde la tabla relacionada (ubicacion.comuna)
+          comuna: fono.ubicacion?.comuna || 'No especificada', 
           modalidad: 'Presencial',
           rating: fono.calificacion_promedio ? parseFloat(fono.calificacion_promedio) : 5.0,
           resenas: 0,
@@ -34,7 +47,7 @@ export default function Directory() {
       }
     };
     
-    cargarDirectorio();
+    cargarDatos();
   }, []);
 
   const profesionalesFiltrados = profesionalesBD.filter(p => {
@@ -45,7 +58,6 @@ export default function Directory() {
   });
 
   const especialidadesUnicas = [...new Set(profesionalesBD.flatMap(p => p.especialidades))].filter(Boolean).sort();
-  const comunasUnicas = [...new Set(profesionalesBD.map(p => p.comuna))].sort();
 
   const cambiarPestana = (id, pestana) => {
     setActiveTabs(prev => ({ ...prev, [id]: pestana }));
@@ -71,8 +83,12 @@ export default function Directory() {
             
             <select value={filtroUbicacion} onChange={e => setFiltroUbicacion(e.target.value)}>
               <option value="">Ubicación</option>
-              {comunasUnicas.map(c => <option key={c} value={c}>{c}</option>)}
+              {/* Opción online fija arriba */}
               <option value="Online">Atiende online</option>
+              {/* Cargamos las comunas de la BD */}
+              {listaComunas.map(c => (
+                <option key={c.id_ubicacion} value={c.comuna}>{c.comuna}</option>
+              ))}
             </select>
             
             <select value={filtroCalif} onChange={e => setFiltroCalif(e.target.value)}>
