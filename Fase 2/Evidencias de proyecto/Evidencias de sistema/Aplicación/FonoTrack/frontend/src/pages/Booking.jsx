@@ -300,7 +300,7 @@ export default function Booking() {
         </div>
       </div>
 
-      {/* --- POPUP DE CONFIRMACIÓN --- */}
+      {/* POPUP DE CONFIRMACIÓN */}
       {mostrarModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -311,7 +311,7 @@ export default function Booking() {
           }}>
             
             {pasoModal === 1 ? (
-              /* --- CARA 1: CONFIRMACIÓN Y CRONÓMETRO --- */
+              /*  CONFIRMACIÓN Y CRONÓMETRO  */
               <>
                 <h3 style={{ margin: '0 0 16px 0', color: '#1a365d', fontSize: '20px' }}>Confirma tu reserva</h3>
                 
@@ -353,7 +353,7 @@ export default function Booking() {
                 </div>
               </>
             ) : (
-              /* --- CARA 2: ÉXITO Y OPCIÓN DE PAGO --- */
+              /* ÉXITO Y OPCIÓN DE PAGO  */
               <>
                 <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                   <div style={{ fontSize: '48px', marginBottom: '10px' }}>✅</div>
