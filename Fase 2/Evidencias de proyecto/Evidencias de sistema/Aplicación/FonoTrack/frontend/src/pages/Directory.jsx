@@ -16,33 +16,52 @@ export default function Directory() {
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        // Ejecutamos las 2 peticiones al mismo tiempo para que cargue más rápido
-        const [resFonos, resComunas] = await Promise.all([
+        // Ejecutamos peticiones para traer: fonoaudiologos, comunas y TODAS las reseñas
+        const [resFonos, resComunas, resResenasTodos] = await Promise.all([
           fetch('http://localhost:3000/api/fonoaudiologos'),
-          fetch('http://localhost:3000/api/comunas')
+          fetch('http://localhost:3000/api/comunas'),
+          fetch('http://localhost:3000/api/resenas/0') 
         ]);
 
         const datosFonos = await resFonos.json();
         const datosComunas = await resComunas.json();
-
+        
+        // para el directorio usaremos un pequeño truco haciendo un fetch por cada fonoaudiólogo para sacar su promedio.
+        
         // Guardamos las comunas 
         setListaComunas(datosComunas);
 
-        const datosAdaptados = datosFonos.map(fono => ({
-          id: fono.id_fonoaudiologo, 
-          nombre: fono.nombre_completo,
-          // AHORA lee la comuna desde la tabla relacionada (ubicacion.comuna)
-          comuna: fono.ubicacion?.comuna || 'No especificada', 
-          modalidad: 'Presencial',
-          rating: fono.calificacion_promedio ? parseFloat(fono.calificacion_promedio) : 5.0,
-          resenas: 0,
-          resumen: fono.subespecialidad || 'Fonoaudiólogo Especialista',
-          acerca: fono.acerca_de_mi || 'Sin descripción disponible.',
-          especialidades: fono.subespecialidad ? [fono.subespecialidad] : ['General'],
-          foto_perfil: fono.foto_perfil
+        // Procesamos a cada fonoaudiólogo para calcular su rating real
+        const procesarDatos = await Promise.all(datosFonos.map(async (fono) => {
+          // Buscamos las reseñas específicas de este profesional
+          const resResenas = await fetch(`http://localhost:3000/api/resenas/${fono.id_fonoaudiologo}`);
+          const reseñasReal = await resResenas.json();
+          
+          // Calculamos el promedio matemáticamente
+          let ratingReal = 5.0; // Nota por defecto
+          let cantidadResenas = 0;
+          
+          if (reseñasReal && reseñasReal.length > 0) {
+            cantidadResenas = reseñasReal.length;
+            const suma = reseñasReal.reduce((acc, r) => acc + r.calificacion, 0);
+            ratingReal = suma / cantidadResenas;
+          }
+
+          return {
+            id: fono.id_fonoaudiologo, 
+            nombre: fono.nombre_completo,
+            comuna: fono.ubicacion?.comuna || 'No especificada', 
+            modalidad: 'Presencial',
+            rating: parseFloat(ratingReal), // Usamos el rating matemático
+            resenas: cantidadResenas, // Usamos la cantidad real de comentarios
+            resumen: fono.subespecialidad || 'Fonoaudiólogo Especialista',
+            acerca: fono.acerca_de_mi || 'Sin descripción disponible.',
+            especialidades: fono.subespecialidad ? [fono.subespecialidad] : ['General'],
+            foto_perfil: fono.foto_perfil
+          };
         }));
 
-        setProfesionalesBD(datosAdaptados);
+        setProfesionalesBD(procesarDatos);
       } catch (error) {
         console.error("Error conectando al backend MySQL:", error);
       }
@@ -119,7 +138,7 @@ export default function Directory() {
                   <article className="prof-card" key={p.id}>
                     <div className="prof-card-top">
                       
-                      <div className="avatar-circle" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div className="avatar-circle" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9' }}>
                         {p.foto_perfil ? (
                           <img 
                             src={p.foto_perfil} 
@@ -127,7 +146,7 @@ export default function Directory() {
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                           />
                         ) : (
-                          <span style={{ fontSize: '24px' }}>👤</span>
+                          <User size={32} color="#64748b" /> /* Usé Lucide User para consistencia */
                         )}
                       </div>
 
@@ -137,7 +156,7 @@ export default function Directory() {
                         <div className="stars" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <span className="rating-num">{p.rating.toFixed(1)}</span>
                           <Star size={16} color="#fbbf24" fill="#fbbf24" />
-                          <span style={{color: 'var(--ink-soft)', fontWeight: 600}}>({p.resenas})</span>
+                          <span style={{color: '#64748b', fontWeight: 600}}>({p.resenas})</span>
                         </div>
                       </div>
                       <Link to={`/profesional/${p.id}`} className="agendar-btn" style={{ textDecoration: 'none', textAlign: 'center', display: 'inline-block' }}>

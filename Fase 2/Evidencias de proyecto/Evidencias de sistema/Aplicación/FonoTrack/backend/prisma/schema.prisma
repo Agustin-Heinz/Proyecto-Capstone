@@ -62,7 +62,17 @@ model fonoaudiologos {
   @@index([id_ubicacion], map: "fk_fono_ubicacion")
 }  
 
+model resenas {
+  id_resena        Int      @id @default(autoincrement())
+  id_paciente      Int
+  id_fonoaudiologo Int
+  calificacion     Int      // Guardará un número del 1 al 5
+  comentario       String?  @db.Text
+  fecha_creacion   DateTime @default(now()) @db.DateTime(0)
 
+  @@index([id_fonoaudiologo], map: "idx_resena_fono")
+  @@index([id_paciente], map: "idx_resena_paciente")
+}
 
 model pacientes {
   id_paciente      Int      @id @default(autoincrement())
