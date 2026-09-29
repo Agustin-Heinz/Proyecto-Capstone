@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Payment() {
@@ -6,33 +6,67 @@ export default function Payment() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Recibimos los datos acumulados, incluyendo el pacienteId que generó el Contacto
-  const { fecha, hora, contacto, pacienteId, p, s } = location.state || {};
+  // 1. AHORA RECIBIMOS EL reservaId QUE VIENE DESDE EL MODAL
+  const { fecha, hora, contacto, reservaId } = location.state || {};
+
+  const [profesional, setProfesional] = useState(null);
+  const [servicio, setServicio] = useState(null);
+  const [cargando, setCargando] = useState(true);
 
   const [metodo, setMetodo] = useState('debito');
   const [procesando, setProcesando] = useState(false);
 
-  if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        const resProf = await fetch(`http://localhost:3000/api/fonoaudiologos/${profId}`);
+        const dataProf = await resProf.json();
 
-  // Simulamos el pago (la cita ya se creó en el paso anterior)
+        const resServ = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${profId}`);
+        const dataServ = await resServ.json();
+        const servicioReal = dataServ.find(s => String(s.id_servicios) === String(servId)) || dataServ[0];
+
+        setProfesional(dataProf);
+        setServicio(servicioReal);
+        setCargando(false);
+      } catch (error) {
+        console.error("Error cargando datos de pago:", error);
+        setCargando(false);
+      }
+    };
+    cargarDatos();
+  }, [profId, servId]);
+
+  if (cargando) return <div style={{padding: '100px', textAlign: 'center'}}>Cargando pago...</div>;
+  if (!profesional || !servicio) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
+
+  // 2. FUNCIÓN ACTUALIZADA: Hacemos un PUT para actualizar, no un POST
   const handleSubmit = async (e) => {
     e.preventDefault();
     setProcesando(true);
 
     try {
-      // Obtenemos el ID de reserva (que viene desde Contact.jsx)
-      const idReserva = location.state?.reservaId || 0;
+      if (reservaId) {
+        // Actualizamos el estado de la cita existente en MySQL a "Pagado"
+        const respuesta = await fetch(`http://localhost:3000/api/citas/${reservaId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado_pago: 'Pagado' })
+        });
 
-      // Simulamos el retraso del banco y avanzamos 
+        if (!respuesta.ok) throw new Error("Error al actualizar la cita en MySQL");
+      }
+
+      // Simulamos la demora del banco y avanzamos a confirmación
       setTimeout(() => {
-        navigate(`/confirmacion/${profId}/${servId}`, { 
-          state: { fecha, hora, contacto, reservaId: idReserva, p, s } 
+        navigate(`/confirmacion/${profesional.id_fonoaudiologo}/${servicio.id_servicios}`, { 
+          state: { fecha, hora, contacto, reservaId } 
         });
       }, 1000);
 
     } catch (error) {
       console.error("Error procesando reserva:", error);
-      alert("Hubo un problema procesando tu pago.");
+      alert("Hubo un problema procesando tu pago. Revisa la consola.");
       setProcesando(false);
     }
   };
@@ -43,7 +77,7 @@ export default function Payment() {
         <div className="pay-card">
           <div className="pay-head">
             <div><div className="lbl">Estás pagando en</div><div style={{fontWeight: 700}}>FonoTrack</div></div>
-            <div style={{textAlign: 'right'}}><div className="lbl">Monto a pagar</div><div className="amount">${s.precio} CLP</div></div>
+            <div style={{textAlign: 'right'}}><div className="lbl">Monto a pagar</div><div className="amount">${servicio.precio} CLP</div></div>
           </div>
 
           <div className="method-row">
