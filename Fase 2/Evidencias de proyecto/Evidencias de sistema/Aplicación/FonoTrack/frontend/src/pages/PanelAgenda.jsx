@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Settings, MapPin, CalendarDays, Edit, Plus } from 'lucide-react';
+import { CalendarSearch , UserRoundGroup, CalendarDays, DollarSign  } from 'lucide-react';
 
 export default function PanelAgenda() {
   const [citasHoy, setCitasHoy] = useState([]);
@@ -72,10 +72,10 @@ export default function PanelAgenda() {
       </div>
 
       {/* MÉTRICAS SUPERIORES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '40px' }}>
-        <MetricCard titulo="Citas de hoy" valor={cargando ? "..." : citasHoy.length} color="#eff6ff" />
-        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos}  color="#f0fdf4" />
-        <MetricCard titulo="Ingresos acumulados del mes" valor={cargando ? "..." : `$${ingresosMes.toLocaleString('es-CL')}`} color="#f0fdf4" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '40px'}}>
+        <MetricCard titulo="Citas de hoy" valor={cargando ? "..." : citasHoy.length} color="#eff6ff"  icono={<CalendarSearch  size={24} color="#1e40af" />}   />
+        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos}  color="#f0fdf4" icono={<UserRoundGroup size={24} color="#1e40af" />} />
+        <MetricCard titulo="Ingresos acumulados del mes" valor={cargando ? "..." : `$${ingresosMes.toLocaleString('es-CL')}`} color="#f0fdf4" icono={<DollarSign  size={24} color="#1e40af" />} />
       </div>
 
       {/* ÁREA DE ACCIÓN RÁPIDA */}

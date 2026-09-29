@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { UserRound, UserRoundGroup } from 'lucide-react';
 
 export default function PanelPacientes() {
   const [pacienteActivo, setPacienteActivo] = useState(null);
@@ -109,11 +110,11 @@ export default function PanelPacientes() {
   
   const handleGuardarRegistro = async () => {
     if (!observaciones.trim()) {
-      alert("⚠️ Debes ingresar al menos una observación clínica.");
+      alert("Debes ingresar al menos una observación clínica.");
       return;
     }
     if (!pacienteActivo.idUltimaCita) {
-      alert("❌ Este paciente no tiene citas previas registradas para asociarle esta evolución.");
+      alert("Este paciente no tiene citas previas registradas para asociarle esta evolución.");
       return;
     }
 
@@ -162,8 +163,8 @@ export default function PanelPacientes() {
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
 
           <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              👥 Directorio de Pacientes
+            <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}><UserRoundGroup size={24} color="#1a365d" />
+               Directorio de Pacientes
             </h2>
             <button style={{ backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
               + Añadir nuevo paciente
@@ -184,7 +185,7 @@ export default function PanelPacientes() {
               {listaPacientes.map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ ...tdStyle, fontWeight: '600', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '32px', height: '32px', backgroundColor: '#e2e8f0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>👤</div>
+                    <div style={{ width: '32px', height: '32px', backgroundColor: '#e2e8f0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}> <UserRound size={18} color="#475569" /> </div>
                     {p.nombre}
                   </td>
                   <td style={tdStyle}>{p.rut}</td>
@@ -203,7 +204,7 @@ export default function PanelPacientes() {
                       onClick={() => setPacienteActivo(p)}
                       style={{ backgroundColor: 'transparent', color: '#1a365d', border: '1px solid #cbd5e1', padding: '6px 16px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}
                     >
-                      👁️ Ver ficha
+                       Ver ficha
                     </button>
                   </td>
                 </tr>
@@ -227,7 +228,7 @@ export default function PanelPacientes() {
           <div style={{ display: 'flex' }}>
             <div style={{ width: '320px', borderRight: '1px solid #f1f5f9', padding: '30px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
-                <div style={{ width: '56px', height: '56px', backgroundColor: '#bfdbfe', color: '#1e3a8a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>👤</div>
+                <div style={{ width: '56px', height: '56px', backgroundColor: '#bfdbfe', color: '#1e3a8a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}> <UserRound size={38} color="#475569" /></div>
                 <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>{pacienteActivo.nombre}</h3>
               </div>
 
@@ -245,7 +246,7 @@ export default function PanelPacientes() {
 
             <div style={{ flex: 1, padding: '30px 40px' }}>
               <h3 style={{ margin: '0 0 20px 0', color: '#1a365d', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🕒 Sesiones Previas
+                 Sesiones Previas
               </h3>
 
               <div style={{ borderLeft: '2px solid #e2e8f0', marginLeft: '10px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', marginBottom: '40px' }}>
@@ -284,7 +285,7 @@ export default function PanelPacientes() {
               </div>
 
               <h3 style={{ margin: '0 0 20px 0', color: '#1a365d', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📝 Registrar Nueva Sesión
+                Registrar Nueva Sesión
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
