@@ -25,7 +25,8 @@ export default function Detail() {
             telefono: 'No registrado', 
             email: 'No registrado',    
             servicios: fonoReal.servicios || [],
-            reviews: [] 
+            reviews: [],
+            foto_perfil: fonoReal.foto_perfil
           });
         }
         setCargando(false);
@@ -44,8 +45,12 @@ export default function Detail() {
       <div className="detail-head">
         <div className="wrap row2">
           {/* Avatar actualizado con icono */}
-          <div className="avatar-lg" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <User size={48} color="#64748b" />
+          <div className="avatar-lg" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0', borderRadius: '50%' }}>
+            {p.foto_perfil ? (
+              <img src={p.foto_perfil} alt={`Foto de ${p.nombre}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ fontSize: '40px' }}>👤</span>
+            )}
           </div>
           <div>
             <h1>{p.nombre}</h1>
