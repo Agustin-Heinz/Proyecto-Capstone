@@ -128,24 +128,61 @@ export default function PanelPerfil() {
       setGuardandoPerfil(false);
     }
   };
-
-  const detectarUbicacion = () => {
-    if ("geolocation" in navigator) {
-      alert("Detectando ubicación... Por favor acepta el permiso del navegador.");
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // En un sistema real usarías position.coords con la API de Google Maps.
-          // Para esta prueba, simularemos la detección de la comuna Maipú (ID 18).
-          alert("¡Ubicación detectada exitosamente (Maipú)!");
-          setPerfil(prev => ({ ...prev, id_ubicacion: 18 }));
-        },
-        (error) => {
-          alert("No pudimos obtener tu ubicación. Puedes seleccionarla manualmente.");
-        }
-      );
-    } else {
-      alert("La geolocalización no está soportada por este navegador.");
+const detectarUbicacion = () => {
+    if (!navigator.geolocation) {
+      setMensajePerfil({ texto: "Tu navegador no soporta geolocalización.", tipo: 'error' });
+      return;
     }
+
+    // Usamos el mensaje del perfil en vez de un alert molesto
+    setMensajePerfil({ texto: "Buscando tu ubicación por GPS... por favor espera.", tipo: 'exito' });
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        try {
+          // usamos la API de OpenStreetMap (porque es gratis) para extraer la coordenada y pasarla a texto
+          const respuesta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+          const data = await respuesta.json();
+
+          // Extraemos el nombre del lugar
+          const comunaDetectada = data.address?.suburb || data.address?.town || data.address?.city || data.address?.village || data.address?.county;
+
+          if (comunaDetectada) {
+            // Limpiamos el texto (quitamos tildes y pasamos a minúsculas para evitar errores como "Maipú" vs "maipu", así el sistema lo detecta correctamente)
+            const limpiarTexto = (texto) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            const comunaLimpia = limpiarTexto(comunaDetectada);
+
+            // Se verifica que pertenezca al listado de la base de datos (estamos limitados a santiago únicamente por lo que zonas externas no funcionaría)
+            const comunaEncontrada = listaComunas.find(c => {
+              const nombreBD = limpiarTexto(c.comuna);
+              // Validamos que coincidan (si detecta "Comuna de Maipú", que haga match con "Maipú")
+              return nombreBD.includes(comunaLimpia) || comunaLimpia.includes(nombreBD);
+            });
+
+            if (comunaEncontrada) {
+              setPerfil(prev => ({ ...prev, id_ubicacion: comunaEncontrada.id_ubicacion }));
+              setMensajePerfil({ texto: `¡Éxito! Detectamos que estás en ${comunaEncontrada.comuna}.`, tipo: 'exito' });
+            } else {
+              setMensajePerfil({ texto: `El GPS dice que estás en "${comunaDetectada}", pero no está en tu lista de comunas. Seleccionala manualmente.`, tipo: 'error' });
+            }
+          } else {
+            setMensajePerfil({ texto: "No pudimos identificar la comuna desde tus coordenadas.", tipo: 'error' });
+          }
+        } catch (error) {
+          console.error("Error al geocodificar:", error);
+          setMensajePerfil({ texto: "Hubo un error de conexión con el mapa satelital.", tipo: 'error' });
+        }
+      },
+      (error) => {
+        let errorMsg = "No pudimos obtener tu ubicación.";
+        if (error.code === 1) errorMsg = "Rechazaste el permiso de ubicación en el navegador.";
+        setMensajePerfil({ texto: errorMsg, tipo: 'error' });
+      },
+      { timeout: 10000 } // Le damos máximo 10 segundos para encontrar el GPS
+    );
   };
 
   // FUNCIONES DE LA PESTAÑA: MIS SERVICIOS 
