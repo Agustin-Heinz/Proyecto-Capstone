@@ -322,6 +322,23 @@ app.post('/api/citas', async (req, res) => {
   }
 });
 
+app.put('/api/citas/:id', async (req, res) => {
+  try {
+    const idBuscado = parseInt(req.params.id);
+
+    const citaActualizada = await prisma.citas.update({
+      where: { id_citas: idBuscado },
+      data: { estado_pago: 'Pagado' } // Cambiamos el estado a Pagado
+    });
+
+    console.log(`Pago actualizado para la cita ID: ${idBuscado}`);
+    res.status(200).json(citaActualizada);
+  } catch (error) {
+    console.error("Error al actualizar pago:", error);
+    res.status(500).json({ mensaje: "Error al actualizar la cita", detalle: error.message });
+  }
+});
+
 
 // GET CITAS, Leer el calendario de horas 
 
@@ -442,7 +459,7 @@ app.post('/api/login', async (req, res) => {
 
     console.log("Inicio de sesión exitoso:", usuario.email);
     res.status(200).json({ ...usuario, perfilId, nombre });
-    
+
   } catch (error) {
     res.status(500).json({ mensaje: "Error al iniciar sesión", detalle: error.message });
   }

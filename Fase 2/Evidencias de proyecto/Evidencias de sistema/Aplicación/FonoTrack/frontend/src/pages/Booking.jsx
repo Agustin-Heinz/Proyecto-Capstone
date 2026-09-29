@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-
 export default function Booking() {
   const { profId, servId } = useParams();
   const navigate = useNavigate();
@@ -9,16 +8,99 @@ export default function Booking() {
   // Estados para la base de datos real
   const [p, setP] = useState(null);
   const [s, setS] = useState(null);
-  const [disponibilidad, setDisponibilidad] = useState([]); //Guardar los horarios 
+  const [disponibilidad, setDisponibilidad] = useState([]); 
   const [cargandoInfo, setCargandoInfo] = useState(true);
 
   const [fecha, setFecha] = useState(null);
   const [hora, setHora] = useState(null);
   const [horasOcupadas, setHorasOcupadas] = useState([]);
 
+  // Estados del Modal
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [tiempo, setTiempo] = useState(60);
+  const [pasoModal, setPasoModal] = useState(1);
+  
+  // Estados para el guardado en MySQL
+  const [procesandoReserva, setProcesandoReserva] = useState(false);
+  const [idCitaGenerada, setIdCitaGenerada] = useState(null);
+
+  // Lógica para el cronómetro
+  useEffect(() => {
+    let intervalo;
+    if (mostrarModal && tiempo > 0) {
+      intervalo = setInterval(() => {
+        setTiempo((t) => t - 1);
+      }, 1000);
+    } else if (tiempo === 0) {
+      setMostrarModal(false); // Cierra el popup si se acaba el tiempo
+    }
+    return () => clearInterval(intervalo);
+  }, [mostrarModal, tiempo]);
+
+  // Función que guarda en MySQL al confirmar en el modal (Paso 1)
+  const handleConfirmarYGuardar = async () => {
+    const esPaciente = localStorage.getItem('rol') === 'paciente';
+    
+    // Si no es un paciente real, lo mandamos al formulario de contacto
+    if (!esPaciente) {
+      navigate(`/contacto/${profId}/${servId}`, { state: { fecha, hora } });
+      return;
+    }
+
+    setProcesandoReserva(true);
+    const perfilId = localStorage.getItem('perfilId');
+
+    try {
+      const respuesta = await fetch('http://localhost:3000/api/citas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_paciente: parseInt(perfilId),
+          id_fonoaudiologo: parseInt(profId),
+          id_servicio: parseInt(servId),
+          fecha: fecha,
+          hora_inicio: hora,
+          duracion_minutos: 50,
+          precio: s?.precio || 0
+        })
+      });
+
+      if (respuesta.ok) {
+        const nuevaCita = await respuesta.json();
+        setIdCitaGenerada(nuevaCita.id_citas); // Guardamos el ID que generó MySQL
+        setPasoModal(2); // Avanzamos a la pantalla de éxito
+      } else {
+        alert("Error al guardar la hora en la base de datos.");
+      }
+    } catch (error) {
+      console.error("Error de conexión:", error);
+    } finally {
+      setProcesandoReserva(false);
+    }
+  };
+
+  // Función de navegación inteligente hacia el pago (Paso 2)
+  const confirmarReserva = () => {
+    const esPaciente = localStorage.getItem('rol') === 'paciente';
+    const pacienteNombre = localStorage.getItem('nombre');
+
+    if (esPaciente) {
+      navigate(`/pago/${profId}/${servId}`, {
+        state: { 
+          fecha: fecha, 
+          hora: hora,
+          contacto: { nombre: pacienteNombre },
+          reservaId: idCitaGenerada
+        }
+      });
+    } else {
+      navigate(`/contacto/${profId}/${servId}`, {
+        state: { fecha: fecha, hora: hora }
+      });
+    }
+  };
 
   // CARGA DE LOS DATOS Y DISPONIBILIDAD DESDE MYSQL
-
   useEffect(() => {
     const cargarDatos = async () => {
       try {
@@ -28,7 +110,6 @@ export default function Booking() {
         const resServs = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${profId}`);
         const servs = await resServs.json();
 
-        // 🔥 NUEVA PETICIÓN: Traemos solo los horarios asignados a este servicio en particular
         const resDisp = await fetch(`http://localhost:3000/api/disponibilidad?id_fonoaudiologo=${profId}&id_servicio=${servId}`);
         const disp = await resDisp.json();
 
@@ -47,21 +128,17 @@ export default function Booking() {
     if(profId && servId) cargarDatos();
   }, [profId, servId]);
 
-
   // CARRUSEL HORARIO PARA EL APARTADO DE SELECCIÓN DE HORAS
-  
   const diasSemana = ['DOM.', 'LUN.', 'MAR.', 'MIÉ.', 'JUE.', 'VIE.', 'SÁB.'];
   const meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
   const mesesCompletos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-  // Extraemos solo los DÍAS ÚNICOS en los que el profesional atiende
   const fechasUnicas = [...new Set(disponibilidad.map(d => {
     return d.dia_semana ? String(d.dia_semana).split('T')[0] : '';
-  }))].filter(Boolean).sort(); // Las ordenamos de forma cronológica
+  }))].filter(Boolean).sort(); 
 
-  // Transformamos esos días al formato visual de la tarjeta
   const listaFechas = fechasUnicas.map(fechaStr => {
-    const f = new Date(`${fechaStr}T12:00:00`); // T12 para evitar desfases de zona horaria 
+    const f = new Date(`${fechaStr}T12:00:00`); 
     return {
       key: fechaStr,
       dow: diasSemana[f.getDay()],
@@ -87,23 +164,17 @@ export default function Booking() {
   const mesActual = fechasMostradas[0]?.mesCompleto || 'Sin horarios';
   const anioActual = fechasMostradas[0]?.anio || '';
 
-
-  // CREACIÓN DE UN CONSTRUCTOR DINÁMICO DE HORAS (Basado en la fecha elegida)
-  
-  // Filtramos la disponibilidad para encontrar las horas exactas creadas para el día que el paciente clickeó
+  // CREACIÓN DE UN CONSTRUCTOR DINÁMICO DE HORAS
   const bloquesDelDia = disponibilidad.filter(d => {
     const dStr = d.dia_semana ? String(d.dia_semana).split('T')[0] : '';
     return dStr === fecha;
   });
 
-  // Extraemos la hora de inicio de cada bloque y las ordenamos
   const horasDisp = bloquesDelDia.map(d => {
     return d.hora_inicio ? String(d.hora_inicio).substring(11, 16) : '';
   }).filter(Boolean).sort();
 
-  
-  // BLOQUEO DE HORAS YA RESERVADAS (Las registradas en MySQL)
-
+  // BLOQUEO DE HORAS YA RESERVADAS
   useEffect(() => {
     if (!fecha || !profId) return;
 
@@ -121,7 +192,6 @@ export default function Booking() {
     <main>
       <div className="booking-wrap">
         
-        {/* Banner Superior, conectado a MySQL */}
         <div className="booking-banner">
           <div className="eyebrow2">📅 Agenda de atención</div>
           <h2>{s.nombre_servicio}</h2>
@@ -134,7 +204,6 @@ export default function Booking() {
           <div className="cell"><div className="lbl">Duración</div><div className="val">50 min</div></div>
         </div>
 
-        {/* CARRUSEL DE SECCIÓN DE FECHAS REGISTRADAS POR EL FONOAUDIOLOGO  */}
         <div className="step-label">1. ELIGE UNA FECHA</div>
         
         {listaFechas.length === 0 ? (
@@ -172,7 +241,6 @@ export default function Booking() {
           </>
         )}
 
-        {/* SECCIÓN DE HORAS */}
         <div className="step-label" style={{ marginTop: '30px' }}>2. ELIGE UN HORARIO</div>
         <div id="horariosWrap">
           {!fecha ? (
@@ -214,17 +282,108 @@ export default function Booking() {
         </div>
 
         {/* Botón Continuar */}
-        <div className="booking-continue-row" style={{ marginTop: '30px' }}>
-          <button
-            className={`btn-primary ${!hora ? 'btn-disabled' : ''}`}
+        <div className="booking-continue-row">
+          <button 
+            className={`btn-primary ${!hora ? 'btn-disabled' : ''}`} 
             disabled={!hora}
-            onClick={() => navigate(`/contacto/${p.id_fonoaudiologo}/${s.id_servicios}`, { state: { fecha, hora } })}
-            style={{ padding: '12px 24px', backgroundColor: !hora ? '#cbd5e1' : '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: !hora ? 'not-allowed' : 'pointer' }}
+            onClick={() => {
+              setTiempo(60); 
+              setPasoModal(1);
+              setMostrarModal(true); 
+            }}
           >
-            Continuar →
+            Tomar hora
           </button>
         </div>
       </div>
+
+      {/* --- POPUP DE CONFIRMACIÓN --- */}
+      {mostrarModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(3px)'
+        }}>
+          <div style={{
+            backgroundColor: '#fff', padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            
+            {pasoModal === 1 ? (
+              /* --- CARA 1: CONFIRMACIÓN Y CRONÓMETRO --- */
+              <>
+                <h3 style={{ margin: '0 0 16px 0', color: '#1a365d', fontSize: '20px' }}>Confirma tu reserva</h3>
+                
+                <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+                  <p style={{ margin: '0 0 8px 0', color: '#475569' }}>
+                    Fonoaudiólogo/a: <strong style={{color: '#0f172a'}}>{p?.nombre_completo || p?.nombre}</strong>
+                  </p>
+                  <p style={{ margin: 0, color: '#475569' }}>
+                    Atención el: <strong style={{color: '#0f172a'}}>{fecha}</strong> a las <strong style={{color: '#0f172a'}}>{hora}</strong>
+                  </p>
+                </div>
+                
+                <div style={{ width: '100%', height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+                  <div style={{ 
+                    height: '100%', 
+                    width: `${(tiempo / 60) * 100}%`, 
+                    backgroundColor: tiempo > 15 ? '#6366f1' : '#ef4444', 
+                    transition: 'width 1s linear, background-color 0.3s' 
+                  }}></div>
+                </div>
+                <p style={{ fontSize: '13px', color: tiempo > 15 ? '#64748b' : '#ef4444', textAlign: 'center', margin: '0 0 24px 0', fontWeight: '500' }}>
+                  La reserva caducará en {tiempo} segundos
+                </p>
+
+                <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
+                  <button 
+                    onClick={handleConfirmarYGuardar} 
+                    disabled={procesandoReserva}
+                    style={{ width: '100%', padding: '14px', borderRadius: '8px', border: 'none', backgroundColor: procesandoReserva ? '#94a3b8' : '#4f46e5', color: 'white', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}
+                  >
+                    {procesandoReserva ? 'Guardando en agenda...' : 'Está todo correcto'}
+                  </button>
+                  <button 
+                    onClick={() => setMostrarModal(false)} 
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontWeight: '600', color: '#64748b', fontSize: '14px' }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* --- CARA 2: ÉXITO Y OPCIÓN DE PAGO --- */
+              <>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '10px' }}>✅</div>
+                  <h3 style={{ margin: '0 0 10px 0', color: '#166534', fontSize: '22px' }}>¡Hora tomada correctamente!</h3>
+                  <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.5' }}>
+                    Tu reserva ha sido pre-aprobada. ¿Deseas realizar el pago ahora mismo para dejarla confirmada?
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
+                  <button 
+                    onClick={confirmarReserva} 
+                    style={{ width: '100%', padding: '14px', borderRadius: '8px', border: 'none', backgroundColor: '#4f46e5', color: 'white', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}
+                  >
+                    Sí, ir a pagar al tiro
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setMostrarModal(false);
+                      navigate('/');
+                    }} 
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'transparent', cursor: 'pointer', fontWeight: '600', color: '#475569', fontSize: '14px' }}
+                  >
+                    No, pagaré en la consulta
+                  </button>
+                </div>
+              </>
+            )}
+
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
