@@ -30,7 +30,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 
-//GETS DE PACIENTES Y PLANES
+// GETS DE PACIENTES Y PLANES
 
 app.get('/api/planes', async (req, res) => {
   try {
@@ -120,7 +120,7 @@ app.delete('/api/pacientes/:id', async (req, res) => {
 app.get('/api/comunas', async (req, res) => {
   try {
     const comunas = await prisma.ubicacion.findMany({
-      orderBy: { comuna: 'asc' } // Orden alfabético
+      orderBy: { comuna: 'asc' }
     });
     res.json(comunas);
   } catch (error) {
@@ -129,18 +129,32 @@ app.get('/api/comunas', async (req, res) => {
   }
 });
 
+// NUEVO: Extraer el catálogo oficial de servicios desde MySQL (filtrable por Infantil o Adultos)
+app.get('/api/catalogo-servicios', async (req, res) => {
+  try {
+    const { publico } = req.query;
+    const filtro = (publico && publico !== 'Ambos') 
+      ? { where: { publico_objetivo: publico } } 
+      : {};
+
+    const catalogo = await prisma.catalogo_servicios.findMany(filtro);
+    res.status(200).json(catalogo);
+  } catch (error) {
+    console.error("Error al obtener catálogo de servicios:", error);
+    res.status(500).json({ error: "Hubo un problema al cargar el catálogo de servicios" });
+  }
+});
+
 app.get('/api/fonoaudiologos', async (req, res) => {
   try {
-    // filtro para llamar a lacomuna
     const listaProfesionales = await prisma.fonoaudiologos.findMany({
       include: {
-        ubicacion: true // Esto es para traer el nombre de la comuna automáticamente
+        ubicacion: true
       }
     });
     const todosServicios = await prisma.servicios.findMany();
     const todaDisponibilidad = await prisma.disponibilidad.findMany();
 
-    // Cruce de info
     const directorioCompleto = listaProfesionales.map(prof => {
       return {
         ...prof,
@@ -172,12 +186,12 @@ app.get('/api/fonoaudiologos/:id', async (req, res) => {
   }
 });
 
+// ACTUALIZADO: Ahora también recibe y guarda publico_objetivo ('Infantil', 'Adultos' o 'Ambos')
 app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, res) => {
   try {
     const idFono = parseInt(req.params.id);
-    const { nombre_completo, subespecialidad, acerca_de_mi, id_ubicacion, foto_perfil } = req.body;
+    const { nombre_completo, subespecialidad, publico_objetivo, acerca_de_mi, id_ubicacion, foto_perfil } = req.body;
     
-    // Si el usuario subió una imagen, armamos la URL local. Si no, mantenemos la que ya estaba.
     let rutaImagen = foto_perfil;
     if (req.file) {
       rutaImagen = `http://localhost:3000/uploads/${req.file.filename}`;
@@ -188,6 +202,7 @@ app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, re
       data: { 
         nombre_completo,
         subespecialidad,
+        publico_objetivo: publico_objetivo || 'Ambos',
         acerca_de_mi,
         foto_perfil: rutaImagen,
         id_ubicacion: id_ubicacion ? parseInt(id_ubicacion) : null 
@@ -234,12 +249,14 @@ app.get('/api/disponibilidad', async (req, res) => {
   }
 });
 
+// ACTUALIZADO: Guarda tanto el id_catalogo compartido como el nombre_servicio y precio
 app.post('/api/servicios', async (req, res) => {
   try {
-    const { id_fonoaudiologo, nombre, precio } = req.body;
+    const { id_fonoaudiologo, id_catalogo, nombre, precio } = req.body;
     const nuevoServicio = await prisma.servicios.create({
       data: {
         id_fonoaudiologo: parseInt(id_fonoaudiologo),
+        id_catalogo: id_catalogo ? parseInt(id_catalogo) : null,
         nombre_servicio: nombre,
         precio: parseInt(precio)
       }
@@ -274,13 +291,18 @@ app.post('/api/disponibilidad', async (req, res) => {
   }
 });
 
+// ACTUALIZADO: Permite actualizar id_catalogo además de nombre y precio
 app.put('/api/servicios/:id', async (req, res) => {
   try {
     const idServicio = parseInt(req.params.id);
-    const { nombre, precio } = req.body;
+    const { id_catalogo, nombre, precio } = req.body;
     const actualizado = await prisma.servicios.update({
       where: { id_servicios: idServicio },
-      data: { nombre_servicio: nombre, precio: parseInt(precio) }
+      data: { 
+        id_catalogo: id_catalogo ? parseInt(id_catalogo) : undefined,
+        nombre_servicio: nombre, 
+        precio: parseInt(precio) 
+      }
     });
     res.status(200).json(actualizado);
   } catch (error) {
@@ -325,7 +347,7 @@ app.delete('/api/disponibilidad/:id', async (req, res) => {
   }
 });
 
-//GET CITAS, EL GET PARA LAS CITAS OCUPADAS
+// GET CITAS OCUPADAS
 app.get('/api/citas/ocupadas', async (req, res) => {
   try {
     const { fecha, id_fonoaudiologo } = req.query;
@@ -351,9 +373,7 @@ app.get('/api/citas/ocupadas', async (req, res) => {
   }
 });
 
-
-//POST CITAS: Crear una nueva hora 
-
+// POST CITAS
 app.post('/api/citas', async (req, res) => {
   try {
     const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio } = req.body;
@@ -392,7 +412,7 @@ app.put('/api/citas/:id', async (req, res) => {
 
     const citaActualizada = await prisma.citas.update({
       where: { id_citas: idBuscado },
-      data: { estado_pago: 'Pagado' } // Cambiamos el estado a Pagado
+      data: { estado_pago: 'Pagado' }
     });
 
     console.log(`Pago actualizado para la cita ID: ${idBuscado}`);
@@ -403,22 +423,16 @@ app.put('/api/citas/:id', async (req, res) => {
   }
 });
 
-
-// GET CITAS, Leer el calendario de horas 
-
+// GET CITAS
 app.get('/api/citas', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
     const condicion = id_fonoaudiologo ? { where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) } } : {}; 
     
-    //Buscamos el historial básico
     const historialCitas = await prisma.citas.findMany(condicion);
-    
-    //Buscamos los catálogos para cruzar
     const listaPacientes = await prisma.pacientes.findMany();
     const listaServicios = await prisma.servicios.findMany();
 
-    //Cruzamos la información
     const citasCompletas = historialCitas.map(cita => {
         const paciente = listaPacientes.find(p => p.id_paciente === cita.id_paciente);
         const servicio = listaServicios.find(s => s.id_servicios === cita.id_servicio);
@@ -450,7 +464,6 @@ app.put('/api/citas/:id/pago', async (req, res) => {
 });
 
 // AUTENTICACIÓN: Registro y Login
-
 app.post('/api/registro', async (req, res) => {
   try {
     const { nombre, email, password, rol, rut, fechaNacimiento, genero } = req.body;
@@ -460,7 +473,8 @@ app.post('/api/registro', async (req, res) => {
         data: {
           email: email,
           contrasena: password,
-          rol: rol }
+          rol: rol 
+        }
       });
 
       if (rol === 'fonoaudiologo') {
@@ -470,6 +484,7 @@ app.post('/api/registro', async (req, res) => {
             nombre_completo: nombre,
             rut: `PD-${Date.now().toString().slice(-6)}`,
             subespecialidad: 'General',
+            publico_objetivo: 'Ambos',
             acerca_de_mi: 'Nuevo profesional en FonoTrack'
           }
         });
@@ -495,7 +510,6 @@ app.post('/api/registro', async (req, res) => {
   }
 });
 
-// Metodo post para iniciiar sesion
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -506,7 +520,6 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
 
-    //Busca el Id y el nombre dependendo del rol
     let perfilId = null;
     let nombre = "Usuario";
 
@@ -529,9 +542,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
-// MÓDULO BUISNESS INTELLEGINCE Estadísticas, Privadas por Profesional (GET)
-
+// MÓDULO BUSINESS INTELLIGENCE Estadísticas Privadas por Profesional (GET)
 app.get('/api/estadisticas', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
@@ -637,18 +648,11 @@ app.get('/api/estadisticas', async (req, res) => {
   }
 });
 
-
-
-
 // FICHAS CLÍNICAS: Guardar y anotar observaciones
-
-
-// POST, Guardar una nueva observación clínica (Con el nombre exacto de tu schema)
 app.post('/api/fichas', async (req, res) => {
   try {
     const { id_cita, observaciones_clinicas, actividades_hogar } = req.body;
     
-    // Usamos evoluciones_sesion TODO EN MINÚSCULA tal cual está en tu schema
     const nuevaFicha = await prisma.evoluciones_sesion.create({
       data: {
         id_cita: parseInt(id_cita),
@@ -664,12 +668,10 @@ app.post('/api/fichas', async (req, res) => {
   }
 });
 
-// GET, Leer el historial clínico (include daba error, así que usamos esto)
 app.get('/api/fichas/:id_paciente', async (req, res) => {
   try {
     const idPaciente = parseInt(req.params.id_paciente);
     
-    // Buscamos todas las citas de este paciente
     const historialCitas = await prisma.citas.findMany({
       where: { id_paciente: idPaciente },
       orderBy: { fecha: 'desc' }
@@ -677,25 +679,20 @@ app.get('/api/fichas/:id_paciente', async (req, res) => {
     
     if (historialCitas.length === 0) return res.status(200).json([]);
 
-    // Extraemos los IDs de las citas que encontramos
     const idsCitas = historialCitas.map(c => c.id_citas);
 
-    // Buscamos todas las evoluciones que correspondan a esas citas
     const evoluciones = await prisma.evoluciones_sesion.findMany({
       where: { id_cita: { in: idsCitas } }
     });
 
-    // Cruzamos los datos manualmente en Node.js
     const citasConFicha = historialCitas.map(cita => {
-      // Filtramos las evoluciones que le pertenecen solo a esta cita en específico
       const evolucionesDeEstaCita = evoluciones.filter(evo => evo.id_cita === cita.id_citas);
       
       return {
         ...cita,
-        // Le pasamos la S mayúscula a React porque así lo programamos en el PanelPacientes.jsx
         evoluciones_Sesion: evolucionesDeEstaCita 
       };
-    }).filter(cita => cita.evoluciones_Sesion.length > 0); // Ocultamos las citas que aún no tienen diagnóstico escrito
+    }).filter(cita => cita.evoluciones_Sesion.length > 0);
     
     res.status(200).json(citasConFicha);
   } catch (error) {
@@ -704,7 +701,7 @@ app.get('/api/fichas/:id_paciente', async (req, res) => {
   }
 });
 
-// POST: Guardar un nuevo comentario y calificación
+// RESEÑAS: Guardar y leer comentarios
 app.post('/api/resenas', async (req, res) => {
   try {
     const { id_paciente, id_fonoaudiologo, calificacion, comentario } = req.body;
@@ -724,18 +721,15 @@ app.post('/api/resenas', async (req, res) => {
   }
 });
 
-// GET: Leer todas las reseñas de un profesional específico
 app.get('/api/resenas/:id_fonoaudiologo', async (req, res) => {
   try {
     const idFono = parseInt(req.params.id_fonoaudiologo);
     
-    // Obtenemos las reseñas
     const listaResenas = await prisma.resenas.findMany({
       where: { id_fonoaudiologo: idFono },
-      orderBy: { fecha_creacion: 'desc' } // Las más nuevas primero
+      orderBy: { fecha_creacion: 'desc' }
     });
 
-    // Trae los nombres de los pacientes para mostrarlos en el comentario
     const todosLosPacientes = await prisma.pacientes.findMany();
     
     const resenasCompletas = listaResenas.map(resena => {

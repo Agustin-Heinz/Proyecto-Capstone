@@ -12,19 +12,21 @@ export default function PanelPerfil() {
     nombre_completo: '',
     rut: '',
     subespecialidad: '',
+    publico_objetivo: 'Ambos',
     acerca_de_mi: '',
     id_ubicacion: '',
     foto_perfil: ''
   });
-  const [listaComunas, setListaComunas] = useState([]); // Nuevo estado para las comunas
+  const [listaComunas, setListaComunas] = useState([]);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [mensajePerfil, setMensajePerfil] = useState({ texto: '', tipo: '' });
   const [fotoArchivo, setFotoArchivo] = useState(null);
 
   // ESTADOS PARA LA PESTAÑA DE MIS SERVICIOS
+  const [catalogoServicios, setCatalogoServicios] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [disponibilidad, setDisponibilidad] = useState([]);
-  const [nuevoServicio, setNuevoServicio] = useState({ nombre: '', precio: '', duracion: 50 });
+  const [nuevoServicio, setNuevoServicio] = useState({ id_catalogo: '', nombre: '', precio: '', duracion: 50 });
   const [servicioEditando, setServicioEditando] = useState(null);
 
   // CARGAR TODOS LOS DATOS 
@@ -38,12 +40,17 @@ export default function PanelPerfil() {
     const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; // 2 como fallback
 
     try {
-      // Cargar lista de comunas
+      // 1. Cargar lista de comunas
       const resComunas = await fetch('http://localhost:3000/api/comunas');
       const comunasBD = await resComunas.json();
       setListaComunas(comunasBD);
 
-      // Cargar datos del perfil
+      // 2. Cargar catálogo oficial de servicios desde MySQL
+      const resCatalogo = await fetch('http://localhost:3000/api/catalogo-servicios');
+      const catalogoBD = await resCatalogo.json();
+      setCatalogoServicios(Array.isArray(catalogoBD) ? catalogoBD : []);
+
+      // 3. Cargar datos del perfil
       const resPerfil = await fetch('http://localhost:3000/api/fonoaudiologos');
       const datosPerfil = await resPerfil.json();
       const miInfo = datosPerfil.find(f => f.id_fonoaudiologo === idFonoaudiologo);
@@ -53,24 +60,26 @@ export default function PanelPerfil() {
           nombre_completo: miInfo.nombre_completo || '',
           rut: miInfo.rut || '',
           subespecialidad: miInfo.subespecialidad || '',
+          publico_objetivo: miInfo.publico_objetivo || 'Ambos',
           acerca_de_mi: miInfo.acerca_de_mi || '',
           id_ubicacion: miInfo.id_ubicacion || '',
           foto_perfil: miInfo.foto_perfil || '' 
         });
       }
 
-      // Cargar Servicios
+      // 4. Cargar Servicios del fonoaudiólogo
       const resServs = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${idFonoaudiologo}`);
       const datosServs = await resServs.json();
       const servFormateados = datosServs.map(s => ({
         id: s.id_servicios,
+        id_catalogo: s.id_catalogo || '',
         nombre: s.nombre_servicio,
         precio: s.precio,
         duracion: 50
       }));
       setServicios(servFormateados);
 
-      // Cargar Horarios
+      // 5. Cargar Horarios
       const resDisp = await fetch(`http://localhost:3000/api/disponibilidad?id_fonoaudiologo=${idFonoaudiologo}`);
       const datosDisp = await resDisp.json();
       const horFormateados = datosDisp.map(d => ({
@@ -99,7 +108,7 @@ export default function PanelPerfil() {
     });
   };
 
-const guardarPerfil = async (e) => {
+  const guardarPerfil = async (e) => {
     e.preventDefault();
     setGuardandoPerfil(true);
     setMensajePerfil({ texto: '', tipo: '' });
@@ -110,6 +119,7 @@ const guardarPerfil = async (e) => {
     try {
       const formData = new FormData();
       formData.append('subespecialidad', perfil.subespecialidad);
+      formData.append('publico_objetivo', perfil.publico_objetivo || 'Ambos');
       formData.append('acerca_de_mi', perfil.acerca_de_mi);
       if (perfil.id_ubicacion) formData.append('id_ubicacion', perfil.id_ubicacion);
       
@@ -137,13 +147,13 @@ const guardarPerfil = async (e) => {
       setGuardandoPerfil(false);
     }
   };
-const detectarUbicacion = () => {
+
+  const detectarUbicacion = () => {
     if (!navigator.geolocation) {
       setMensajePerfil({ texto: "Tu navegador no soporta geolocalización.", tipo: 'error' });
       return;
     }
 
-    // Usamos el mensaje del perfil en vez de un alert molesto
     setMensajePerfil({ texto: "Buscando tu ubicación por GPS... por favor espera.", tipo: 'exito' });
 
     navigator.geolocation.getCurrentPosition(
@@ -152,22 +162,17 @@ const detectarUbicacion = () => {
         const lon = position.coords.longitude;
 
         try {
-          // usamos la API de OpenStreetMap (porque es gratis) para extraer la coordenada y pasarla a texto
           const respuesta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
           const data = await respuesta.json();
 
-          // Extraemos el nombre del lugar
           const comunaDetectada = data.address?.suburb || data.address?.town || data.address?.city || data.address?.village || data.address?.county;
 
           if (comunaDetectada) {
-            // Limpiamos el texto (quitamos tildes y pasamos a minúsculas para evitar errores como "Maipú" vs "maipu", así el sistema lo detecta correctamente)
             const limpiarTexto = (texto) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
             const comunaLimpia = limpiarTexto(comunaDetectada);
 
-            // Se verifica que pertenezca al listado de la base de datos (estamos limitados a santiago únicamente por lo que zonas externas no funcionaría)
             const comunaEncontrada = listaComunas.find(c => {
               const nombreBD = limpiarTexto(c.comuna);
-              // Validamos que coincidan (si detecta "Comuna de Maipú", que haga match con "Maipú")
               return nombreBD.includes(comunaLimpia) || comunaLimpia.includes(nombreBD);
             });
 
@@ -175,7 +180,7 @@ const detectarUbicacion = () => {
               setPerfil(prev => ({ ...prev, id_ubicacion: comunaEncontrada.id_ubicacion }));
               setMensajePerfil({ texto: `¡Éxito! Detectamos que estás en ${comunaEncontrada.comuna}.`, tipo: 'exito' });
             } else {
-              setMensajePerfil({ texto: `El GPS dice que estás en "${comunaDetectada}", pero no está en tu lista de comunas. Seleccionala manualmente.`, tipo: 'error' });
+              setMensajePerfil({ texto: `El GPS dice que estás en "${comunaDetectada}", pero no está en tu lista de comunas. Selecciónala manualmente.`, tipo: 'error' });
             }
           } else {
             setMensajePerfil({ texto: "No pudimos identificar la comuna desde tus coordenadas.", tipo: 'error' });
@@ -190,11 +195,28 @@ const detectarUbicacion = () => {
         if (error.code === 1) errorMsg = "Rechazaste el permiso de ubicación en el navegador.";
         setMensajePerfil({ texto: errorMsg, tipo: 'error' });
       },
-      { timeout: 10000 } // Le damos máximo 10 segundos para encontrar el GPS
+      { timeout: 10000 }
     );
   };
 
   // FUNCIONES DE LA PESTAÑA: MIS SERVICIOS 
+
+  // Filtramos el catálogo de MySQL según el público que atiende este fonoaudiólogo
+  const catalogoFiltrado = catalogoServicios.filter(item => {
+    if (!perfil.publico_objetivo || perfil.publico_objetivo === 'Ambos') return true;
+    return item.publico_objetivo === perfil.publico_objetivo;
+  });
+
+  // Cuando elige un servicio del select, guardamos tanto el nombre como el id_catalogo
+  const handleSeleccionarServicioCatalogo = (e) => {
+    const nombreElegido = e.target.value;
+    const itemEncontrado = catalogoServicios.find(c => c.nombre_servicio === nombreElegido);
+    setNuevoServicio({
+      ...nuevoServicio,
+      nombre: nombreElegido,
+      id_catalogo: itemEncontrado ? itemEncontrado.id_catalogo : ''
+    });
+  };
   
   const handleGuardarServicio = async (e) => {
     e.preventDefault();
@@ -205,7 +227,7 @@ const detectarUbicacion = () => {
     );
 
     if (esDuplicado) {
-      alert("Ya tienes un servicio registrado con este mismo nombre exacto.");
+      alert("Ya tienes este servicio registrado en tu catálogo.");
       return;
     }
 
@@ -218,20 +240,29 @@ const detectarUbicacion = () => {
         respuesta = await fetch(`http://localhost:3000/api/servicios/${servicioEditando.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nombre: nuevoServicio.nombre, precio: nuevoServicio.precio })
+          body: JSON.stringify({ 
+            id_catalogo: nuevoServicio.id_catalogo,
+            nombre: nuevoServicio.nombre, 
+            precio: nuevoServicio.precio 
+          })
         });
       } else {
         respuesta = await fetch('http://localhost:3000/api/servicios', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id_fonoaudiologo: idFonoaudiologo, nombre: nuevoServicio.nombre, precio: nuevoServicio.precio })
+          body: JSON.stringify({ 
+            id_fonoaudiologo: idFonoaudiologo, 
+            id_catalogo: nuevoServicio.id_catalogo,
+            nombre: nuevoServicio.nombre, 
+            precio: nuevoServicio.precio 
+          })
         });
       }
 
       if (respuesta.ok) {
         alert(servicioEditando ? "Servicio actualizado" : "Servicio creado con éxito");
         setServicioEditando(null);
-        setNuevoServicio({ nombre: '', precio: '', duracion: 50 }); 
+        setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 }); 
         cargarDatos();
       } else {
         alert(`Error al guardar el servicio en el servidor.`);
@@ -243,7 +274,12 @@ const detectarUbicacion = () => {
 
   const iniciarEdicionServicio = (servicio) => {
     setServicioEditando(servicio);
-    setNuevoServicio({ nombre: servicio.nombre, precio: servicio.precio, duracion: servicio.duracion });
+    setNuevoServicio({ 
+      id_catalogo: servicio.id_catalogo || '', 
+      nombre: servicio.nombre, 
+      precio: servicio.precio, 
+      duracion: servicio.duracion 
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -353,7 +389,7 @@ const detectarUbicacion = () => {
           onClick={() => setPestanaActiva('servicios')}
           style={{ ...btnPestanaStyle, borderBottom: pestanaActiva === 'servicios' ? '3px solid #1d4ed8' : '3px solid transparent', color: pestanaActiva === 'servicios' ? '#1d4ed8' : '#64748b' }}
         >
-           Mis Servicios y Precios
+          Mis Servicios y Precios
         </button>
       </div>
 
@@ -368,32 +404,60 @@ const detectarUbicacion = () => {
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div>
-                <label style={labelStyle}>Subespecialidad</label>
-                <input type="text" name="subespecialidad" value={perfil.subespecialidad} onChange={manejarCambioPerfil} placeholder="Ej: Fonoaudiología Infantil" style={inputStyle} />
+                <label style={labelStyle}>1. Público que atiendes (Filtra tu catálogo)</label>
+                <select
+                  name="publico_objetivo"
+                  value={perfil.publico_objetivo}
+                  onChange={manejarCambioPerfil}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  <option value="Ambos">Ambos (Infantil y Adultos)</option>
+                  <option value="Infantil">Solo Infantil (Niños)</option>
+                  <option value="Adultos">Solo Adultos</option>
+                </select>
               </div>
+
               <div>
-                <label style={labelStyle}>Comuna de Atención</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <select 
-                    name="id_ubicacion" 
-                    value={perfil.id_ubicacion} 
-                    onChange={manejarCambioPerfil} 
-                    style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
-                  >
-                    <option value="">Selecciona tu comuna...</option>
-                    {listaComunas.map(c => (
-                      <option key={c.id_ubicacion} value={c.id_ubicacion}>
-                        {c.comuna}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle}>
-                    <MapPin size={18} color="#1d4ed8" /> Detectar
-                  </button>
-                </div>
+                <label style={labelStyle}>2. Subespecialidad Principal</label>
+                <select
+                  name="subespecialidad"
+                  value={perfil.subespecialidad || ''}
+                  onChange={manejarCambioPerfil}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  <option value="">Selecciona desde el catálogo</option>
+                  <option value="Fonoaudiología General">Fonoaudiología General</option>
+                  {catalogoFiltrado.map(item => (
+                    <option key={item.id_catalogo} value={item.nombre_servicio}>
+                      {perfil.publico_objetivo === 'Ambos' ? `[${item.publico_objetivo}] ` : ''}
+                      {item.nombre_servicio}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Comuna de Atención</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <select 
+                  name="id_ubicacion" 
+                  value={perfil.id_ubicacion} 
+                  onChange={manejarCambioPerfil} 
+                  style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
+                >
+                  <option value="">Selecciona tu comuna...</option>
+                  {listaComunas.map(c => (
+                    <option key={c.id_ubicacion} value={c.id_ubicacion}>
+                      {c.comuna}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle}>
+                  <MapPin size={18} color="#1d4ed8" /> Detectar
+                </button>
               </div>
             </div>
 
@@ -402,17 +466,14 @@ const detectarUbicacion = () => {
               <textarea name="acerca_de_mi" value={perfil.acerca_de_mi} onChange={manejarCambioPerfil} placeholder="Escribe una breve presentación..." style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }} />
             </div>
 
-            <div style={{ marginTop: '20px' }}>
+            <div style={{ marginTop: '10px' }}>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
                 Foto de Perfil (Opcional)
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                {/* Muestra la foto actual si existe */}
                 {perfil.foto_perfil && (
                   <img src={perfil.foto_perfil} alt="Actual" style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
                 )}
-                
-                {/* El botón para abrir el explorador de archivos */}
                 <input
                   type="file"
                   accept="image/png, image/jpeg, image/jpg"
@@ -435,17 +496,46 @@ const detectarUbicacion = () => {
         </div>
       )}
 
-   {/* PESTAÑA 2: MIS SERVICIOS */}
+      {/* PESTAÑA 2: MIS SERVICIOS */}
       {pestanaActiva === 'servicios' && (
         <>
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', padding: '24px', marginBottom: '40px', border: servicioEditando ? '2px solid #fbbf24' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
-             <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#0f172a' }}>
-               {servicioEditando ? 'Editando Catálogo de Servicio' : 'Crear Nuevo Servicio al Catálogo'}
-             </h2>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+               <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>
+                 {servicioEditando ? 'Editando Catálogo de Servicio' : 'Añadir Servicio Oficial a mi Perfil'}
+               </h2>
+               <span style={{ fontSize: '12px', fontWeight: '700', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '6px 12px', borderRadius: '20px', border: '1px solid #bfdbfe' }}>
+                 Filtro activo: Público {perfil.publico_objetivo || 'Ambos'}
+               </span>
+             </div>
+
              <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
                 <div style={{ flex: 2 }}>
-                  <label style={labelStyle}>Nombre del servicio</label>
-                  <input type="text" required style={inputStyle} placeholder="Ej: Evaluación de Lenguaje" value={nuevoServicio.nombre} onChange={e => setNuevoServicio({...nuevoServicio, nombre: e.target.value})} />
+                  <label style={labelStyle}>Selecciona un servicio oficial</label>
+                  <select
+                    required
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                    value={nuevoServicio.nombre}
+                    onChange={handleSeleccionarServicioCatalogo}
+                  >
+                    <option value="">-- Elige un tratamiento del catálogo --</option>
+                    {catalogoFiltrado.map(item => {
+                      const yaAgregado = servicios.some(
+                        s => s.nombre.toLowerCase().trim() === item.nombre_servicio.toLowerCase().trim() &&
+                        (!servicioEditando || s.id !== servicioEditando.id)
+                      );
+                      return (
+                        <option 
+                          key={item.id_catalogo} 
+                          value={item.nombre_servicio}
+                          disabled={yaAgregado}
+                        >
+                          {perfil.publico_objetivo === 'Ambos' ? `[${item.publico_objetivo}] ` : ''}
+                          {item.nombre_servicio} {yaAgregado ? '(Ya agregado)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Precio (CLP)</label>
@@ -459,7 +549,7 @@ const detectarUbicacion = () => {
                   {servicioEditando ? 'Guardar Cambios' : '+ Añadir Catálogo'}
                 </button>
                 {servicioEditando && (
-                  <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ nombre: '', precio: '', duracion: 50 }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
+                  <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
                 )}
              </form>
           </div>
@@ -468,7 +558,7 @@ const detectarUbicacion = () => {
             {servicios.length === 0 ? (
                <div style={{ textAlign: 'center', padding: '50px 0', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
                   <p style={{ color: '#64748b', fontSize: '16px', fontWeight: '500' }}>No tienes servicios registrados aún.</p>
-                  <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '5px' }}>Crea tu primer servicio arriba para asignarle horarios.</p>
+                  <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '5px' }}>Selecciona tu primer servicio arriba para asignarle horarios.</p>
                </div>
             ) : (
                servicios.map(s => (
