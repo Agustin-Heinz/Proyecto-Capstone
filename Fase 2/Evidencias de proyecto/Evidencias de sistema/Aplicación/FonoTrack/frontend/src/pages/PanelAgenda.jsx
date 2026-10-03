@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarSearch , UserRoundGroup, CalendarDays, DollarSign  } from 'lucide-react';
+import { CalendarSearch, UserRoundGroup, CalendarDays, DollarSign } from 'lucide-react';
 
 export default function PanelAgenda() {
   const [citasHoy, setCitasHoy] = useState([]);
@@ -19,9 +19,8 @@ export default function PanelAgenda() {
       .then(fonos => {
         const fono = fonos.find(f => f.id_fonoaudiologo === parseInt(perfilId));
         if (fono) {
-           // Extraer solo el primer nombre si es posible
-           const primerNombre = fono.nombre_completo.split(' ')[0];
-           setNombreProfesional(primerNombre);
+          const primerNombre = fono.nombre_completo.split(' ')[0];
+          setNombreProfesional(primerNombre);
         }
       })
       .catch(err => console.error("Error cargando perfil:", err));
@@ -40,22 +39,50 @@ export default function PanelAgenda() {
       });
   }, []);
 
-  const ingresosMes = citasHoy.reduce((total, c) => total + (c.precio || 0), 0);
-  const pacientesActivos = new Set(citasHoy.map(c => c.id_paciente)).size;
-  
-  // Obtener fecha actual en formato legible 
+  // obtenemos la fecha de  hoy en formato YYYY-MM-DD
+  const ahora = new Date();
+  const anioActual = ahora.getFullYear();
+  const mesActual = String(ahora.getMonth() + 1).padStart(2, '0');
+  const diaActual = String(ahora.getDate()).padStart(2, '0');
+  const hoyStr = `${anioActual}-${mesActual}-${diaActual}`;
+
+  // Filtrar las citas que corresponden al día de hoy
+  const citasSoloHoy = citasHoy.filter(c => {
+    const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
+    return fechaCita === hoyStr;
+  });
+
+  // Filtrar las citas agendadas desde hoy en adelante (descarta las que ya pasaron de fecha)
+  const citasFuturas = citasHoy.filter(c => {
+    const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
+    return fechaCita >= hoyStr;
+  });
+
+
+  // Muestra cuántas citas vigentes hay guardadas de hoy hacia el futuro:
+  const pacientesActivos = citasFuturas.length; 
+
+
+  // Ingresos acumulados del mes en curso
+  const ingresosMes = citasHoy
+    .filter(c => {
+      const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
+      return fechaCita.startsWith(`${anioActual}-${mesActual}`);
+    })
+    .reduce((total, c) => total + (c.precio || 0), 0);
+
+  // Obtener fecha actual en formato legible para el encabezado
   const fechaHoyStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Función para manejar el clic en asistencia (visual por ahora)
+  // Función para manejar el clic en asistencia
   const marcarAsistencia = (id, estado) => {
     setCitasHoy(prev => prev.map(c => c.id_citas === id ? { ...c, estado_asistencia: estado } : c));
-    // Aquí a futuro podríamos agregar un fetch(PUT) al backend para guardarlo en MySQL
   };
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '30px 40px', backgroundColor: '#f8fafc', minHeight: '100vh', boxSizing: 'border-box' }}>
       
-      {/* CABECERA (Como en la foto) */}
+      {/* CABECERA */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
         <div>
           <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>
@@ -68,17 +95,17 @@ export default function PanelAgenda() {
         </div>
         <div style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '10px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <CalendarDays size={18} color="#1e40af" /> {fechaHoyStr.charAt(0).toUpperCase() + fechaHoyStr.slice(1)}
-          </div> 
+        </div> 
       </div>
 
       {/* MÉTRICAS SUPERIORES */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '40px'}}>
-        <MetricCard titulo="Citas de hoy" valor={cargando ? "..." : citasHoy.length} color="#eff6ff"  icono={<CalendarSearch  size={24} color="#1e40af" />}   />
-        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos}  color="#f0fdf4" icono={<UserRoundGroup size={24} color="#1e40af" />} />
-        <MetricCard titulo="Ingresos acumulados del mes" valor={cargando ? "..." : `$${ingresosMes.toLocaleString('es-CL')}`} color="#f0fdf4" icono={<DollarSign  size={24} color="#1e40af" />} />
+        <MetricCard titulo="Citas de hoy" valor={cargando ? "..." : citasSoloHoy.length} color="#eff6ff" icono={<CalendarSearch size={24} color="#1e40af" />} />
+        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} color="#f0fdf4" icono={<UserRoundGroup size={24} color="#1e40af" />} />
+        <MetricCard titulo="Ingresos acumulados del mes" valor={cargando ? "..." : `$${ingresosMes.toLocaleString('es-CL')}`} color="#f0fdf4" icono={<DollarSign size={24} color="#1e40af" />} />
       </div>
 
-      {/* ÁREA DE ACCIÓN RÁPIDA */}
+      {/* ÁREA DE ACCIÓN RÁPIDA (SOLO CITAS DE HOY) */}
       <div style={{ backgroundColor: '#f1f5f9', padding: '30px', borderRadius: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
@@ -86,20 +113,24 @@ export default function PanelAgenda() {
             <h2 style={{ margin: '0', fontSize: '20px', color: '#0f172a' }}>Asistencia de citas de hoy</h2>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-             <span style={{ backgroundColor: '#dcfce7', color: '#166534', fontSize: '12px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '12px' }}>{citasHoy.filter(c => c.estado_asistencia === 'Asistió').length} A</span>
-             <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', fontSize: '12px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '12px' }}>{citasHoy.filter(c => c.estado_asistencia === 'Faltó').length} F</span>
+            <span style={{ backgroundColor: '#dcfce7', color: '#166534', fontSize: '12px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '12px' }}>
+              {citasSoloHoy.filter(c => c.estado_asistencia === 'Asistió').length} A
+            </span>
+            <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', fontSize: '12px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '12px' }}>
+              {citasSoloHoy.filter(c => c.estado_asistencia === 'Faltó').length} F
+            </span>
           </div>
         </div>
         
         {cargando ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Cargando citas...</div>
-        ) : citasHoy.length === 0 ? (
+        ) : citasSoloHoy.length === 0 ? (
           <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '12px', color: '#64748b', textAlign: 'center' }}>
-            No hay citas agendadas para mostrar.
+            No hay citas agendadas para el día de hoy.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {citasHoy.map(c => {
+            {citasSoloHoy.map(c => {
               const horaLimpia = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
               const estado = c.estado_asistencia || 'Pendiente';
 
@@ -138,9 +169,9 @@ export default function PanelAgenda() {
                     </button>
                     
                     <button 
-                       onClick={() => marcarAsistencia(c.id_citas, 'Faltó')}
-                       style={{ backgroundColor: 'transparent', color: estado === 'Faltó' ? '#94a3b8' : '#1a365d', border: `1px solid ${estado === 'Faltó' ? '#e2e8f0' : '#cbd5e1'}`, padding: '9px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: estado === 'Faltó' ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
-                       disabled={estado === 'Faltó'}
+                      onClick={() => marcarAsistencia(c.id_citas, 'Faltó')}
+                      style={{ backgroundColor: 'transparent', color: estado === 'Faltó' ? '#94a3b8' : '#1a365d', border: `1px solid ${estado === 'Faltó' ? '#e2e8f0' : '#cbd5e1'}`, padding: '9px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: estado === 'Faltó' ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                      disabled={estado === 'Faltó'}
                     >
                       Marcar inasistencia
                     </button>

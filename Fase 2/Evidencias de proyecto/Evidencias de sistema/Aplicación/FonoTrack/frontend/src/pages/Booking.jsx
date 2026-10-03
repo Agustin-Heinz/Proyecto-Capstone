@@ -66,13 +66,17 @@ export default function Booking() {
         })
       });
 
+
+      
       if (respuesta.ok) {
         const nuevaCita = await respuesta.json();
-        setIdCitaGenerada(nuevaCita.id_citas); // Guardamos el ID que generó MySQL
+        setIdCitaGenerada(nuevaCita.id_citas); // Guardamos el ID de la cita reservada
+        setHorasOcupadas((prev) => [...prev, hora]); // Bloquea el botón inmediatamente para evitar que mas usen esa hora
         setPasoModal(2); // Avanzamos a la pantalla de éxito
       } else {
         alert("Error al guardar la hora en la base de datos.");
       }
+      
     } catch (error) {
       console.error("Error de conexión:", error);
     } finally {

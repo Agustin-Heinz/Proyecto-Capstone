@@ -357,22 +357,22 @@ app.get('/api/citas/ocupadas', async (req, res) => {
     const citasOcupadas = await prisma.citas.findMany({
       where: {
         fecha: new Date(`${soloFecha}T00:00:00.000Z`),
-        id_fonoaudiologo: Number(id_fonoaudiologo)
+        id_fonoaudiologo: Number(id_fonoaudiologo),
+        estado_pago: { in: ['Pagado', 'Pendiente'] } // Si una cita pasa a 'Cancelado', libera la hora
       },
       select: { hora_inicio: true }
     });
 
+    // Extraemos los 5 caracteres de la hora ("HH:MM") de forma estándar (en vez de la del equipo local)
     const horasOcupadas = citasOcupadas.map(cita => {
-      const match = String(cita.hora_inicio).match(/\d{2}:\d{2}/);
-      return match ? match[0] : null;
+      return cita.hora_inicio ? cita.hora_inicio.toISOString().substring(11, 16) : null;
     }).filter(Boolean);
 
     res.json(horasOcupadas);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al consultar horas ocupadas", detalle: error.message });
+    res.status(500).json({ mensaje: "Error al consultar horas ocupadas", detalle: error.message }); // Error de extracción
   }
 });
-
 // POST CITAS
 app.post('/api/citas', async (req, res) => {
   try {
