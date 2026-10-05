@@ -187,10 +187,11 @@ app.get('/api/fonoaudiologos/:id', async (req, res) => {
 });
 
 // ACTUALIZADO: Ahora también recibe y guarda publico_objetivo ('Infantil', 'Adultos' o 'Ambos')
+
 app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, res) => {
   try {
     const idFono = parseInt(req.params.id);
-    const { nombre_completo, subespecialidad, publico_objetivo, acerca_de_mi, id_ubicacion, foto_perfil } = req.body;
+    const { nombre_completo, subespecialidad, publico_objetivo, acerca_de_mi, id_ubicacion, foto_perfil, telefono } = req.body;
     
     let rutaImagen = foto_perfil;
     if (req.file) {
@@ -205,6 +206,7 @@ app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, re
         publico_objetivo: publico_objetivo || 'Ambos',
         acerca_de_mi,
         foto_perfil: rutaImagen,
+	      telefono,
         id_ubicacion: id_ubicacion ? parseInt(id_ubicacion) : null 
       }
     });
@@ -215,6 +217,8 @@ app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, re
     res.status(500).json({ mensaje: "Error al actualizar", detalle: error.message });
   }
 });
+
+
 
 app.get('/api/servicios', async (req, res) => {
   try {

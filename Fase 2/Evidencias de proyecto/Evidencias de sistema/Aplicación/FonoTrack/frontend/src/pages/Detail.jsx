@@ -34,7 +34,7 @@ export default function Detail() {
           nombre: fonoReal.nombre_completo,
           resumen: fonoReal.subespecialidad || 'Fonoaudiólogo Especialista',
           acerca: fonoReal.acerca_de_mi || 'Sin descripción disponible.',
-          telefono: 'No registrado', 
+          telefono: fonoReal.telefono || 'No registrado', 
           email: 'No registrado',    
           servicios: fonoReal.servicios || [],
           foto_perfil: fonoReal.foto_perfil 

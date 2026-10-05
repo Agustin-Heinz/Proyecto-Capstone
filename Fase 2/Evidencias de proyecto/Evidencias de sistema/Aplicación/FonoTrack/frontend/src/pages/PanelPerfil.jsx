@@ -15,7 +15,9 @@ export default function PanelPerfil() {
     publico_objetivo: 'Ambos',
     acerca_de_mi: '',
     id_ubicacion: '',
-    foto_perfil: ''
+    foto_perfil: '',
+    telefono: ''
+
   });
   const [listaComunas, setListaComunas] = useState([]);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
@@ -63,7 +65,8 @@ export default function PanelPerfil() {
           publico_objetivo: miInfo.publico_objetivo || 'Ambos',
           acerca_de_mi: miInfo.acerca_de_mi || '',
           id_ubicacion: miInfo.id_ubicacion || '',
-          foto_perfil: miInfo.foto_perfil || '' 
+          foto_perfil: miInfo.foto_perfil || '',
+          telefono: miInfo.telefono || ''
         });
       }
 
@@ -121,6 +124,8 @@ export default function PanelPerfil() {
       formData.append('subespecialidad', perfil.subespecialidad);
       formData.append('publico_objetivo', perfil.publico_objetivo || 'Ambos');
       formData.append('acerca_de_mi', perfil.acerca_de_mi);
+      formData.append('telefono', perfil.telefono || '');
+
       if (perfil.id_ubicacion) formData.append('id_ubicacion', perfil.id_ubicacion);
       
       if (fotoArchivo) {
@@ -438,6 +443,19 @@ export default function PanelPerfil() {
                 </select>
               </div>
             </div>
+
+            <div>
+              <label style={labelStyle}>Teléfono de Contacto</label>
+              <input
+                 type="tel"
+                 name="telefono"
+                 value={perfil.telefono || ''}
+                 onChange={manejarCambioPerfil}
+                 placeholder="Ej: +56 9 1234 5678"
+                 style={inputStyle}
+                 />
+            </div>
+            
 
             <div>
               <label style={labelStyle}>Comuna de Atención</label>
