@@ -154,10 +154,15 @@ app.get('/api/fonoaudiologos', async (req, res) => {
     });
     const todosServicios = await prisma.servicios.findMany();
     const todaDisponibilidad = await prisma.disponibilidad.findMany();
+    const todosUsuarios = await prisma.usuarios.findMany({
+      select: { id_usuario: true, email: true }
+    });
 
     const directorioCompleto = listaProfesionales.map(prof => {
+      const usuario = todosUsuarios.find(u => u.id_usuario === prof.id_usuario);
       return {
-        ...prof,
+        ...prof, // <-- Mantiene nombre_completo, telefono, subespecialidad, etc.
+        email: usuario ? usuario.email : null,
         servicios: todosServicios.filter(s => s.id_fonoaudiologo === prof.id_fonoaudiologo),
         disponibilidad: todaDisponibilidad.filter(d => d.id_fonoaudiologo === prof.id_fonoaudiologo)
       };

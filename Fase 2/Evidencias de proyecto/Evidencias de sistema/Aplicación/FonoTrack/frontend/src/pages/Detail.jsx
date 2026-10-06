@@ -26,7 +26,9 @@ export default function Detail() {
       const datosFonos = await resFono.json();
       const datosResenas = await resResenas.json();
 
-      const fonoReal = datosFonos.find(prof => prof.id_fonoaudiologo === parseInt(id));
+      const fonoReal = Array.isArray(datosFonos)
+        ? datosFonos.find(prof => prof.id_fonoaudiologo === parseInt(id))
+        : null;
 
       if (fonoReal) {
         setP({
@@ -35,14 +37,14 @@ export default function Detail() {
           resumen: fonoReal.subespecialidad || 'Fonoaudiólogo Especialista',
           acerca: fonoReal.acerca_de_mi || 'Sin descripción disponible.',
           telefono: fonoReal.telefono || 'No registrado', 
-          email: 'No registrado',    
+          email: fonoReal.email || 'No registrado',
           servicios: fonoReal.servicios || [],
           foto_perfil: fonoReal.foto_perfil 
         });
       }
       
       // Guardamos las reseñas traídas de la base de datos
-      setReviews(datosResenas);
+      setReviews(Array.isArray(datosResenas) ? datosResenas : []);
       setCargando(false);
 
     } catch (err) {
@@ -53,6 +55,7 @@ export default function Detail() {
 
   useEffect(() => {
     cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Manejador para enviar el formulario de reseña

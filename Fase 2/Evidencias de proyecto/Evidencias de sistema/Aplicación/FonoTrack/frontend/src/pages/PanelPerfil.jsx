@@ -11,13 +11,13 @@ export default function PanelPerfil() {
   const [perfil, setPerfil] = useState({
     nombre_completo: '',
     rut: '',
+    email: '',
     subespecialidad: '',
     publico_objetivo: 'Ambos',
     acerca_de_mi: '',
     id_ubicacion: '',
     foto_perfil: '',
     telefono: ''
-
   });
   const [listaComunas, setListaComunas] = useState([]);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
@@ -45,7 +45,7 @@ export default function PanelPerfil() {
       // 1. Cargar lista de comunas
       const resComunas = await fetch('http://localhost:3000/api/comunas');
       const comunasBD = await resComunas.json();
-      setListaComunas(comunasBD);
+      setListaComunas(Array.isArray(comunasBD) ? comunasBD : []);
 
       // 2. Cargar catálogo oficial de servicios desde MySQL
       const resCatalogo = await fetch('http://localhost:3000/api/catalogo-servicios');
@@ -55,12 +55,15 @@ export default function PanelPerfil() {
       // 3. Cargar datos del perfil
       const resPerfil = await fetch('http://localhost:3000/api/fonoaudiologos');
       const datosPerfil = await resPerfil.json();
-      const miInfo = datosPerfil.find(f => f.id_fonoaudiologo === idFonoaudiologo);
+      const miInfo = Array.isArray(datosPerfil)
+        ? datosPerfil.find(f => f.id_fonoaudiologo === idFonoaudiologo)
+        : null;
       
       if (miInfo) {
         setPerfil({
           nombre_completo: miInfo.nombre_completo || '',
           rut: miInfo.rut || '',
+          email: miInfo.email || '',
           subespecialidad: miInfo.subespecialidad || '',
           publico_objetivo: miInfo.publico_objetivo || 'Ambos',
           acerca_de_mi: miInfo.acerca_de_mi || '',
@@ -73,7 +76,7 @@ export default function PanelPerfil() {
       // 4. Cargar Servicios del fonoaudiólogo
       const resServs = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${idFonoaudiologo}`);
       const datosServs = await resServs.json();
-      const servFormateados = datosServs.map(s => ({
+      const servFormateados = (Array.isArray(datosServs) ? datosServs : []).map(s => ({
         id: s.id_servicios,
         id_catalogo: s.id_catalogo || '',
         nombre: s.nombre_servicio,
@@ -85,7 +88,7 @@ export default function PanelPerfil() {
       // 5. Cargar Horarios
       const resDisp = await fetch(`http://localhost:3000/api/disponibilidad?id_fonoaudiologo=${idFonoaudiologo}`);
       const datosDisp = await resDisp.json();
-      const horFormateados = datosDisp.map(d => ({
+      const horFormateados = (Array.isArray(datosDisp) ? datosDisp : []).map(d => ({
         id: d.id_disponibilidad,
         id_servicio: d.id_servicio,
         dia: d.dia_semana ? String(d.dia_semana).split('T')[0] : '',
@@ -121,6 +124,7 @@ export default function PanelPerfil() {
 
     try {
       const formData = new FormData();
+      formData.append('nombre_completo', perfil.nombre_completo);
       formData.append('subespecialidad', perfil.subespecialidad);
       formData.append('publico_objetivo', perfil.publico_objetivo || 'Ambos');
       formData.append('acerca_de_mi', perfil.acerca_de_mi);
@@ -409,9 +413,10 @@ export default function PanelPerfil() {
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />
-           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div>
-                <label style={labelStyle}>1. Público que atiendes (Filtra tu catálogo)</label>
+                <label style={labelStyle}> Público que atiendes (Filtra tu catálogo)</label>
                 <select
                   name="publico_objetivo"
                   value={perfil.publico_objetivo}
@@ -444,18 +449,29 @@ export default function PanelPerfil() {
               </div>
             </div>
 
-            <div>
-              <label style={labelStyle}>Teléfono de Contacto</label>
-              <input
-                 type="tel"
-                 name="telefono"
-                 value={perfil.telefono || ''}
-                 onChange={manejarCambioPerfil}
-                 placeholder="Ej: +56 9 1234 5678"
-                 style={inputStyle}
-                 />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div>
+                <label style={labelStyle}>Teléfono de Contacto</label>
+                <input
+                  type="tel"
+                  name="telefono"
+                  value={perfil.telefono || ''}
+                  onChange={manejarCambioPerfil}
+                  placeholder="Ej: +56 9 1234 5678"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}> Correo Electrónico (Cuenta)</label>
+                <input
+                  type="email"
+                  value={perfil.email || ''}
+                  disabled
+                  style={inputDisabledStyle}
+                />
+              </div>
             </div>
-            
 
             <div>
               <label style={labelStyle}>Comuna de Atención</label>
@@ -466,7 +482,7 @@ export default function PanelPerfil() {
                   onChange={manejarCambioPerfil} 
                   style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
                 >
-                  <option value="">Selecciona tu comuna...</option>
+                  <option value="">Selecciona tu comuna</option>
                   {listaComunas.map(c => (
                     <option key={c.id_ubicacion} value={c.id_ubicacion}>
                       {c.comuna}
@@ -536,7 +552,7 @@ export default function PanelPerfil() {
                     value={nuevoServicio.nombre}
                     onChange={handleSeleccionarServicioCatalogo}
                   >
-                    <option value="">-- Elige un tratamiento del catálogo --</option>
+                    <option value=""> Elige un tratamiento del catálogo </option>
                     {catalogoFiltrado.map(item => {
                       const yaAgregado = servicios.some(
                         s => s.nombre.toLowerCase().trim() === item.nombre_servicio.toLowerCase().trim() &&
