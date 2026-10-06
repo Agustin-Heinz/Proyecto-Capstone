@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarFold , UserRoundGroup, CalendarDays, HandCoins } from 'lucide-react';
+import { CalendarFold, UserRoundGroup } from 'lucide-react';
 
 export default function PanelAgendaSemanal() {
   const [citas, setCitas] = useState([]);
@@ -9,32 +9,51 @@ export default function PanelAgendaSemanal() {
   const horaInicioCalendario = 8; // 08:00 AM
   const horas = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
-  //LÓGICA DEL CALENDARIO DINÁMICO (Autocentrado y Navegación)
-
+  // LÓGICA DEL CALENDARIO DINÁMICO (Autocentrado y Navegación)
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
+
+  // Fecha y hora actual del reloj local
+  const ahora = new Date();
+  const hoyStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+
+  // Verifica si una cita es futura o si es de hoy pero su hora de término aún no ha pasado
+  const citaSigueVigente = (c) => {
+    const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
+    if (fechaCita > hoyStr) return true;
+    if (fechaCita < hoyStr) return false;
+
+    const horaStr = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
+    const [horaC, minC] = horaStr.split(':').map(Number);
+    const duracion = Number(c.duracion_minutos) || 50;
+    const minutosTerminoCita = (horaC * 60 + minC) + duracion;
+
+    return minutosTerminoCita > minutosAhora;
+  };
 
   useEffect(() => {
     const perfilId = localStorage.getItem('perfilId');
     if (!perfilId) {
-       setCargando(false);
-       return;
+      setCargando(false);
+      return;
     }
 
     fetch(`http://localhost:3000/api/citas?id_fonoaudiologo=${perfilId}`)
       .then(respuesta => respuesta.json())
       .then(datosBackend => {
-        const citasOrdenadas = datosBackend.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        const listaSegura = Array.isArray(datosBackend) ? datosBackend : [];
+        const citasOrdenadas = listaSegura.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         setCitas(citasOrdenadas);
         
         // Buscamos la primera cita registrada
-        const hoyStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
+        const hoyLocalStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
         const fechasUnicas = [...new Set(citasOrdenadas.map(c => String(c.fecha).split('T')[0]))].sort();
-        const fechaFutura = fechasUnicas.find(f => f >= hoyStr);
+        const fechaFutura = fechasUnicas.find(f => f >= hoyLocalStr);
 
         if (fechaFutura) {
           // Si hay citas futuras, centramos la agenda en ese día
           const [y, m, d] = fechaFutura.split('-');
-          setFechaReferencia(new Date(Number(y), Number(m)-1, Number(d), 12, 0, 0));
+          setFechaReferencia(new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0));
         } else {
           // Si no hay ninguna, mostramos el día de hoy
           setFechaReferencia(new Date());
@@ -99,21 +118,27 @@ export default function PanelAgendaSemanal() {
     tituloRango = `${inicio.num} ${inicio.mesStr} — ${fin.num} ${fin.mesStr} ${fin.anio}`;
   }
 
-  // CÁLCULOS Y NUMERACIÓN DE RESERVAS 
-  
-  const pacientesActivos = new Set(citas.map(c => c.id_paciente)).size;
-  const ingresosProyectados = citas.reduce((total, c) => total + (c.precio || 0), 0);
+  // CÁLCULOS Y NUMERACIÓN DE RESERVAS (Descontando citas cuya hora ya terminó)
+  const citasVigentes = citas.filter(c => citaSigueVigente(c));
+
+  const fechasEnVista = diasMostrados.map(d => d.fecha);
+  const citasEnVista = citasVigentes.filter(c => {
+    const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
+    return fechasEnVista.includes(fechaCita);
+  });
+
+  const pacientesActivos = new Set(citasVigentes.map(c => c.id_paciente)).size;
 
   const [indiceReserva, setIndiceReserva] = useState(0);
   const reservasPorPagina = 3;
   
   const avanzarReservas = () => {
-    if (indiceReserva + reservasPorPagina < citas.length) setIndiceReserva(indiceReserva + reservasPorPagina);
+    if (indiceReserva + reservasPorPagina < citasVigentes.length) setIndiceReserva(indiceReserva + reservasPorPagina);
   };
   const retrocederReservas = () => {
     if (indiceReserva > 0) setIndiceReserva(indiceReserva - reservasPorPagina);
   };
-  const reservasVisibles = citas.slice(indiceReserva, indiceReserva + reservasPorPagina);
+  const reservasVisibles = citasVigentes.slice(indiceReserva, indiceReserva + reservasPorPagina);
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
@@ -125,17 +150,25 @@ export default function PanelAgendaSemanal() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-        <MetricCard titulo="Citas agendadas" valor={cargando ? "..." : citas.length} icono={<CalendarFold  size={24} color="#1e40af" />} />
-        <MetricCard titulo="Pacientes activos" valor={cargando ? "..." : pacientesActivos} icono={<UserRoundGroup size={24} color="#1e40af" />}/>
-        <MetricCard titulo="Ingresos proyectados" valor={cargando ? "..." : `$${ingresosProyectados.toLocaleString('es-CL')}`} icono={<HandCoins size={24} color="#1e40af" />} />
+      {/* SOLO CAMBIAN ESTOS 2 BLOQUES SUPERIORES */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '30px' }}>
+        <MetricCard 
+          titulo="Citas en esta vista" 
+          valor={cargando ? "..." : citasEnVista.length} 
+          subtitulo={tituloRango}
+          icono={<CalendarFold size={24} color="#1e40af" />} 
+        />
+        <MetricCard 
+          titulo="Pacientes activos" 
+          valor={cargando ? "..." : pacientesActivos} 
+          subtitulo="Con sesiones vigentes"
+          icono={<UserRoundGroup size={24} color="#1e40af" />}
+        />
       </div>
 
       <div style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
         
-        
-        {/* CALENDARIO CON BLOQUES GUARDADOS */}
-  
+        {/* CALENDARIO CON BLOQUES GUARDADOS (Diseño original intacto) */}
         <div style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -226,9 +259,7 @@ export default function PanelAgendaSemanal() {
           </div>
         </div>
 
-      
-        {/* CUADROS DE LAS RESERVAS ENTRANTES (numeración de a 3) */}
-
+        {/* CUADROS DE LAS RESERVAS ENTRANTES (Diseño original intacto) */}
         <div style={{ width: '320px', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
             <div>
@@ -236,17 +267,17 @@ export default function PanelAgendaSemanal() {
               <h2 style={{ margin: 0, fontSize: '24px', color: '#1a365d', letterSpacing: '-0.5px' }}>Reservas</h2>
             </div>
             
-            {citas.length > reservasPorPagina && (
-               <div style={{ display: 'flex', gap: '4px' }}>
-                 <button onClick={retrocederReservas} disabled={indiceReserva === 0} style={{ ...navBtnPequeno, opacity: indiceReserva === 0 ? 0.3 : 1 }}>▲</button>
-                 <button onClick={avanzarReservas} disabled={indiceReserva + reservasPorPagina >= citas.length} style={{ ...navBtnPequeno, opacity: indiceReserva + reservasPorPagina >= citas.length ? 0.3 : 1 }}>▼</button>
-               </div>
+            {citasVigentes.length > reservasPorPagina && (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button onClick={retrocederReservas} disabled={indiceReserva === 0} style={{ ...navBtnPequeno, opacity: indiceReserva === 0 ? 0.3 : 1 }}>▲</button>
+                <button onClick={avanzarReservas} disabled={indiceReserva + reservasPorPagina >= citasVigentes.length} style={{ ...navBtnPequeno, opacity: indiceReserva + reservasPorPagina >= citasVigentes.length ? 0.3 : 1 }}>▼</button>
+              </div>
             )}
           </div>
           
           {cargando ? (
             <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Buscando citas...</div>
-          ) : citas.length === 0 ? (
+          ) : citasVigentes.length === 0 ? (
             <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', color: '#64748b', fontSize: '15px' }}>
               Aún no hay citas registradas.
             </div>
@@ -261,7 +292,7 @@ export default function PanelAgendaSemanal() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontWeight: '700', color: '#1a365d', fontSize: '14px' }}>{fechaLimpia}</span>
                       <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
-                         {horaLimpia}
+                        {horaLimpia}
                       </span>
                     </div>
                     
@@ -278,7 +309,7 @@ export default function PanelAgendaSemanal() {
                       </span>
                     </div>
                   </div>
-                )
+                );
               })}
             </div>
           )}
@@ -299,14 +330,50 @@ const navBtnPequeno = {
   borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px'
 };
 
-function MetricCard({ titulo, valor, icono }) {
+function MetricCard({ titulo, valor, subtitulo, icono }) {
   return (
-    <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ color: '#64748b', fontSize: '13px', fontWeight: '700', marginBottom: '10px' }}>{titulo}</div>
-      <div style={{ color: '#1a365d', fontSize: '32px', fontWeight: '800', letterSpacing: '-1px' }}>{valor}</div>
-      {icono && (
-        <div style={{ position: 'absolute', top: '20px', right: '20px', fontSize: '20px', color: '#1a365d', opacity: 0.8, backgroundColor: '#f1f5f9', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {icono}
+    <div style={{ 
+      backgroundColor: '#ffffff', 
+      padding: '20px 24px', 
+      borderRadius: '16px', 
+      boxShadow: '0 2px 10px rgba(0,0,0,0.02)', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'space-between' 
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {icono && (
+          <div style={{ 
+            backgroundColor: '#eff6ff', 
+            width: '48px', 
+            height: '48px', 
+            borderRadius: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            {icono}
+          </div>
+        )}
+        <div>
+          <div style={{ color: '#64748b', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>{titulo}</div>
+          <div style={{ color: '#1a365d', fontSize: '30px', fontWeight: '800', lineHeight: '1', letterSpacing: '-1px' }}>{valor}</div>
+        </div>
+      </div>
+
+      {subtitulo && (
+        <div style={{ 
+          backgroundColor: '#f8fafc', 
+          color: '#64748b', 
+          border: '1px solid #e2e8f0',
+          padding: '6px 12px', 
+          borderRadius: '20px', 
+          fontSize: '12px', 
+          fontWeight: '600',
+          whiteSpace: 'nowrap'
+        }}>
+          {subtitulo}
         </div>
       )}
     </div>
