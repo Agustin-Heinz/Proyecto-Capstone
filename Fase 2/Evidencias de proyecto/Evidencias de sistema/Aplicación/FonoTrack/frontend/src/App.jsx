@@ -15,6 +15,7 @@ import PanelPacientes from './pages/PanelPacientes'
 import PanelReportes from './pages/PanelReportes'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import FloatingChat from './components/FloatingChat'
 
 // Componentes del Panel (¡Con la nueva agenda importada!)
 import DashboardLayout from './components/DashboardLayout'
@@ -29,6 +30,8 @@ function PublicLayout() {
       <Header />
       <Outlet />
       <Footer />
+      
+      <FloatingChat />
     </>
   )
 }
