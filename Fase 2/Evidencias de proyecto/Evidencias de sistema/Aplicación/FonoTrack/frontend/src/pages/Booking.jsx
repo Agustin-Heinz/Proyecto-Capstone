@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 
 export default function Booking() {
   const { profId, servId } = useParams();
   const navigate = useNavigate();
+  
+  
+  const location = useLocation();
+  const { reagendando, idCitaAntigua, estadoPagoAnterior } = location.state || {};
 
   // Estados para la base de datos real
   const [p, setP] = useState(null);
@@ -33,18 +37,19 @@ export default function Booking() {
         setTiempo((t) => t - 1);
       }, 1000);
     } else if (tiempo === 0) {
-      setMostrarModal(false); // Cierra el popup si se acaba el tiempo
+      setMostrarModal(false); 
     }
     return () => clearInterval(intervalo);
   }, [mostrarModal, tiempo]);
 
-  // Función que guarda en MySQL al confirmar en el modal (Paso 1)
   const handleConfirmarYGuardar = async () => {
     const esPaciente = localStorage.getItem('rol') === 'paciente';
     
-    // Si no es un paciente real, lo mandamos al formulario de contacto
+    // Si no es un paciente real, lo mandamos al formulario de contacto pasándole la memoria
     if (!esPaciente) {
-      navigate(`/contacto/${profId}/${servId}`, { state: { fecha, hora } });
+      navigate(`/contacto/${profId}/${servId}`, { 
+        state: { fecha, hora, reagendando, idCitaAntigua, estadoPagoAnterior } 
+      });
       return;
     }
 
@@ -62,17 +67,36 @@ export default function Booking() {
           fecha: fecha,
           hora_inicio: hora,
           duracion_minutos: 50,
-          precio: s?.precio || 0
+          precio: s?.precio || 0,
+          // Si es un reagendamiento que ya estaba pagado, heredamos el pago
+          ...(reagendando && estadoPagoAnterior === 'Pagado' && { estado_pago: 'Pagado' })
         })
       });
 
-
-      
       if (respuesta.ok) {
         const nuevaCita = await respuesta.json();
-        setIdCitaGenerada(nuevaCita.id_citas); // Guardamos el ID de la cita reservada
-        setHorasOcupadas((prev) => [...prev, hora]); // Bloquea el botón inmediatamente para evitar que mas usen esa hora
-        setPasoModal(2); // Avanzamos a la pantalla de éxito
+
+       
+        if (reagendando && idCitaAntigua) {
+          await fetch(`http://localhost:3000/api/citas/${idCitaAntigua}/estado`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado_asistencia: 'Anulada' })
+          });
+
+          // Si ya pagó antes, lo devolvemos al inicio con éxito total (sin pasar por el modal de pago)
+          if (estadoPagoAnterior === 'Pagado') {
+            alert(" Hora reagendada con éxito.");
+            setMostrarModal(false);
+            navigate('/');
+            return;
+          }
+        }
+
+        // Flujo normal o reagendamiento sin pago previo
+        setIdCitaGenerada(nuevaCita.id_citas); 
+        setHorasOcupadas((prev) => [...prev, hora]); 
+        setPasoModal(2); 
       } else {
         alert("Error al guardar la hora en la base de datos.");
       }

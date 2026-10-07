@@ -163,24 +163,31 @@ export default function PacientePerfil() {
     );
   };
 
-  // Clasificación temporal y de estado de cada cita
-  const ahora = new Date();
-  const hoyStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-
+  // Clasificación temporal exacta de cada cita (Evita falsos positivos de "ya atendidas")
   const clasificarCita = (c) => {
     const estadoGuardado = estadosLocales[c.id_citas];
     if (estadoGuardado === 'Anulada' || c.estado_asistencia === 'Anulada') return 'anuladas';
     if (c.estado_asistencia === 'Asistió') return 'atendidas';
 
-    const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
-    if (fechaCita < hoyStr) return 'atendidas';
-    if (fechaCita > hoyStr) return 'agendadas';
+    if (!c.fecha) return 'agendadas'; // Por seguridad, si no hay fecha, se asume agendada
 
-    const horaStr = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
-    const [h, m] = horaStr.split(':').map(Number);
+    // Extraer la fecha limpia (YYYY-MM-DD)
+    const fechaCitaStr = String(c.fecha).split('T')[0];
+    
+    // Extraer la hora limpia (HH:MM)
+    const horaCitaStr = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
+    const [h, m] = horaCitaStr.split(':').map(Number);
     const duracion = Number(c.duracion_minutos) || 50;
-    return (h * 60 + m + duracion) > minutosAhora ? 'agendadas' : 'atendidas';
+
+    // Crear un objeto Date exacto para el FINAL de la cita en la zona local
+    const fechaFinCita = new Date(`${fechaCitaStr}T${horaCitaStr}:00`);
+    fechaFinCita.setMinutes(fechaFinCita.getMinutes() + duracion);
+
+    // Comparar el momento actual con el final de la cita
+    const ahora = new Date();
+    
+    // Si la fecha/hora actual ya pasó el final de la cita, está atendida. Si no, sigue agendada.
+    return ahora.getTime() > fechaFinCita.getTime() ? 'atendidas' : 'agendadas';
   };
 
   const obtenerEstadoConfirmacion = (c) => {
