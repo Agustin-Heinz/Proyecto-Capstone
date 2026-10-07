@@ -54,7 +54,7 @@ export default function Header() {
             <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
               Hola, {nombre?.split(' ')[0]}
             </span>
-            <Link to="/mi-perfil" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
+            <Link to="/paciente-perfil" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
               Mis Reservas
             </Link>
             <button 
@@ -68,7 +68,7 @@ export default function Header() {
         ) : rol === 'fonoaudiologo' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
             <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
-              Flgo/a. {nombre?.split(' ')[0]}
+               {nombre?.split(' ')[0]}
             </span>
             <Link to="/panel" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
               Mi Panel

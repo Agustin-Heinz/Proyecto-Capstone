@@ -16,8 +16,9 @@ import PanelReportes from './pages/PanelReportes'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import FloatingChat from './components/FloatingChat'
+import PacientePerfil from './pages/PacientePerfil'
 
-// Componentes del Panel (¡Con la nueva agenda importada!)
+// Componentes del Panel 
 import DashboardLayout from './components/DashboardLayout'
 import PanelAgenda from './pages/PanelAgenda'
 import PanelAgendaSemanal from './pages/PanelAgendaSemanal'
@@ -52,6 +53,8 @@ function App() {
           <Route path="/confirmacion/:profId/:servId" element={<Confirmation />} />
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
+          <Route path="/paciente-perfil" element={<PacientePerfil />} />
+          <Route path="/mi-perfil" element={<PacientePerfil />} />
         </Route>
 
         {/* GRUPO 2: Panel de Administración (Lleva la barra lateral) */}

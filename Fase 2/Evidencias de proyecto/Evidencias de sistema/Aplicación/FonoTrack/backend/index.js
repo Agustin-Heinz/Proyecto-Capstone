@@ -370,11 +370,13 @@ app.get('/api/citas/ocupadas', async (req, res) => {
       where: {
         fecha: new Date(`${soloFecha}T00:00:00.000Z`),
         id_fonoaudiologo: Number(id_fonoaudiologo),
+        estado_asistencia: { not: 'Anulada' },
         estado_pago: { in: ['Pagado', 'Pendiente'] } // Si una cita pasa a 'Cancelado', libera la hora
       },
       select: { hora_inicio: true }
     });
 
+    
     // Extraemos los 5 caracteres de la hora ("HH:MM") de forma estándar (en vez de la del equipo local)
     const horasOcupadas = citasOcupadas.map(cita => {
       return cita.hora_inicio ? cita.hora_inicio.toISOString().substring(11, 16) : null;
@@ -415,6 +417,32 @@ app.post('/api/citas', async (req, res) => {
     res.status(201).json(nuevaCita);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
+  }
+});
+
+
+// PUT CITAS: CONFIRMAR O ANULAR
+
+app.put('/api/citas/:id/estado', async (req, res) => {
+  try {
+    const idCita = Number(req.params.id);
+    const { estado_asistencia } = req.body; // Recibirá 'Confirmada' o 'Anulada'
+
+    // Si el paciente anula, cambiamos el pago a Cancelado para liberar la hora en el directorio
+    const estadoPago = estado_asistencia === 'Anulada' ? 'Cancelado' : undefined;
+
+    const citaActualizada = await prisma.citas.update({
+      where: { id_citas: idCita },
+      data: { 
+        estado_asistencia: estado_asistencia,
+        ...(estadoPago && { estado_pago: estadoPago }) 
+      }
+    });
+
+    res.status(200).json(citaActualizada);
+  } catch (error) {
+    console.error(" Error al actualizar estado de la cita:", error);
+    res.status(500).json({ mensaje: "Error al actualizar la cita", detalle: error.message });
   }
 });
 
@@ -767,7 +795,7 @@ app.post('/api/chat', async (req, res) => {
     const { mensaje } = req.body;
     const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
 
-    // Prompt estricto que limita la IA a las especialidades de tu proyecto
+    // Prompt estricto que limita la IA a las especialidades del proyecto
     const promptContexto = `Eres un asistente de derivación médica virtual para la plataforma FonoTrack.
     Tu único objetivo es leer los síntomas o problemas del paciente y recomendarle a cuál de las siguientes subespecialidades fonoaudiológicas debe acudir:
     ('Evaluación del lenguaje infantil', 'Infantil'),
