@@ -59,7 +59,7 @@ export default function PanelAgenda() {
     return minutosTerminoCita > minutosAhora;
   };
 
-  // Todas las citas del día de hoy (para que la lista de abajo permita pasar asistencia todo el día)
+  // Función de todas las citas del día de hoy sin importar la hora (da chance a marcar la asistencia posterior)
   const todasLasCitasDeHoy = citasHoy.filter(c => {
     const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
     return fechaCita === hoyStr;
@@ -91,9 +91,22 @@ export default function PanelAgenda() {
     month: 'long'
   });
 
-  // Función para manejar el clic en asistencia
-  const marcarAsistencia = (id, estado) => {
-    setCitasHoy(prev => prev.map(c => c.id_citas === id ? { ...c, estado_asistencia: estado } : c));
+  // FUNCIÓN PARA HACER LA CONEXIÓN LOS GRÁFICOS DE "ASISTENCIA VS INASISTENCIA" AL INSTANTE
+  const marcarAsistencia = async (id, estado) => {
+    try {
+      // 1. Actualización visual instantánea (UX fluida)
+      setCitasHoy(prev => prev.map(c => c.id_citas === id ? { ...c, estado_asistencia: estado } : c));
+      
+      // 2. Disparamos la decisión real a la base de datos
+      await fetch(`http://localhost:3000/api/citas/${id}/estado`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado_asistencia: estado })
+      });
+      
+    } catch (error) {
+      console.error("Error al registrar la asistencia en BD:", error);
+    }
   };
 
   return (
@@ -137,7 +150,7 @@ export default function PanelAgenda() {
         />
       </div>
 
-      {/* ÁREA DE ACCIÓN RÁPIDA */}
+      {/* ÁREA DE ACCIÓN RÁPIDA (DURA HASTA LAS 00:00) */}
       <div style={{ backgroundColor: '#f1f5f9', padding: '28px', borderRadius: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
@@ -172,6 +185,9 @@ export default function PanelAgenda() {
 
               const badgeBg = estado === 'Asistió' ? '#dcfce7' : estado === 'Faltó' ? '#fee2e2' : '#fef3c7';
               const badgeColor = estado === 'Asistió' ? '#166534' : estado === 'Faltó' ? '#991b1b' : '#92400e';
+              
+              const esAsistio = estado === 'Asistió';
+              const esFalto = estado === 'Faltó';
 
               return (
                 <div key={c.id_citas} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ffffff', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
@@ -194,17 +210,41 @@ export default function PanelAgenda() {
                     <span style={{ backgroundColor: badgeBg, color: badgeColor, padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' }}>
                       {estado}
                     </span>
+                    
+                    {/* BOTÓN CONFIRMAR: Se vuelve gris y dice "Confirmada" si ya lo marcaste */}
                     <button 
-                      onClick={() => marcarAsistencia(c.id_citas, 'Asistió')}
-                      style={{ backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
+                      onClick={() => !esAsistio && marcarAsistencia(c.id_citas, 'Asistió')}
+                      style={{ 
+                        backgroundColor: esAsistio ? '#f1f5f9' : '#1a365d', 
+                        color: esAsistio ? '#94a3b8' : 'white', 
+                        border: 'none', 
+                        padding: '10px 18px', 
+                        borderRadius: '8px', 
+                        fontWeight: '600', 
+                        fontSize: '13px', 
+                        cursor: esAsistio ? 'default' : 'pointer',
+                        transition: 'all 0.2s'
+                      }}
                     >
-                      Confirmar asistencia
+                      {esAsistio ? 'Asistencia confirmada' : 'Confirmar asistencia'}
                     </button>
+                    
+                    {/* BOTÓN INASISTENCIA: Se vuelve rojo suave si lo marcas */}
                     <button 
-                      onClick={() => marcarAsistencia(c.id_citas, 'Faltó')}
-                      style={{ backgroundColor: 'transparent', color: '#1a365d', border: '1px solid #cbd5e1', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
+                      onClick={() => !esFalto && marcarAsistencia(c.id_citas, 'Faltó')}
+                      style={{ 
+                        backgroundColor: esFalto ? '#fef2f2' : 'transparent', 
+                        color: esFalto ? '#dc2626' : '#1a365d', 
+                        border: esFalto ? '1px solid #fecaca' : '1px solid #cbd5e1', 
+                        padding: '10px 18px', 
+                        borderRadius: '8px', 
+                        fontWeight: '600', 
+                        fontSize: '13px', 
+                        cursor: esFalto ? 'default' : 'pointer',
+                        transition: 'all 0.2s'
+                      }}
                     >
-                      Marcar inasistencia
+                      {esFalto ? 'Inasistencia marcada' : 'Marcar inasistencia'}
                     </button>
                   </div>
 

@@ -1020,77 +1020,85 @@ export default function PacientePerfil() {
               </div>
             </div>
 
-            {clasificarCita(citaSeleccionada) === 'agendadas' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {obtenerEstadoConfirmacion(citaSeleccionada) === 'Por confirmar' && (
+        {clasificarCita(citaSeleccionada) === 'agendadas' ? (
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                
+                {/* BOTÓN REAGENDAR */}
+                <button
+                  onClick={() => manejarReagendar(citaSeleccionada)}
+                  style={{
+                    flex: 1,
+                    minWidth: '130px',
+                    backgroundColor: '#eff6ff',
+                    color: '#1e40af',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '10px',
+                    padding: '11px',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '7px'
+                  }}
+                >
+                  <RefreshCw size={15} /> Reagendar
+                </button>
+
+                {/* BOTÓN CONFIRMAR (Solo visible si la cita está pendiente) */}
+                {obtenerEstadoConfirmacion(citaSeleccionada) === 'Pendiente a confirmar' && (
                   <button
                     onClick={() => {
                       actualizarEstadoCita(citaSeleccionada.id_citas, 'Confirmado');
                       setCitaSeleccionada(null);
                     }}
                     style={{
-                      backgroundColor: '#1a365d',
-                      color: '#ffffff',
-                      border: 'none',
+                      flex: 1,
+                      minWidth: '130px',
+                      backgroundColor: '#dcfce7',
+                      color: '#166534',
+                      border: '1px solid #bbf7d0',
                       borderRadius: '10px',
-                      padding: '12px',
+                      padding: '11px',
                       fontWeight: '700',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '8px'
+                      gap: '7px'
                     }}
                   >
-                    <CheckCircle2 size={17} /> Confirmar mi asistencia
+                    <CheckCircle2 size={15} /> Confirmar
                   </button>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <button
-                    onClick={() => manejarReagendar(citaSeleccionada)}
-                    style={{
-                      backgroundColor: '#eff6ff',
-                      color: '#1e40af',
-                      border: '1px solid #bfdbfe',
-                      borderRadius: '10px',
-                      padding: '11px',
-                      fontWeight: '700',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '7px'
-                    }}
-                  >
-                    <RefreshCw size={15} /> Reagendar hora
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      actualizarEstadoCita(citaSeleccionada.id_citas, 'Anulada');
-                      setCitaSeleccionada(null);
-                    }}
-                    style={{
-                      backgroundColor: '#fef2f2',
-                      color: '#dc2626',
-                      border: '1px solid #fecaca',
-                      borderRadius: '10px',
-                      padding: '11px',
-                      fontWeight: '700',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '7px'
-                    }}
-                  >
-                    <Trash2 size={15} /> Anular cita
-                  </button>
-                </div>
+                {/*  BOTÓN CANCELAR */}
+                <button
+                  onClick={() => {
+                    actualizarEstadoCita(citaSeleccionada.id_citas, 'Anulada');
+                    setCitaSeleccionada(null);
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: '130px',
+                    backgroundColor: '#fef2f2',
+                    color: '#dc2626',
+                    border: '1px solid #fecaca',
+                    borderRadius: '10px',
+                    padding: '11px',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '7px'
+                  }}
+                >
+                  <Trash2 size={15} /> Anular
+                </button>
               </div>
             ) : (
               <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>

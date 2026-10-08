@@ -55,7 +55,7 @@ export default function Header() {
               Hola, {nombre?.split(' ')[0]}
             </span>
             <Link to="/paciente-perfil" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
-              Mis Reservas
+              Mi Perfil
             </Link>
             <button 
               onClick={handleLogout} 

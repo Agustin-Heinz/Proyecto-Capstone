@@ -467,7 +467,12 @@ app.put('/api/citas/:id', async (req, res) => {
 app.get('/api/citas', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
-    const condicion = id_fonoaudiologo ? { where: { id_fonoaudiologo: parseInt(id_fonoaudiologo) } } : {}; 
+    const condicion = {
+      where: {
+        ...(id_fonoaudiologo ? { id_fonoaudiologo: parseInt(id_fonoaudiologo)} : {}),
+        estado_asistencia: {not: 'Anulada'}
+      }
+    };
     
     const historialCitas = await prisma.citas.findMany(condicion);
     const listaPacientes = await prisma.pacientes.findMany();
@@ -589,7 +594,11 @@ app.get('/api/estadisticas', async (req, res) => {
     if (!id_fonoaudiologo) return res.status(400).json({ mensaje: "Se requiere el ID del profesional." });
 
     const fonoId = parseInt(id_fonoaudiologo);
-    const filtroPrivado = { id_fonoaudiologo: fonoId };
+    const filtroPrivado = { 
+      id_fonoaudiologo: fonoId,
+      estado_asistencia: {not: 'Anulada '}
+      
+     };
 
     const todasLasCitas = await prisma.citas.findMany({ where: filtroPrivado });
     const todosLosServicios = await prisma.servicios.findMany();
