@@ -7,7 +7,7 @@ export default function PanelAgendaSemanal() {
 
   // Eje de horas (Definimos un rango horario de la consulta)
   const horaInicioCalendario = 8; // 08:00 AM
-  const horas = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+  const horas = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
 
   // LÓGICA DEL CALENDARIO DINÁMICO (Autocentrado y Navegación)
   const [fechaReferencia, setFechaReferencia] = useState(new Date());

@@ -120,19 +120,70 @@ app.delete('/api/pacientes/:id', async (req, res) => {
   }
 });
 
-app.get('/api/comunas', async (req, res) => {
+// GET PACIENTES NO LOGEADOS
+app.get('/api/citas/rut/:rut', async (req, res) => {
   try {
-    const comunas = await prisma.ubicacion.findMany({
-      orderBy: { comuna: 'asc' }
+    const rutLimpio = req.params.rut.trim();
+
+    // se verifica que el paciente haya guardado una cita previa
+    const paciente = await prisma.pacientes.findFirst({
+      where: { rut: rutLimpio}
     });
-    res.json(comunas);
+    
+    if (!paciente) {
+      return res.status(404).json({ mensaje: "Este Rut no cuenta con datos de citas"});
+    }
+
+    // Busqueda de cita registradas 
+    const inicioDeHoy = new Date();
+    inicioDeHoy.setHours(0, 0, 0, 0);
+    const proximaCita = await prisma.citas.findFirst({
+      where: {
+        id_paciente: paciente.id_paciente,
+        fecha: { gte: inicioDeHoy },
+        estado_asistencia: {not: 'Anulada'}
+      },
+      orderBy: [
+        {fecha: 'asc' },
+        {hora_inicio: 'asc'}
+      ]
+  
+    });
+
+    if (!proximaCita){
+      return res.status(404).json({ mensaje: "No hay citas programadas."})
+    }
+
+    // Buscamos los datos del fonoaudiólogo y del servicio
+    const fonoaudiologo = await prisma.fonoaudiologos.findUnique({
+      where: { id_fonoaudiologo: proximaCita.id_fonoaudiologo }
+    });
+    
+    const servicio = await prisma.servicios.findUnique({
+      where: { id_servicios: proximaCita.id_servicio }
+    });
+    
+    // Se mandan los datos correspondientes al frontend de React
+    res.status(200).json({
+      id_citas: proximaCita.id_citas,
+      fecha: proximaCita.fecha,
+      hora_inicio: proximaCita.hora_inicio,
+      estado_asistencia: proximaCita.estado_asistencia,
+      nombre_fono: fonoaudiologo?.nombre_completo || 'Especialista',
+      especialidad_fono: fonoaudiologo?.subespecialidad || 'Fonoaudiología',
+      direccion_fono: fonoaudiologo?.id_ubicacion ? 'Ver ubicación en panel' : 'Presencial',
+      nombre_servicio: servicio?.nombre_servicio || 'Atención Fonoaudiológica',
+      id_fonoaudiologo: proximaCita.id_fonoaudiologo,
+      id_servicio: proximaCita.id_servicio
+    });
+
   } catch (error) {
-    console.error("Error al obtener comunas:", error);
-    res.status(500).json({ error: "Hubo un problema al buscar las comunas" });
+    console.error(" Error al buscar cita con ese RUT:", error);
+    res.status(500).json({ mensaje: "Error interno del servidor." });
   }
 });
 
-// NUEVO: Extraer el catálogo oficial de servicios desde MySQL (filtrable por Infantil o Adultos)
+//  Extraer el catálogo oficial de servicios desde MySQL (filtrable por Infantil o Adultos)
 app.get('/api/catalogo-servicios', async (req, res) => {
   try {
     const { publico } = req.query;
@@ -795,6 +846,20 @@ app.get('/api/resenas/:id_fonoaudiologo', async (req, res) => {
   }
 });
 
+// GET COMUNAS: Para llenar los select del frontend
+app.get('/api/comunas', async (req, res) => {
+  try {
+    const comunas = await prisma.ubicacion.findMany({
+      orderBy: { comuna: 'asc' }
+    });
+    res.json(comunas);
+  } catch (error) {
+    console.error("Error al obtener comunas:", error);
+    res.status(500).json({ error: "Hubo un problema al buscar las comunas" });
+  }
+});
+
+
 //post para el chatbot
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -836,6 +901,7 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ error: "No se pudo procesar la consulta clínica." });
   }
 });
+
 
 // Arrancar el server
 app.listen(PORT, () => {
