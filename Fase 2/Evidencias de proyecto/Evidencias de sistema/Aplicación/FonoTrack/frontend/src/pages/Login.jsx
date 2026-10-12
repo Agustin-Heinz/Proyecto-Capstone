@@ -22,6 +22,7 @@ export default function Login() {
         localStorage.setItem('perfilId', usuario.perfilId);
         localStorage.setItem('rol', usuario.rol);
         localStorage.setItem('nombre', usuario.nombre);
+        localStorage.setItem('email', usuario.email);
 
         alert(`¡Bienvenido ${usuario.nombre}!`);
         

@@ -68,6 +68,7 @@ export default function Booking() {
           hora_inicio: hora,
           duracion_minutos: 50,
           precio: s?.precio || 0,
+          email: localStorage.getItem('email') || undefined,
           // Si es un reagendamiento que ya estaba pagado, heredamos el pago
           ...(reagendando && estadoPagoAnterior === 'Pagado' && { estado_pago: 'Pagado' })
         })

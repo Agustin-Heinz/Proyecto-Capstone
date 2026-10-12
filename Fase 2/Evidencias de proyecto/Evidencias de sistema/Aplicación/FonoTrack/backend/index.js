@@ -6,20 +6,30 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-app.use(cors()); 
-app.use(express.json()); 
+app.use(cors());
+app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir);
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
 }
 
 const storage = multer.diskStorage({
@@ -27,7 +37,7 @@ const storage = multer.diskStorage({
     cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-')); 
+    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
   }
 });
 const upload = multer({ storage: storage });
@@ -46,7 +56,7 @@ app.get('/api/planes', async (req, res) => {
 
 app.post('/api/pacientes', async (req, res) => {
   try {
-    const { id_usuario, nombre_completo, rut, telefono } = req.body; 
+    const { id_usuario, nombre_completo, rut, telefono } = req.body;
 
     const pacienteExistente = await prisma.pacientes.findUnique({
       where: { rut: rut }
@@ -62,11 +72,11 @@ app.post('/api/pacientes', async (req, res) => {
         nombre_completo: nombre_completo,
         rut: rut,
         telefono: telefono,
-        fecha_nacimiento: new Date('2000-01-01') 
+        fecha_nacimiento: new Date('2000-01-01')
       }
     });
 
-    res.status(201).json(pacienteNuevo); 
+    res.status(201).json(pacienteNuevo);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al crear el paciente", detalle: error.message });
   }
@@ -83,7 +93,7 @@ app.get('/api/pacientes', async (req, res) => {
 
 app.get('/api/pacientes/:id', async (req, res) => {
   try {
-    const idBuscado = parseInt(req.params.id); 
+    const idBuscado = parseInt(req.params.id);
     const paciente = await prisma.pacientes.findUnique({
       where: { id_paciente: idBuscado }
     });
@@ -127,11 +137,11 @@ app.get('/api/citas/rut/:rut', async (req, res) => {
 
     // se verifica que el paciente haya guardado una cita previa
     const paciente = await prisma.pacientes.findFirst({
-      where: { rut: rutLimpio}
+      where: { rut: rutLimpio }
     });
-    
+
     if (!paciente) {
-      return res.status(404).json({ mensaje: "Este Rut no cuenta con datos de citas"});
+      return res.status(404).json({ mensaje: "Este Rut no cuenta con datos de citas" });
     }
 
     // Busqueda de cita registradas 
@@ -141,28 +151,28 @@ app.get('/api/citas/rut/:rut', async (req, res) => {
       where: {
         id_paciente: paciente.id_paciente,
         fecha: { gte: inicioDeHoy },
-        estado_asistencia: {not: 'Anulada'}
+        estado_asistencia: { not: 'Anulada' }
       },
       orderBy: [
-        {fecha: 'asc' },
-        {hora_inicio: 'asc'}
+        { fecha: 'asc' },
+        { hora_inicio: 'asc' }
       ]
-  
+
     });
 
-    if (!proximaCita){
-      return res.status(404).json({ mensaje: "No hay citas programadas."})
+    if (!proximaCita) {
+      return res.status(404).json({ mensaje: "No hay citas programadas." })
     }
 
     // Buscamos los datos del fonoaudiólogo y del servicio
     const fonoaudiologo = await prisma.fonoaudiologos.findUnique({
       where: { id_fonoaudiologo: proximaCita.id_fonoaudiologo }
     });
-    
+
     const servicio = await prisma.servicios.findUnique({
       where: { id_servicios: proximaCita.id_servicio }
     });
-    
+
     // Se mandan los datos correspondientes al frontend de React
     res.status(200).json({
       id_citas: proximaCita.id_citas,
@@ -187,8 +197,8 @@ app.get('/api/citas/rut/:rut', async (req, res) => {
 app.get('/api/catalogo-servicios', async (req, res) => {
   try {
     const { publico } = req.query;
-    const filtro = (publico && publico !== 'Ambos') 
-      ? { where: { publico_objetivo: publico } } 
+    const filtro = (publico && publico !== 'Ambos')
+      ? { where: { publico_objetivo: publico } }
       : {};
 
     const catalogo = await prisma.catalogo_servicios.findMany(filtro);
@@ -234,11 +244,11 @@ app.get('/api/fonoaudiologos/:id', async (req, res) => {
     const perfil = await prisma.fonoaudiologos.findUnique({
       where: { id_fonoaudiologo: idFono }
     });
-    
+
     if (!perfil) {
       return res.status(404).json({ error: "Profesional no encontrado" });
     }
-    
+
     res.status(200).json(perfil);
   } catch (error) {
     res.status(500).json({ error: "Error al cargar el perfil individual", detalle: error.message });
@@ -251,7 +261,7 @@ app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, re
   try {
     const idFono = parseInt(req.params.id);
     const { nombre_completo, subespecialidad, publico_objetivo, acerca_de_mi, id_ubicacion, foto_perfil, telefono } = req.body;
-    
+
     let rutaImagen = foto_perfil;
     if (req.file) {
       rutaImagen = `http://localhost:3000/uploads/${req.file.filename}`;
@@ -259,17 +269,17 @@ app.put('/api/fonoaudiologos/:id', upload.single('foto_archivo'), async (req, re
 
     const perfilActualizado = await prisma.fonoaudiologos.update({
       where: { id_fonoaudiologo: idFono },
-      data: { 
+      data: {
         nombre_completo,
         subespecialidad,
         publico_objetivo: publico_objetivo || 'Ambos',
         acerca_de_mi,
         foto_perfil: rutaImagen,
-	      telefono,
-        id_ubicacion: id_ubicacion ? parseInt(id_ubicacion) : null 
+        telefono,
+        id_ubicacion: id_ubicacion ? parseInt(id_ubicacion) : null
       }
     });
-    
+
     res.status(200).json(perfilActualizado);
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
@@ -361,10 +371,10 @@ app.put('/api/servicios/:id', async (req, res) => {
     const { id_catalogo, nombre, precio } = req.body;
     const actualizado = await prisma.servicios.update({
       where: { id_servicios: idServicio },
-      data: { 
+      data: {
         id_catalogo: id_catalogo ? parseInt(id_catalogo) : undefined,
-        nombre_servicio: nombre, 
-        precio: parseInt(precio) 
+        nombre_servicio: nombre,
+        precio: parseInt(precio)
       }
     });
     res.status(200).json(actualizado);
@@ -389,7 +399,7 @@ app.put('/api/disponibilidad/:id', async (req, res) => {
     const { dia, inicio, fin } = req.body;
     const horaInicio = new Date(`1970-01-01T${inicio}:00.000Z`);
     const horaFin = new Date(`1970-01-01T${fin}:00.000Z`);
-    
+
     const actualizado = await prisma.disponibilidad.update({
       where: { id_disponibilidad: idDisp },
       data: { dia_semana: dia, hora_inicio: horaInicio, hora_fin: horaFin }
@@ -427,7 +437,7 @@ app.get('/api/citas/ocupadas', async (req, res) => {
       select: { hora_inicio: true }
     });
 
-    
+
     // Extraemos los 5 caracteres de la hora ("HH:MM") de forma estándar (en vez de la del equipo local)
     const horasOcupadas = citasOcupadas.map(cita => {
       return cita.hora_inicio ? cita.hora_inicio.toISOString().substring(11, 16) : null;
@@ -441,13 +451,13 @@ app.get('/api/citas/ocupadas', async (req, res) => {
 // POST CITAS
 app.post('/api/citas', async (req, res) => {
   try {
-    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio } = req.body;
+    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio, email } = req.body;
 
     const soloFecha = String(fecha).split('T')[0];
     let horaLimpia = "00:00";
     if (hora_inicio) {
       const coincidencia = String(hora_inicio).match(/\d{2}:\d{2}/);
-      if (coincidencia) horaLimpia = coincidencia[0]; 
+      if (coincidencia) horaLimpia = coincidencia[0];
     }
     const fechaHoraInicio = new Date(`${soloFecha}T${horaLimpia}:00.000Z`);
 
@@ -460,11 +470,54 @@ app.post('/api/citas', async (req, res) => {
         hora_inicio: fechaHoraInicio,
         duracion_minutos: Number(duracion_minutos),
         precio: Number(precio),
-        estado_pago: "Pagado", 
+        estado_pago: "Pagado",
         estado_asistencia: "Pendiente"
       }
     });
 
+    const pacienteInfo = await prisma.pacientes.findUnique({
+      where: { id_paciente: Number(id_paciente) }
+    });
+
+    let usuarioInfo = null;
+    if (pacienteInfo && pacienteInfo.id_usuario) {
+      usuarioInfo = await prisma.usuarios.findUnique({
+        where: { id_usuario: pacienteInfo.id_usuario }
+      });
+    }
+
+    const destinatarioEmail = email || (usuarioInfo && usuarioInfo.email);
+
+    // 2. Armamos y enviamos el correo electrónico
+    if (destinatarioEmail) {
+      const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
+      const remitente = process.env.EMAIL_USER || 'diegosepulveda6721@gmail.com';
+      const opcionesCorreo = {
+        from: `"FonoTrack Clínico" <${remitente}>`,
+        to: destinatarioEmail,
+        subject: "Confirmación de Cita Médica - FonoTrack",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #E2E6EF; border-radius: 14px;">
+            <h2 style="color: #4F46E5;">¡Hola ${nombrePaciente}!</h2>
+            <p>Tu hora ha sido confirmada exitosamente en FonoTrack.</p>
+            <ul>
+              <li><strong>Fecha:</strong> ${String(fecha).split('T')[0]}</li>
+              <li><strong>Hora:</strong> ${hora_inicio || '00:00'}</li>
+            </ul>
+            <p>¡Te esperamos!</p>
+          </div>
+        `
+      };
+
+      try {
+        await transporter.sendMail(opcionesCorreo);
+        console.log("Correo de confirmación enviado exitosamente a:", destinatarioEmail);
+      } catch (errorCorreo) {
+        console.error("Error enviando el correo:", errorCorreo);
+      }
+    } else {
+      console.warn("No se encontró correo para enviar la confirmación de la cita.");
+    }
     res.status(201).json(nuevaCita);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
@@ -484,9 +537,9 @@ app.put('/api/citas/:id/estado', async (req, res) => {
 
     const citaActualizada = await prisma.citas.update({
       where: { id_citas: idCita },
-      data: { 
+      data: {
         estado_asistencia: estado_asistencia,
-        ...(estadoPago && { estado_pago: estadoPago }) 
+        ...(estadoPago && { estado_pago: estadoPago })
       }
     });
 
@@ -520,24 +573,24 @@ app.get('/api/citas', async (req, res) => {
     const { id_fonoaudiologo } = req.query;
     const condicion = {
       where: {
-        ...(id_fonoaudiologo ? { id_fonoaudiologo: parseInt(id_fonoaudiologo)} : {}),
-        estado_asistencia: {not: 'Anulada'}
+        ...(id_fonoaudiologo ? { id_fonoaudiologo: parseInt(id_fonoaudiologo) } : {}),
+        estado_asistencia: { not: 'Anulada' }
       }
     };
-    
+
     const historialCitas = await prisma.citas.findMany(condicion);
     const listaPacientes = await prisma.pacientes.findMany();
     const listaServicios = await prisma.servicios.findMany();
 
     const citasCompletas = historialCitas.map(cita => {
-        const paciente = listaPacientes.find(p => p.id_paciente === cita.id_paciente);
-        const servicio = listaServicios.find(s => s.id_servicios === cita.id_servicio);
-        
-        return {
-            ...cita,
-            nombre_paciente: paciente ? paciente.nombre_completo : `Paciente #${cita.id_paciente}`,
-            nombre_servicio: servicio ? servicio.nombre_servicio : `Servicio #${cita.id_servicio}`
-        };
+      const paciente = listaPacientes.find(p => p.id_paciente === cita.id_paciente);
+      const servicio = listaServicios.find(s => s.id_servicios === cita.id_servicio);
+
+      return {
+        ...cita,
+        nombre_paciente: paciente ? paciente.nombre_completo : `Paciente #${cita.id_paciente}`,
+        nombre_servicio: servicio ? servicio.nombre_servicio : `Servicio #${cita.id_servicio}`
+      };
     });
 
     res.status(200).json(citasCompletas);
@@ -569,7 +622,7 @@ app.post('/api/registro', async (req, res) => {
         data: {
           email: email,
           contrasena: password,
-          rol: rol 
+          rol: rol
         }
       });
 
@@ -645,11 +698,11 @@ app.get('/api/estadisticas', async (req, res) => {
     if (!id_fonoaudiologo) return res.status(400).json({ mensaje: "Se requiere el ID del profesional." });
 
     const fonoId = parseInt(id_fonoaudiologo);
-    const filtroPrivado = { 
+    const filtroPrivado = {
       id_fonoaudiologo: fonoId,
-      estado_asistencia: {not: 'Anulada '}
-      
-     };
+      estado_asistencia: { not: 'Anulada ' }
+
+    };
 
     const todasLasCitas = await prisma.citas.findMany({ where: filtroPrivado });
     const todosLosServicios = await prisma.servicios.findMany();
@@ -659,7 +712,7 @@ app.get('/api/estadisticas', async (req, res) => {
       where: { estado_pago: 'Pagado', ...filtroPrivado }
     });
     const totalDinero = ingresos._sum.precio || 0;
-    
+
     const totalCitas = todasLasCitas.length;
     const asistencias = todasLasCitas.filter(c => c.estado_asistencia === 'Asistió').length;
     const porcentajeAsistencia = totalCitas > 0 ? Math.round((asistencias / totalCitas) * 100) : 0;
@@ -680,8 +733,8 @@ app.get('/api/estadisticas', async (req, res) => {
 
     const sumarServicio = (obj, id, precio, estado_pago) => {
       if (!obj[id]) obj[id] = { cantidad: 0, ingresos: 0 };
-      obj[id].cantidad++; 
-      if (estado_pago === 'Pagado') obj[id].ingresos += precio; 
+      obj[id].cantidad++;
+      if (estado_pago === 'Pagado') obj[id].ingresos += precio;
     };
 
     todasLasCitas.forEach(cita => {
@@ -704,7 +757,7 @@ app.get('/api/estadisticas', async (req, res) => {
 
       const servId = cita.id_servicio;
       const precio = cita.precio || 0;
-      
+
       if (f >= hace7Dias) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
       if (f.getMonth() === mesActual && f.getFullYear() === anioActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
       if (f.getFullYear() === anioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
@@ -752,7 +805,7 @@ app.get('/api/estadisticas', async (req, res) => {
 app.post('/api/fichas', async (req, res) => {
   try {
     const { id_cita, observaciones_clinicas, actividades_hogar } = req.body;
-    
+
     const nuevaFicha = await prisma.evoluciones_sesion.create({
       data: {
         id_cita: parseInt(id_cita),
@@ -760,7 +813,7 @@ app.post('/api/fichas', async (req, res) => {
         actividades_hogar: actividades_hogar || ""
       }
     });
-    
+
     res.status(201).json(nuevaFicha);
   } catch (error) {
     console.error("Error al guardar la ficha:", error);
@@ -771,12 +824,12 @@ app.post('/api/fichas', async (req, res) => {
 app.get('/api/fichas/:id_paciente', async (req, res) => {
   try {
     const idPaciente = parseInt(req.params.id_paciente);
-    
+
     const historialCitas = await prisma.citas.findMany({
       where: { id_paciente: idPaciente },
       orderBy: { fecha: 'desc' }
     });
-    
+
     if (historialCitas.length === 0) return res.status(200).json([]);
 
     const idsCitas = historialCitas.map(c => c.id_citas);
@@ -787,13 +840,13 @@ app.get('/api/fichas/:id_paciente', async (req, res) => {
 
     const citasConFicha = historialCitas.map(cita => {
       const evolucionesDeEstaCita = evoluciones.filter(evo => evo.id_cita === cita.id_citas);
-      
+
       return {
         ...cita,
-        evoluciones_Sesion: evolucionesDeEstaCita 
+        evoluciones_Sesion: evolucionesDeEstaCita
       };
     }).filter(cita => cita.evoluciones_Sesion.length > 0);
-    
+
     res.status(200).json(citasConFicha);
   } catch (error) {
     console.error("Error al cargar el historial:", error);
@@ -805,7 +858,7 @@ app.get('/api/fichas/:id_paciente', async (req, res) => {
 app.post('/api/resenas', async (req, res) => {
   try {
     const { id_paciente, id_fonoaudiologo, calificacion, comentario } = req.body;
-    
+
     const nuevaResena = await prisma.resenas.create({
       data: {
         id_paciente: parseInt(id_paciente),
@@ -814,7 +867,7 @@ app.post('/api/resenas', async (req, res) => {
         comentario: comentario
       }
     });
-    
+
     res.status(201).json(nuevaResena);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al guardar la reseña", detalle: error.message });
@@ -824,14 +877,14 @@ app.post('/api/resenas', async (req, res) => {
 app.get('/api/resenas/:id_fonoaudiologo', async (req, res) => {
   try {
     const idFono = parseInt(req.params.id_fonoaudiologo);
-    
+
     const listaResenas = await prisma.resenas.findMany({
       where: { id_fonoaudiologo: idFono },
       orderBy: { fecha_creacion: 'desc' }
     });
 
     const todosLosPacientes = await prisma.pacientes.findMany();
-    
+
     const resenasCompletas = listaResenas.map(resena => {
       const paciente = todosLosPacientes.find(p => p.id_paciente === resena.id_paciente);
       return {
