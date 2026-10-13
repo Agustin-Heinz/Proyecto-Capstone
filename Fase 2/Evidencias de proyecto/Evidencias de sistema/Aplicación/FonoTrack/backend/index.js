@@ -968,6 +968,18 @@ app.get('/api/comunas', async (req, res) => {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+const ESPECIALIDADES_FONOTRACK = [
+  "Lactancia y frenillo lingual",
+  "Deglución infantil",
+  "Rehabilitación post ACV",
+  "Deglución (disfagia)",
+  "Voz",
+  "Tartamudez",
+  "Espectro autista (TEA)",
+  "Lenguaje infantil",
+  "Motricidad orofacial"
+];
+
 app.post('/api/chat', async (req, res) => {
   try {
     const { mensaje } = req.body;
@@ -999,7 +1011,15 @@ app.post('/api/chat', async (req, res) => {
     const result = await model.generateContent(promptContexto);
     const respuestaIA = result.response.text();
 
-    res.status(200).json({ respuesta: respuestaIA });
+    const subespecialidadSugerida = ESPECIALIDADES_FONOTRACK.find(esp =>
+      respuestaIA.toLowerCase().includes(esp.toLowerCase())
+    ) || null;
+
+    res.status(200).json({
+      respuesta: respuestaIA,
+      subespecialidad: subespecialidadSugerida
+    });
+
   } catch (error) {
     console.error("Error en el chatbot:", error);
     res.status(500).json({ error: "No se pudo procesar la consulta clínica." });
