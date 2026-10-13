@@ -83,7 +83,7 @@ app.post('/api/pacientes', async (req, res) => {
         nombre_completo: nombre_completo,
         rut: rut,
         telefono: telefono,
-        fecha_nacimiento:  fecha_nacimiento ? new Date(fecha_nacimiento) : new Date('2000-01-01')
+       fecha_nacimiento: fecha_nacimiento ? new Date(fecha_nacimiento) : null
 
       }
     });
