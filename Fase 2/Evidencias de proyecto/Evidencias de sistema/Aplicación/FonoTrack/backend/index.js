@@ -804,8 +804,9 @@ app.get('/api/estadisticas', async (req, res) => {
 // FICHAS CLÍNICAS: Guardar y anotar observaciones
 app.post('/api/fichas', async (req, res) => {
   try {
-    const { id_cita, observaciones_clinicas, actividades_hogar } = req.body;
+    const { id_cita, observaciones_clinicas, actividades_hogar, pacienteEmail, pacienteNombre, fonoaudiologoNombre } = req.body;
 
+    // Guardamos la ficha en la base de datos
     const nuevaFicha = await prisma.evoluciones_sesion.create({
       data: {
         id_cita: parseInt(id_cita),
@@ -813,6 +814,42 @@ app.post('/api/fichas', async (req, res) => {
         actividades_hogar: actividades_hogar || ""
       }
     });
+
+    // Primero, buscamos la cita para saber qué paciente es
+    const cita = await prisma.citas.findUnique({
+      where: { id_citas: parseInt(id_cita) }
+    });
+
+    if (cita) {
+      // Ahora buscamos los datos del paciente en la tabla 'pacientes'
+      const paciente = await prisma.pacientes.findUnique({
+        where: { id_paciente: cita.id_paciente }
+      });
+
+      if (paciente) {
+        // Extrae el correo en la tabla 'usuarios'
+        const usuarioPaciente = await prisma.usuarios.findUnique({
+          where: { id_usuario: paciente.id_usuario }
+        });
+
+        // Extrae el mail del paciente para saber donde enviar la ficha
+        if (usuarioPaciente && usuarioPaciente.email) {
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: usuarioPaciente.email, // 
+            subject: `FonoTrack - Resumen de tu sesión con ${fonoaudiologoNombre || 'tu especialista'}`,
+            text: `Hola ${paciente.nombre_completo},\n\nEl/La especialista ${fonoaudiologoNombre || 'tu especialista'} ha registrado el resumen de tu última sesión:\n\nObservaciones Clínicas:\n${observaciones_clinicas}\n\nActividades e Indicaciones:\n${actividades_hogar}\n\nEste es un mensaje automático generado por FonoTrack.`
+          };
+
+          // Enviamos el correo
+          transporter.sendMail(mailOptions)
+            .then(() => console.log(` Correo enviado a: ${usuarioPaciente.email}`))
+            .catch(err => console.error("Error enviando correo a paciente:", err));
+        } else {
+          console.log(" Ficha guardada sin correo: El usuario no tiene email registrado.");
+        }
+      }
+    }
 
     res.status(201).json(nuevaFicha);
   } catch (error) {
