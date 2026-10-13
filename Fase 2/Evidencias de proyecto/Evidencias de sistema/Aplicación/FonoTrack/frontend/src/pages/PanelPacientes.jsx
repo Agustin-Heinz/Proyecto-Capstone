@@ -106,8 +106,7 @@ export default function PanelPacientes() {
   }, [pacienteActivo]);
 
   
-  // Guardar el nuevo registro en MySQL
-  
+// Guardar el nuevo registro en MySQL y enviar el correo
   const handleGuardarRegistro = async () => {
     if (!observaciones.trim()) {
       alert("Debes ingresar al menos una observación clínica.");
@@ -119,22 +118,25 @@ export default function PanelPacientes() {
     }
 
     try {
+      // Rescatamos el nombre del profesional para que el correo sepa quién escribe
+      const nombreFono = localStorage.getItem('nombre') || 'tu especialista';
+
       const respuesta = await fetch('http://localhost:3000/api/fichas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id_cita: pacienteActivo.idUltimaCita,
           observaciones_clinicas: observaciones,
-          actividades_hogar: tareas
+          actividades_hogar: tareas,
+          fonoaudiologoNombre: nombreFono
         })
       });
 
       if (respuesta.ok) {
-        alert("Registro clínico guardado con éxito.");
-        setObservaciones(''); // Limpiamos las cajas
+        alert("Registro guardado con éxito. Se ha enviado una copia al correo del paciente.");
+        setObservaciones(''); 
         setTareas('');
         
-        // Recargamos el historial automáticamente para que aparezca en pantalla
         const resHistorial = await fetch(`http://localhost:3000/api/fichas/${pacienteActivo.id}`);
         const dataHistorial = await resHistorial.json();
         setHistorialFichas(dataHistorial);
