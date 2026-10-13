@@ -40,7 +40,18 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
   }
 });
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // Máximo 2MB por foto
+  fileFilter: (req, file, cb) => {
+    const tiposPermitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (tiposPermitidos.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Formato no permitido. Solo se aceptan imágenes (JPG, PNG, WEBP).'));
+    }
+  }
+});
 
 
 // GETS DE PACIENTES Y PLANES
@@ -56,7 +67,7 @@ app.get('/api/planes', async (req, res) => {
 
 app.post('/api/pacientes', async (req, res) => {
   try {
-    const { id_usuario, nombre_completo, rut, telefono } = req.body;
+    const { id_usuario, nombre_completo, rut, telefono, fecha_nacimiento } = req.body;
 
     const pacienteExistente = await prisma.pacientes.findUnique({
       where: { rut: rut }
@@ -72,13 +83,15 @@ app.post('/api/pacientes', async (req, res) => {
         nombre_completo: nombre_completo,
         rut: rut,
         telefono: telefono,
-        fecha_nacimiento: new Date('2000-01-01')
+        fecha_nacimiento:  fecha_nacimiento ? new Date(fecha_nacimiento) : new Date('2000-01-01')
+
       }
     });
 
-    res.status(201).json(pacienteNuevo);
+     res.status(201).json(pacienteNuevo);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al crear el paciente", detalle: error.message });
+    console.error("Error al crear el paciente:", error);
+    res.status(500).json({ mensaje: "Error al crear el paciente" });
   }
 });
 
@@ -146,7 +159,7 @@ app.get('/api/citas/rut/:rut', async (req, res) => {
 
     // Busqueda de cita registradas 
     const inicioDeHoy = new Date();
-    inicioDeHoy.setHours(0, 0, 0, 0);
+    inicioDeHoy.setUTCHours(0, 0, 0, 0);
     const proximaCita = await prisma.citas.findFirst({
       where: {
         id_paciente: paciente.id_paciente,
@@ -166,7 +179,8 @@ app.get('/api/citas/rut/:rut', async (req, res) => {
 
     // Buscamos los datos del fonoaudiólogo y del servicio
     const fonoaudiologo = await prisma.fonoaudiologos.findUnique({
-      where: { id_fonoaudiologo: proximaCita.id_fonoaudiologo }
+      where: { id_fonoaudiologo: proximaCita.id_fonoaudiologo },
+      include: { ubicacion: true }
     });
 
     const servicio = await prisma.servicios.findUnique({
