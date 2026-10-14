@@ -72,7 +72,8 @@ export default function Contact() {
         id_usuario: 1, // Invitado/temporal
         nombre_completo: datosPaciente.nombre_completo,
         rut: datosPaciente.rut,
-        telefono: datosPaciente.telefono
+        telefono: datosPaciente.telefono,
+        email: datosPaciente.email
       };
 
       // Guardamos al paciente

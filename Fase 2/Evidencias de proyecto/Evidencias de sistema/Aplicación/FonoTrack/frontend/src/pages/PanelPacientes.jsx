@@ -62,7 +62,7 @@ export default function PanelPacientes() {
                 rut: p.rut,
                 fono: p.telefono,
                 ultimaSesion: ultimaSesionTexto,
-                estadoPago: p.estadoPago || 'Al día',
+                estadoPago: p.estadoPago ||'Al día',
                 nacimiento: p.fecha_nacimiento ? p.fecha_nacimiento.split('T')[0] : 'No registrado',
                 genero: 'No especificado',
                 email: p.email || 'Sin correo',

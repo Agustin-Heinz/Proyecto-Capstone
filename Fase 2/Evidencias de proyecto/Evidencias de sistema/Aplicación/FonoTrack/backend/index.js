@@ -67,7 +67,7 @@ app.get('/api/planes', async (req, res) => {
 
 app.post('/api/pacientes', async (req, res) => {
   try {
-    const { id_usuario, nombre_completo, rut, telefono, fecha_nacimiento } = req.body;
+    const { id_usuario, nombre_completo, rut, telefono, fecha_nacimiento, email } = req.body;
 
     const pacienteExistente = await prisma.pacientes.findUnique({
       where: { rut: rut }
@@ -77,13 +77,33 @@ app.post('/api/pacientes', async (req, res) => {
       return res.status(200).json(pacienteExistente);
     }
 
+    let usuarioIdFinal = parseInt(id_usuario);
+
+    // Si viene el email del formulario de contacto (no logueado), guardamos su correo en usuarios
+    if (email) {
+      let usuarioInvitado = await prisma.usuarios.findUnique({
+        where: { email: email }
+      });
+
+      if (!usuarioInvitado) {
+        usuarioInvitado = await prisma.usuarios.create({
+          data: {
+            email: email,
+            contrasena: `invitado-${Date.now()}`,
+            rol: 'paciente'
+          }
+        });
+      }
+      usuarioIdFinal = usuarioInvitado.id_usuario;
+    }
+
     const pacienteNuevo = await prisma.pacientes.create({
       data: {
-        id_usuario: parseInt(id_usuario),
+        id_usuario: usuarioIdFinal,
         nombre_completo: nombre_completo,
         rut: rut,
         telefono: telefono,
-       fecha_nacimiento: fecha_nacimiento ? new Date(fecha_nacimiento) : null
+        fecha_nacimiento: fecha_nacimiento ? new Date(fecha_nacimiento) : null
 
       }
     });
@@ -98,7 +118,19 @@ app.post('/api/pacientes', async (req, res) => {
 app.get('/api/pacientes', async (req, res) => {
   try {
     const todosLosPacientes = await prisma.pacientes.findMany();
-    res.status(200).json(todosLosPacientes);
+     const todosUsuarios = await prisma.usuarios.findMany({
+      select: { id_usuario: true, email: true }
+    });
+
+    const pacientesConCorreo = todosLosPacientes.map(p => {
+      const usuario = todosUsuarios.find(u => u.id_usuario === p.id_usuario);
+      return {
+        ...p,
+        email: usuario ? usuario.email : null
+      };
+    });
+
+    res.status(200).json(pacientesConCorreo);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al buscar pacientes", detalle: error.message });
   }
