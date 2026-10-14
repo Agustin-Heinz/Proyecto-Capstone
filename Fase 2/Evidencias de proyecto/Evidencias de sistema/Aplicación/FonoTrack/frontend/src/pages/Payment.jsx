@@ -40,29 +40,67 @@ export default function Payment() {
   if (cargando) return <div style={{padding: '100px', textAlign: 'center'}}>Cargando pago...</div>;
   if (!profesional || !servicio) return <div style={{padding: '100px', textAlign: 'center'}}>Error cargando datos.</div>;
 
-  // 2. FUNCIÓN ACTUALIZADA: Hacemos un PUT para actualizar, no un POST
+  // Función actualizada ahora haciendo un put en vez de un post
   const handleSubmit = async (e) => {
     e.preventDefault();
     setProcesando(true);
 
     try {
-      if (reservaId) {
-        // Actualizamos el estado de la cita existente en MySQL a "Pagado"
-        const respuesta = await fetch(`http://localhost:3000/api/citas/${reservaId}`, {
-          method: 'PUT',
+      // 1. Guardamos los datos en localStorage para no perderlos al salir hacia Webpay
+      localStorage.setItem('respaldoCitaPago', JSON.stringify({
+        fecha, hora, contacto, reservaId,
+        profId: profesional.id_fonoaudiologo,
+        servId: servicio.id_servicios
+      }));
+
+      // 2. Si eligió Débito o Crédito -> Vamos a Transbank Webpay Plus
+      if (metodo !== 'transferencia') {
+        const urlRetorno = `http://localhost:5173/confirmacion/${profesional.id_fonoaudiologo}/${servicio.id_servicios}`;
+
+        const respuesta = await fetch('http://localhost:3000/api/pagos/iniciar', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ estado_pago: 'Pagado' })
+          body: JSON.stringify({
+            tipo: 'CITA',
+            id_referencia: reservaId,
+            monto: servicio.precio,
+            returnUrl: urlRetorno
+          })
         });
 
+        const data = await respuesta.json();
+        if (!respuesta.ok || !data.url || !data.token) {
+          throw new Error("Error al conectar con Transbank");
+        }
+
+        // Formulario invisible que redirige a Webpay con el token_ws
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.url;
+
+        const inputToken = document.createElement('input');
+        inputToken.type = 'hidden';
+        inputToken.name = 'token_ws';
+        inputToken.value = data.token;
+
+        form.appendChild(inputToken);
+        document.body.appendChild(form);
+        form.submit();
+        return;
+      }
+
+      // 3. Si eligió Transferencia -> Marca pagado directo (ideal para tus testeos rápidos)
+      if (reservaId) {
+        const respuesta = await fetch(`http://localhost:3000/api/citas/${reservaId}/pago`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' }
+        });
         if (!respuesta.ok) throw new Error("Error al actualizar la cita en MySQL");
       }
 
-      // Simulamos la demora del banco y avanzamos a confirmación
-      setTimeout(() => {
-        navigate(`/confirmacion/${profesional.id_fonoaudiologo}/${servicio.id_servicios}`, { 
-          state: { fecha, hora, contacto, reservaId } 
-        });
-      }, 1000);
+      navigate(`/confirmacion/${profesional.id_fonoaudiologo}/${servicio.id_servicios}`, {
+        state: { fecha, hora, contacto, reservaId }
+      });
 
     } catch (error) {
       console.error("Error procesando reserva:", error);
@@ -92,27 +130,10 @@ export default function Payment() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit}>
+         <form onSubmit={handleSubmit}>
             {metodo !== 'transferencia' ? (
-              <div className="card-fields show">
-                <div className="pg">
-                  <label>Número de tarjeta</label>
-                  <input type="text" placeholder="0000 0000 0000 0000" required />
-                </div>
-                <div className="pg-row">
-                  <div className="pg">
-                    <label>Vencimiento</label>
-                    <input type="text" placeholder="MM/AA" required />
-                  </div>
-                  <div className="pg">
-                    <label>CVV</label>
-                    <input type="text" placeholder="123" required />
-                  </div>
-                </div>
-                <div className="pg">
-                  <label>Nombre del titular</label>
-                  <input type="text" placeholder="Como aparece en la tarjeta" required />
-                </div>
+              <div className="transfer-note show" style={{ marginBottom: '18px' }}>
+                Serás redirigido al portal seguro de <strong>Transbank Webpay Plus</strong> para ingresar los datos de tu tarjeta de {metodo === 'debito' ? 'Débito (Redcompra)' : 'Crédito'}.
               </div>
             ) : (
               <div className="transfer-note show" style={{ marginBottom: '18px' }}>
