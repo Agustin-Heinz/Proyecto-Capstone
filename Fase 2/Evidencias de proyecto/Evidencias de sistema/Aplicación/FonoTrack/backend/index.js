@@ -1140,13 +1140,16 @@ app.post('/api/pagos/confirmar', async (req, res) => {
       });
     }
 
-    res.status(400).json({ mensaje: "Orden de compra no reconocida" });
   } catch (error) {
+    // Si React dispara la confirmación 2 veces por el StrictMode, ignoramos el falso error
+    if (error.message && error.message.includes('locked by another process')) {
+      return res.status(200).json({ exito: true, mensaje: "El pago ya había sido confirmado" });
+    }
+    
     console.error("Error al confirmar pago con Transbank:", error);
     res.status(500).json({ mensaje: "Error al confirmar el pago", detalle: error.message });
   }
 });
-
 //post para el chatbot
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
