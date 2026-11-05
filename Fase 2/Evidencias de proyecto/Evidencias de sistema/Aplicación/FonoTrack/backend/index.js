@@ -547,6 +547,20 @@ app.post('/api/citas', async (req, res) => {
       });
     }
 
+    if (pacienteInfo && usuarioInfo) {
+      fetch('http://localhost:5678/webhook-test/1f0d2bc6-6fa6-4f68-9e82-7acf8dd6c376', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: pacienteInfo.nombre_completo,
+          telefono: pacienteInfo.telefono,
+          correo: req.body.email || usuarioInfo.email,
+          fecha: String(fecha).split('T')[0],
+          hora: nuevaCita.hora_inicio
+        })
+      }).catch(err => console.error("Error enviando a n8n:", err));
+    }
+
     const destinatarioEmail = email || (usuarioInfo && usuarioInfo.email);
 
     // 2. Armamos y enviamos el correo electrónico
