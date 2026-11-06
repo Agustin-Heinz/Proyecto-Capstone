@@ -5,6 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { 
   WebpayPlus, 
   Options, 
@@ -22,6 +23,8 @@ const tx = new WebpayPlus.Transaction(
 );
 
 const nodemailer = require('nodemailer');
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -30,6 +33,66 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS
   }
 });
+
+// Configuración del cliente de WhatsApp Web para envío de recordatorios
+let whatsappListo = false;
+
+const whatsappClient = new Client({
+  authStrategy: new LocalAuth({
+    dataPath: path.join(os.homedir(), '.fonotrack_wwebjs_auth')
+  }),
+  webVersionCache: {
+    type: 'local',
+    path: path.join(os.homedir(), '.fonotrack_wwebjs_cache')
+  },
+  puppeteer: {
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  }
+});
+
+whatsappClient.on('qr', (qr) => {
+  console.log('\nEscanea este código QR con tu WhatsApp para vincular FonoTrack:');
+  qrcode.generate(qr, { small: true });
+});
+
+whatsappClient.on('ready', () => {
+  whatsappListo = true;
+  console.log('Cliente de WhatsApp conectado y listo para enviar recordatorios.');
+});
+
+whatsappClient.on('authenticated', () => {
+  console.log('Sesión de WhatsApp autenticada correctamente.');
+});
+
+whatsappClient.on('auth_failure', (msg) => {
+  whatsappListo = false;
+  console.error('Error de autenticación en WhatsApp:', msg);
+});
+
+whatsappClient.on('disconnected', (reason) => {
+  whatsappListo = false;
+  console.warn('Cliente de WhatsApp desconectado:', reason);
+});
+
+whatsappClient.initialize().catch((err) => {
+  console.error('Error al inicializar WhatsApp Web:', err);
+});
+
+// Función auxiliar para normalizar números telefónicos al formato de WhatsApp (ej: +56 9 1234 5678 -> 56912345678)
+const formatearNumeroWhatsApp = (telefono) => {
+  if (!telefono) return null;
+  let limpio = String(telefono).replace(/\D/g, '').replace(/^0+/, '');
+  if (!limpio) return null;
+
+  if (limpio.length === 8) {
+    limpio = `569${limpio}`;
+  } else if (limpio.length === 9 && limpio.startsWith('9')) {
+    limpio = `56${limpio}`;
+  }
+
+  return limpio;
+};
 
 const app = express();
 const prisma = new PrismaClient();
@@ -89,6 +152,13 @@ app.post('/api/pacientes', async (req, res) => {
     });
 
     if (pacienteExistente) {
+      if (telefono && telefono !== pacienteExistente.telefono) {
+        const pacienteActualizado = await prisma.pacientes.update({
+          where: { id_paciente: pacienteExistente.id_paciente },
+          data: { telefono: telefono }
+        });
+        return res.status(200).json(pacienteActualizado);
+      }
       return res.status(200).json(pacienteExistente);
     }
 
@@ -512,7 +582,7 @@ app.get('/api/citas/ocupadas', async (req, res) => {
 // POST CITAS
 app.post('/api/citas', async (req, res) => {
   try {
-    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio, email } = req.body;
+    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio, email, telefono } = req.body;
 
     const soloFecha = String(fecha).split('T')[0];
     let horaLimpia = "00:00";
@@ -536,29 +606,17 @@ app.post('/api/citas', async (req, res) => {
       }
     });
 
-    const pacienteInfo = await prisma.pacientes.findUnique({
-      where: { id_paciente: Number(id_paciente) }
-    });
+    const [pacienteInfo, fonoaudiologoInfo, servicioInfo] = await Promise.all([
+      prisma.pacientes.findUnique({ where: { id_paciente: Number(id_paciente) } }),
+      prisma.fonoaudiologos.findUnique({ where: { id_fonoaudiologo: Number(id_fonoaudiologo) } }),
+      prisma.servicios.findUnique({ where: { id_servicios: Number(id_servicio) } })
+    ]);
 
     let usuarioInfo = null;
     if (pacienteInfo && pacienteInfo.id_usuario) {
       usuarioInfo = await prisma.usuarios.findUnique({
         where: { id_usuario: pacienteInfo.id_usuario }
       });
-    }
-
-    if (pacienteInfo && usuarioInfo) {
-      fetch('http://localhost:5678/webhook-test/1f0d2bc6-6fa6-4f68-9e82-7acf8dd6c376', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre: pacienteInfo.nombre_completo,
-          telefono: pacienteInfo.telefono,
-          correo: req.body.email || usuarioInfo.email,
-          fecha: String(fecha).split('T')[0],
-          hora: nuevaCita.hora_inicio
-        })
-      }).catch(err => console.error("Error enviando a n8n:", err));
     }
 
     const destinatarioEmail = email || (usuarioInfo && usuarioInfo.email);
@@ -593,6 +651,44 @@ app.post('/api/citas', async (req, res) => {
     } else {
       console.warn("No se encontró correo para enviar la confirmación de la cita.");
     }
+
+    // 3. Enviamos el recordatorio por WhatsApp usando whatsapp-web.js
+    const telefonoDestino = telefono || (pacienteInfo && pacienteInfo.telefono);
+    const numeroWhatsApp = formatearNumeroWhatsApp(telefonoDestino);
+
+    if (numeroWhatsApp) {
+      if (whatsappListo) {
+        const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
+        const nombreEspecialista = fonoaudiologoInfo?.nombre_completo || "Especialista FonoTrack";
+        const nombreServicio = servicioInfo?.nombre_servicio || "Atención Fonoaudiológica";
+
+        const mensajeWhatsApp =
+          `¡Hola *${nombrePaciente}*!\n\n` +
+          `Tu cita en *FonoTrack* ha sido agendada exitosamente. Aquí tienes el recordatorio de tu atención:\n\n` +
+          `- *Fecha:* ${soloFecha}\n` +
+          `- *Hora:* ${horaLimpia} hrs\n` +
+          `- *Especialista:* ${nombreEspecialista}\n` +
+          `- *Servicio:* ${nombreServicio}\n\n` +
+          `¡Te esperamos!`;
+
+        try {
+          const contactoRegistrado = await whatsappClient.getNumberId(numeroWhatsApp);
+          const chatId = (contactoRegistrado && contactoRegistrado._serialized && contactoRegistrado._serialized.endsWith('@c.us'))
+            ? contactoRegistrado._serialized
+            : `${numeroWhatsApp}@c.us`;
+
+          const msgEnviado = await whatsappClient.sendMessage(chatId, mensajeWhatsApp, { sendSeen: false });
+          console.log("Recordatorio de WhatsApp enviado exitosamente a:", chatId, "| ID:", msgEnviado?.id?._serialized || 'enviado');
+        } catch (errorWhatsApp) {
+          console.error("Error enviando el recordatorio por WhatsApp:", errorWhatsApp);
+        }
+      } else {
+        console.warn("El cliente de WhatsApp aún no está vinculado o listo para enviar el recordatorio a:", numeroWhatsApp);
+      }
+    } else {
+      console.warn("No se encontró teléfono para enviar el recordatorio de WhatsApp.");
+    }
+
     res.status(201).json(nuevaCita);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
@@ -690,7 +786,7 @@ app.put('/api/citas/:id/pago', async (req, res) => {
 // AUTENTICACIÓN: Registro y Login
 app.post('/api/registro', async (req, res) => {
   try {
-    const { nombre, email, password, rol, rut, fechaNacimiento, genero } = req.body;
+    const { nombre, email, password, rol, rut, fechaNacimiento, genero, telefono } = req.body;
 
     const resultado = await prisma.$transaction(async (tx) => {
       const nuevoUsuario = await tx.usuarios.create({
@@ -718,6 +814,7 @@ app.post('/api/registro', async (req, res) => {
             id_usuario: nuevoUsuario.id_usuario,
             nombre_completo: nombre,
             rut: rut,
+            telefono: telefono || null,
             fecha_nacimiento: new Date(fechaNacimiento),
             genero: genero
           }

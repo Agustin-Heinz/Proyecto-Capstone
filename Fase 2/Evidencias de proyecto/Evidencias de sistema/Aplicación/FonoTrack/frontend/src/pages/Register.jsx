@@ -9,6 +9,7 @@ export default function Register() {
     password: '', 
     rol: 'paciente',
     rut: '',
+    telefono: '',
     fechaNcimiento: '',
     genero: ''
   });
@@ -82,6 +83,16 @@ export default function Register() {
                     required 
                   />
                 </div>
+              </div>
+
+              <div className="cf-group">
+                <label>Teléfono (WhatsApp)</label>
+                <input 
+                  type="tel" 
+                  placeholder="+56 9 1234 5678" 
+                  onChange={e => setFormData({ ...formData, telefono: e.target.value })} 
+                  required 
+                />
               </div>
 
               <div className="cf-group">
