@@ -6,12 +6,12 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { 
-  WebpayPlus, 
-  Options, 
-  IntegrationApiKeys, 
-  Environment, 
-  IntegrationCommerceCodes 
+const {
+  WebpayPlus,
+  Options,
+  IntegrationApiKeys,
+  Environment,
+  IntegrationCommerceCodes
 } = require('transbank-sdk');
 
 const tx = new WebpayPlus.Transaction(
@@ -25,6 +25,7 @@ const tx = new WebpayPlus.Transaction(
 const nodemailer = require('nodemailer');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const cron = require('node-cron');
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -94,9 +95,221 @@ const formatearNumeroWhatsApp = (telefono) => {
   return limpio;
 };
 
+// Función enviar mensajes por WhatsApp asegurando formato 
+const enviarMensajeWhatsApp = async (telefono, mensaje) => {
+  const numeroWhatsApp = formatearNumeroWhatsApp(telefono);
+  if (!numeroWhatsApp) {
+    console.warn("No se encontró teléfono válido para enviar el mensaje de WhatsApp.");
+    return false;
+  }
+
+  if (!whatsappListo) {
+    console.warn("El cliente de WhatsApp aún no está vinculado o listo para enviar a:", numeroWhatsApp);
+    return false;
+  }
+
+  try {
+    const contactoRegistrado = await whatsappClient.getNumberId(numeroWhatsApp);
+    const chatId = (contactoRegistrado && contactoRegistrado._serialized && contactoRegistrado._serialized.endsWith('@c.us'))
+      ? contactoRegistrado._serialized
+      : `${numeroWhatsApp}@c.us`;
+
+    const msgEnviado = await whatsappClient.sendMessage(chatId, mensaje, { sendSeen: false });
+    console.log("Mensaje de WhatsApp enviado exitosamente a:", chatId, "| ID:", msgEnviado?.id?._serialized || 'enviado');
+    return true;
+  } catch (errorWhatsApp) {
+    console.error("Error enviando el mensaje por WhatsApp:", errorWhatsApp);
+    return false;
+  }
+};
+
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
+
+// Escuchar respuestas de pacientes por WhatsApp ("1" para confirmar, "2" para anular)
+const mensajesProcesados = new Set();
+
+const procesarRespuestaCitaWhatsApp = async (msg) => {
+  try {
+    const idMsg = msg.id?._serialized;
+    if (idMsg && mensajesProcesados.has(idMsg)) return;
+
+    const texto = (msg.body || '').trim().toLowerCase();
+    if (!['1', '2', 'confirmar', 'anular'].includes(texto)) return;
+
+    if (idMsg) mensajesProcesados.add(idMsg);
+
+    // Resolver el número telefónico real del remitente (soporta @c.us, @lid y pruebas desde el mismo número)
+    let numeroRemitente = null;
+    const origenId = msg.from || '';
+
+    if (origenId.endsWith('@c.us')) {
+      numeroRemitente = formatearNumeroWhatsApp(origenId.split('@')[0]);
+    } else if (origenId.endsWith('@lid')) {
+      try {
+        const mapeo = await whatsappClient.getContactLidAndPhone([origenId]);
+        if (mapeo && mapeo[0] && mapeo[0].pn) {
+          numeroRemitente = formatearNumeroWhatsApp(mapeo[0].pn.split('@')[0]);
+        }
+      } catch (e) {
+        // Ignorar error de mapeo LID
+      }
+      if (!numeroRemitente) {
+        try {
+          const contacto = await msg.getContact();
+          if (contacto && contacto.number) {
+            numeroRemitente = formatearNumeroWhatsApp(contacto.number);
+          }
+        } catch (e) {
+          // Ignorar error de contacto
+        }
+      }
+    }
+
+    if (!numeroRemitente && msg.fromMe && whatsappClient.info?.wid?.user) {
+      numeroRemitente = formatearNumeroWhatsApp(whatsappClient.info.wid.user);
+    }
+
+    if (!numeroRemitente) return;
+
+    // Buscar todos los registros de paciente que coincidan con ese teléfono
+    const todosPacientes = await prisma.pacientes.findMany();
+    const idsPacientes = todosPacientes
+      .filter(p => formatearNumeroWhatsApp(p.telefono) === numeroRemitente)
+      .map(p => p.id_paciente);
+
+    if (idsPacientes.length === 0) {
+      await enviarMensajeWhatsApp(numeroRemitente, "No encontramos un perfil de paciente asociado a este número en FonoTrack.");
+      return;
+    }
+
+    const inicioDeHoy = new Date();
+    inicioDeHoy.setUTCHours(0, 0, 0, 0);
+
+    // Buscar la próxima cita activa del paciente
+    const proximaCita = await prisma.citas.findFirst({
+      where: {
+        id_paciente: { in: idsPacientes },
+        fecha: { gte: inicioDeHoy },
+        estado_asistencia: { notIn: ['Anulada', 'Asistió', 'Faltó'] }
+      },
+      orderBy: [
+        { fecha: 'asc' },
+        { hora_inicio: 'asc' }
+      ]
+    });
+
+    if (!proximaCita) {
+      await enviarMensajeWhatsApp(numeroRemitente, "No tienes citas pendientes por confirmar o anular en FonoTrack.");
+      return;
+    }
+
+    const fechaCita = proximaCita.fecha ? proximaCita.fecha.toISOString().split('T')[0] : '';
+    const horaCita = proximaCita.hora_inicio ? proximaCita.hora_inicio.toISOString().substring(11, 16) : '00:00';
+
+    if (texto === '1' || texto === 'confirmar') {
+      await prisma.citas.update({
+        where: { id_citas: proximaCita.id_citas },
+        data: { estado_asistencia: 'Confirmada' }
+      });
+
+      await enviarMensajeWhatsApp(
+        numeroRemitente,
+        `Tu cita del *${fechaCita}* a las *${horaCita} hrs* ha sido *CONFIRMADA* exitosamente. Te esperamos en FonoTrack.`
+      );
+      console.log(`Cita #${proximaCita.id_citas} confirmada vía WhatsApp por ${numeroRemitente}`);
+    } else if (texto === '2' || texto === 'anular') {
+      await prisma.citas.update({
+        where: { id_citas: proximaCita.id_citas },
+        data: {
+          estado_asistencia: 'Anulada',
+          estado_pago: 'Cancelado'
+        }
+      });
+
+      await enviarMensajeWhatsApp(
+        numeroRemitente,
+        `Tu cita del *${fechaCita}* a las *${horaCita} hrs* ha sido *ANULADA* correctamente. La hora ha quedado liberada en la agenda.`
+      );
+      console.log(`Cita #${proximaCita.id_citas} anulada vía WhatsApp por ${numeroRemitente}`);
+    }
+  } catch (error) {
+    console.error("Error procesando respuesta de WhatsApp:", error);
+  }
+};
+
+whatsappClient.on('message', (msg) => {
+  if (!msg.fromMe) procesarRespuestaCitaWhatsApp(msg);
+});
+
+whatsappClient.on('message_create', (msg) => {
+  if (msg.fromMe) procesarRespuestaCitaWhatsApp(msg);
+});
+
+// Función para enviar recordatorios automáticos de las citas del día siguiente (24 horas antes)
+const enviarRecordatoriosManana = async () => {
+  try {
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const anio = manana.getFullYear();
+    const mes = String(manana.getMonth() + 1).padStart(2, '0');
+    const dia = String(manana.getDate()).padStart(2, '0');
+    const fechaMananaStr = `${anio}-${mes}-${dia}`;
+
+    const citasManana = await prisma.citas.findMany({
+      where: {
+        fecha: new Date(`${fechaMananaStr}T00:00:00.000Z`),
+        estado_asistencia: { not: 'Anulada' },
+        estado_pago: { not: 'Cancelado' }
+      }
+    });
+
+    if (citasManana.length === 0) {
+      console.log(`Tarea programada: No hay citas agendadas para mañana (${fechaMananaStr}).`);
+      return { fecha: fechaMananaStr, enviados: 0 };
+    }
+
+    let enviados = 0;
+    for (const cita of citasManana) {
+      const [paciente, fonoaudiologo, servicio] = await Promise.all([
+        prisma.pacientes.findUnique({ where: { id_paciente: cita.id_paciente } }),
+        prisma.fonoaudiologos.findUnique({ where: { id_fonoaudiologo: cita.id_fonoaudiologo } }),
+        prisma.servicios.findUnique({ where: { id_servicios: cita.id_servicio } })
+      ]);
+
+      if (paciente && paciente.telefono) {
+        const horaCita = cita.hora_inicio ? cita.hora_inicio.toISOString().substring(11, 16) : '00:00';
+        const nombreEspecialista = fonoaudiologo?.nombre_completo || 'Especialista FonoTrack';
+        const nombreServicio = servicio?.nombre_servicio || 'Atención Fonoaudiológica';
+
+        const mensajeRecordatorio =
+          `¡Hola *${paciente.nombre_completo}*!\n\n` +
+          `Te recordamos que mañana tienes una cita programada en *FonoTrack*:\n\n` +
+          `- *Fecha:* ${fechaMananaStr}\n` +
+          `- *Hora:* ${horaCita} hrs\n` +
+          `- *Especialista:* ${nombreEspecialista}\n` +
+          `- *Servicio:* ${nombreServicio}\n\n` +
+          `Responde con *1* para CONFIRMAR tu asistencia o con *2* para ANULAR tu cita.`;
+
+        const ok = await enviarMensajeWhatsApp(paciente.telefono, mensajeRecordatorio);
+        if (ok) enviados++;
+      }
+    }
+
+    console.log(`Tarea programada: Se enviaron ${enviados} recordatorios para mañana (${fechaMananaStr}).`);
+    return { fecha: fechaMananaStr, enviados };
+  } catch (error) {
+    console.error("Error ejecutando envío de recordatorios de mañana:", error);
+    return { error: error.message };
+  }
+};
+
+// Programación automática todos los días a las 09:00 AM
+cron.schedule('0 9 * * *', () => {
+  console.log("Ejecutando revisión diaria de recordatorios de citas para mañana...");
+  enviarRecordatoriosManana();
+});
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -193,7 +406,7 @@ app.post('/api/pacientes', async (req, res) => {
       }
     });
 
-     res.status(201).json(pacienteNuevo);
+    res.status(201).json(pacienteNuevo);
   } catch (error) {
     console.error("Error al crear el paciente:", error);
     res.status(500).json({ mensaje: "Error al crear el paciente" });
@@ -203,7 +416,7 @@ app.post('/api/pacientes', async (req, res) => {
 app.get('/api/pacientes', async (req, res) => {
   try {
     const todosLosPacientes = await prisma.pacientes.findMany();
-     const todosUsuarios = await prisma.usuarios.findMany({
+    const todosUsuarios = await prisma.usuarios.findMany({
       select: { id_usuario: true, email: true }
     });
 
@@ -654,45 +867,32 @@ app.post('/api/citas', async (req, res) => {
 
     // 3. Enviamos el recordatorio por WhatsApp usando whatsapp-web.js
     const telefonoDestino = telefono || (pacienteInfo && pacienteInfo.telefono);
-    const numeroWhatsApp = formatearNumeroWhatsApp(telefonoDestino);
+    const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
+    const nombreEspecialista = fonoaudiologoInfo?.nombre_completo || "Especialista FonoTrack";
+    const nombreServicio = servicioInfo?.nombre_servicio || "Atención Fonoaudiológica";
 
-    if (numeroWhatsApp) {
-      if (whatsappListo) {
-        const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
-        const nombreEspecialista = fonoaudiologoInfo?.nombre_completo || "Especialista FonoTrack";
-        const nombreServicio = servicioInfo?.nombre_servicio || "Atención Fonoaudiológica";
+    const mensajeWhatsApp =
+      `¡Hola *${nombrePaciente}*!\n\n` +
+      `Tu cita en *FonoTrack* ha sido agendada exitosamente. Aquí tienes el recordatorio de tu atención:\n\n` +
+      `- *Fecha:* ${soloFecha}\n` +
+      `- *Hora:* ${horaLimpia} hrs\n` +
+      `- *Especialista:* ${nombreEspecialista}\n` +
+      `- *Servicio:* ${nombreServicio}\n\n` +
+      `Responde con *1* para CONFIRMAR tu asistencia o con *2* para ANULAR tu cita.\n` +
+      `¡Te esperamos!`;
 
-        const mensajeWhatsApp =
-          `¡Hola *${nombrePaciente}*!\n\n` +
-          `Tu cita en *FonoTrack* ha sido agendada exitosamente. Aquí tienes el recordatorio de tu atención:\n\n` +
-          `- *Fecha:* ${soloFecha}\n` +
-          `- *Hora:* ${horaLimpia} hrs\n` +
-          `- *Especialista:* ${nombreEspecialista}\n` +
-          `- *Servicio:* ${nombreServicio}\n\n` +
-          `¡Te esperamos!`;
-
-        try {
-          const contactoRegistrado = await whatsappClient.getNumberId(numeroWhatsApp);
-          const chatId = (contactoRegistrado && contactoRegistrado._serialized && contactoRegistrado._serialized.endsWith('@c.us'))
-            ? contactoRegistrado._serialized
-            : `${numeroWhatsApp}@c.us`;
-
-          const msgEnviado = await whatsappClient.sendMessage(chatId, mensajeWhatsApp, { sendSeen: false });
-          console.log("Recordatorio de WhatsApp enviado exitosamente a:", chatId, "| ID:", msgEnviado?.id?._serialized || 'enviado');
-        } catch (errorWhatsApp) {
-          console.error("Error enviando el recordatorio por WhatsApp:", errorWhatsApp);
-        }
-      } else {
-        console.warn("El cliente de WhatsApp aún no está vinculado o listo para enviar el recordatorio a:", numeroWhatsApp);
-      }
-    } else {
-      console.warn("No se encontró teléfono para enviar el recordatorio de WhatsApp.");
-    }
+    await enviarMensajeWhatsApp(telefonoDestino, mensajeWhatsApp);
 
     res.status(201).json(nuevaCita);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
   }
+});
+
+// Endpoint para disparar manualmente los recordatorios de las citas de mañana (útil para pruebas)
+app.post('/api/recordatorios/enviar-manana', async (req, res) => {
+  const resultado = await enviarRecordatoriosManana();
+  res.status(200).json(resultado);
 });
 
 
@@ -1020,6 +1220,26 @@ app.post('/api/fichas', async (req, res) => {
         } else {
           console.log(" Ficha guardada sin correo: El usuario no tiene email registrado.");
         }
+
+        // Enviamos también el resumen de la ficha clínica y actividades al WhatsApp del paciente
+        if (paciente.telefono) {
+          let nombreEspecialista = fonoaudiologoNombre;
+          if (!nombreEspecialista && cita.id_fonoaudiologo) {
+            const fono = await prisma.fonoaudiologos.findUnique({
+              where: { id_fonoaudiologo: cita.id_fonoaudiologo }
+            });
+            nombreEspecialista = fono?.nombre_completo;
+          }
+
+          const mensajeFichaWhatsApp =
+            `¡Hola *${paciente.nombre_completo}*!\n\n` +
+            `El/La especialista *${nombreEspecialista || 'tu especialista'}* ha registrado el resumen de tu última sesión en *FonoTrack*:\n\n` +
+            `*Observaciones Clínicas:*\n${observaciones_clinicas || 'Sin observaciones registradas.'}\n\n` +
+            `*Actividades e Indicaciones para el Hogar:*\n${actividades_hogar || 'Sin actividades adicionales.'}\n\n` +
+            `Puedes revisar el detalle completo en tu portal de paciente de FonoTrack.`;
+
+          await enviarMensajeWhatsApp(paciente.telefono, mensajeFichaWhatsApp);
+        }
       }
     }
 
@@ -1129,7 +1349,7 @@ app.get('/api/comunas', async (req, res) => {
 
 app.post('/api/pagos/iniciar', async (req, res) => {
   try {
-    const { tipo, id_referencia, id_fonoaudiologo, monto, returnUrl} = req.body;
+    const { tipo, id_referencia, id_fonoaudiologo, monto, returnUrl } = req.body;
     // tipo puede ser 'CITA' o 'PLAN', para diferenciar uno de otro
     // buyOrder tiene máximo 26 caracteres en Transbank
 
@@ -1256,7 +1476,7 @@ app.post('/api/pagos/confirmar', async (req, res) => {
     if (error.message && error.message.includes('locked by another process')) {
       return res.status(200).json({ exito: true, mensaje: "El pago ya había sido confirmado" });
     }
-    
+
     console.error("Error al confirmar pago con Transbank:", error);
     res.status(500).json({ mensaje: "Error al confirmar el pago", detalle: error.message });
   }
