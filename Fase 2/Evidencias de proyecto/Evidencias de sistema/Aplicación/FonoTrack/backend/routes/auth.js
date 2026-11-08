@@ -6,7 +6,7 @@ const prisma = require('../config/prisma');
 
 router.post('/registro', async (req, res) => {
   try {
-    const { nombre, email, password, rol, rut, fechaNacimiento, genero } = req.body;
+    const { nombre, email, password, rol, rut, fechaNacimiento, genero, telefono } = req.body;
 
     const resultado = await prisma.$transaction(async (tx) => {
       const nuevoUsuario = await tx.usuarios.create({
@@ -34,6 +34,7 @@ router.post('/registro', async (req, res) => {
             id_usuario: nuevoUsuario.id_usuario,
             nombre_completo: nombre,
             rut: rut,
+            telefono: telefono || null,
             fecha_nacimiento: new Date(fechaNacimiento),
             genero: genero
           }

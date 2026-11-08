@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../config/prisma');
 const transporter = require('../config/mailer');
+const { enviarMensajeWhatsApp } = require('../config/whatsapp');
 
 // FICHAS CLÍNICAS: Guardar y anotar observaciones
 
@@ -50,6 +51,26 @@ router.post('/', async (req, res) => {
             .catch(err => console.error("Error enviando correo a paciente:", err));
         } else {
           console.log(" Ficha guardada sin correo: El usuario no tiene email registrado.");
+        }
+
+        // Enviamos también el resumen de la ficha clínica y actividades al WhatsApp del paciente
+        if (paciente.telefono) {
+          let nombreEspecialista = fonoaudiologoNombre;
+          if (!nombreEspecialista && cita.id_fonoaudiologo) {
+            const fono = await prisma.fonoaudiologos.findUnique({
+              where: { id_fonoaudiologo: cita.id_fonoaudiologo }
+            });
+            nombreEspecialista = fono?.nombre_completo;
+          }
+
+          const mensajeFichaWhatsApp =
+            `¡Hola *${paciente.nombre_completo}*!\n\n` +
+            `El/La especialista *${nombreEspecialista || 'tu especialista'}* ha registrado el resumen de tu última sesión en *FonoTrack*:\n\n` +
+            `*Observaciones Clínicas:*\n${observaciones_clinicas || 'Sin observaciones registradas.'}\n\n` +
+            `*Actividades e Indicaciones para el Hogar:*\n${actividades_hogar || 'Sin actividades adicionales.'}\n\n` +
+            `Puedes revisar el detalle completo en tu portal de paciente de FonoTrack.`;
+
+          await enviarMensajeWhatsApp(paciente.telefono, mensajeFichaWhatsApp);
         }
       }
     }

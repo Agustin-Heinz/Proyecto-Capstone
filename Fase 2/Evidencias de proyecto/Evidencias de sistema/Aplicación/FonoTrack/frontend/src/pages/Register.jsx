@@ -10,7 +10,7 @@ export default function Register() {
     rol: 'paciente',
     rut: '',
     telefono: '',
-    fechaNcimiento: '',
+    fechaNacimiento: '',
     genero: ''
   });
   

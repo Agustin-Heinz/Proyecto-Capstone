@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../config/prisma');
 const transporter = require('../config/mailer');
+const { enviarMensajeWhatsApp, enviarRecordatoriosManana } = require('../config/whatsapp');
 
 // GET PACIENTES NO LOGEADOS (POR RUT)
 router.get('/rut/:rut', async (req, res) => {
@@ -100,7 +101,7 @@ router.get('/ocupadas', async (req, res) => {
 // POST CITAS
 router.post('/', async (req, res) => {
   try {
-    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio, email } = req.body;
+    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio, email, telefono } = req.body;
 
     const soloFecha = String(fecha).split('T')[0];
     let horaLimpia = "00:00";
@@ -136,9 +137,11 @@ router.post('/', async (req, res) => {
       }
     });
 
-    const pacienteInfo = await prisma.pacientes.findUnique({
-      where: { id_paciente: idPacienteFinal || 1 }
-    });
+    const [pacienteInfo, fonoaudiologoInfo, servicioInfo] = await Promise.all([
+      prisma.pacientes.findUnique({ where: { id_paciente: idPacienteFinal || 1 } }),
+      prisma.fonoaudiologos.findUnique({ where: { id_fonoaudiologo: Number(id_fonoaudiologo) } }),
+      prisma.servicios.findUnique({ where: { id_servicios: Number(id_servicio) } })
+    ]);
 
     let usuarioInfo = null;
     if (pacienteInfo && pacienteInfo.id_usuario) {
@@ -179,6 +182,27 @@ router.post('/', async (req, res) => {
     } else {
       console.warn("No se encontró correo para enviar la confirmación de la cita.");
     }
+
+    // 3. Enviamos el recordatorio por WhatsApp usando whatsapp-web.js
+    const telefonoDestino = telefono || (pacienteInfo && pacienteInfo.telefono);
+    if (telefonoDestino) {
+      const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
+      const nombreEspecialista = fonoaudiologoInfo?.nombre_completo || "Especialista FonoTrack";
+      const nombreServicio = servicioInfo?.nombre_servicio || "Atención Fonoaudiológica";
+
+      const mensajeWhatsApp =
+        `¡Hola *${nombrePaciente}*!\n\n` +
+        `Tu cita en *FonoTrack* ha sido agendada exitosamente. Aquí tienes el recordatorio de tu atención:\n\n` +
+        `- *Fecha:* ${soloFecha}\n` +
+        `- *Hora:* ${horaLimpia} hrs\n` +
+        `- *Especialista:* ${nombreEspecialista}\n` +
+        `- *Servicio:* ${nombreServicio}\n\n` +
+        `Responde con *1* para CONFIRMAR tu asistencia o con *2* para ANULAR tu cita.\n` +
+        `¡Te esperamos!`;
+
+      await enviarMensajeWhatsApp(telefonoDestino, mensajeWhatsApp);
+    }
+
     res.status(201).json(nuevaCita);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al guardar la cita", detalle: error.message });
@@ -271,6 +295,16 @@ router.put('/:id/pago', async (req, res) => {
     res.status(200).json(citaActualizada);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al actualizar pago", detalle: error.message });
+  }
+});
+
+// POST RECORDATORIOS MANUALES: Permite disparar manualmente los recordatorios de mañana
+router.post('/recordatorios-manana', async (req, res) => {
+  try {
+    const resultado = await enviarRecordatoriosManana();
+    res.status(200).json(resultado);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al enviar recordatorios", detalle: error.message });
   }
 });
 
