@@ -77,7 +77,7 @@ export default function PacientePerfil() {
 
         // Filtrar citas del paciente y cruzar con datos del fonoaudiólogo
         const misCitas = citasSeguras
-          .filter(c => c.id_paciente === idPaciente)
+          .filter(c => c.id_paciente === idPaciente || (nombreLocal && c.nombre_paciente?.toLowerCase().trim() === nombreLocal.toLowerCase().trim()))
           .map(c => {
             const fono = fonosSeguros.find(f => f.id_fonoaudiologo === c.id_fonoaudiologo);
             return {

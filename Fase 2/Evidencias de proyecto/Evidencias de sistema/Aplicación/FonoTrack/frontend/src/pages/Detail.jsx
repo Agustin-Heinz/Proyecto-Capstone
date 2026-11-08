@@ -64,8 +64,8 @@ export default function Detail() {
     setEnviando(true);
     setMensajeForm({ texto: '', tipo: '' });
 
-    const pacienteIdStr = localStorage.getItem('perfilId');
-    const idPaciente = pacienteIdStr ? parseInt(pacienteIdStr) : 1; 
+    const pacienteIdParsed = parseInt(localStorage.getItem('perfilId'));
+    const idPaciente = !isNaN(pacienteIdParsed) && pacienteIdParsed > 0 ? pacienteIdParsed : 1;
 
     try {
       const respuesta = await fetch('http://localhost:3000/api/resenas', {

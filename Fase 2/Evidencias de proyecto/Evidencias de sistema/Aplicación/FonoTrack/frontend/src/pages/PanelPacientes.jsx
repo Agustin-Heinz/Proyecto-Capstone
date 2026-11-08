@@ -21,8 +21,8 @@ export default function PanelPacientes() {
     fetch('http://localhost:3000/api/citas')
       .then(res => res.json())
       .then(citas => {
-        const perfilIdStr = localStorage.getItem('perfilId');
-        const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2; 
+        const perfilIdParsed = parseInt(localStorage.getItem('perfilId'));
+        const idFonoaudiologo = !isNaN(perfilIdParsed) && perfilIdParsed > 0 ? perfilIdParsed : 2;
 
         const citasFonoaudiologo = citas.filter(c => c.id_fonoaudiologo === idFonoaudiologo);
         const idsMisPacientes = new Set(citasFonoaudiologo.map(c => c.id_paciente));

@@ -19,7 +19,11 @@ export default function Login() {
         const usuario = await respuesta.json();
         
         // Guarda el ID del perfil y el nombre en el navegador
-        localStorage.setItem('perfilId', usuario.perfilId);
+        if (usuario.perfilId) {
+          localStorage.setItem('perfilId', usuario.perfilId);
+        } else {
+          localStorage.removeItem('perfilId');
+        }
         localStorage.setItem('rol', usuario.rol);
         localStorage.setItem('nombre', usuario.nombre);
         localStorage.setItem('email', usuario.email);

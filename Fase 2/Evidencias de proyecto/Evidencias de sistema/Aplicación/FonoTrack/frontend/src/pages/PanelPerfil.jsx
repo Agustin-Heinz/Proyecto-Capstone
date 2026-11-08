@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Pencil, Trash } from 'lucide-react';
+import { MapPin, Pencil, Trash, ChevronDown } from 'lucide-react';
 
 export default function PanelPerfil() {
 
@@ -58,7 +58,7 @@ export default function PanelPerfil() {
       const miInfo = Array.isArray(datosPerfil)
         ? datosPerfil.find(f => f.id_fonoaudiologo === idFonoaudiologo)
         : null;
-      
+
       if (miInfo) {
         setPerfil({
           nombre_completo: miInfo.nombre_completo || '',
@@ -108,9 +108,9 @@ export default function PanelPerfil() {
 
   const manejarCambioPerfil = (e) => {
     const { name, value } = e.target;
-    setPerfil({ 
-      ...perfil, 
-      [name]: name === 'id_ubicacion' ? (value ? parseInt(value) : '') : value 
+    setPerfil({
+      ...perfil,
+      [name]: name === 'id_ubicacion' ? (value ? parseInt(value) : '') : value
     });
   };
 
@@ -131,7 +131,7 @@ export default function PanelPerfil() {
       formData.append('telefono', perfil.telefono || '');
 
       if (perfil.id_ubicacion) formData.append('id_ubicacion', perfil.id_ubicacion);
-      
+
       if (fotoArchivo) {
         formData.append('foto_archivo', fotoArchivo);
       } else if (perfil.foto_perfil) {
@@ -140,7 +140,7 @@ export default function PanelPerfil() {
 
       const respuesta = await fetch(`http://localhost:3000/api/fonoaudiologos/${idFonoaudiologo}`, {
         method: 'PUT',
-        body: formData 
+        body: formData
       });
 
       if (respuesta.ok) {
@@ -226,12 +226,12 @@ export default function PanelPerfil() {
       id_catalogo: itemEncontrado ? itemEncontrado.id_catalogo : ''
     });
   };
-  
+
   const handleGuardarServicio = async (e) => {
     e.preventDefault();
-    
-    const esDuplicado = servicios.some(s => 
-      s.nombre.toLowerCase().trim() === nuevoServicio.nombre.toLowerCase().trim() && 
+
+    const esDuplicado = servicios.some(s =>
+      s.nombre.toLowerCase().trim() === nuevoServicio.nombre.toLowerCase().trim() &&
       (!servicioEditando || s.id !== servicioEditando.id)
     );
 
@@ -249,21 +249,21 @@ export default function PanelPerfil() {
         respuesta = await fetch(`http://localhost:3000/api/servicios/${servicioEditando.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             id_catalogo: nuevoServicio.id_catalogo,
-            nombre: nuevoServicio.nombre, 
-            precio: nuevoServicio.precio 
+            nombre: nuevoServicio.nombre,
+            precio: nuevoServicio.precio
           })
         });
       } else {
         respuesta = await fetch('http://localhost:3000/api/servicios', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            id_fonoaudiologo: idFonoaudiologo, 
+          body: JSON.stringify({
+            id_fonoaudiologo: idFonoaudiologo,
             id_catalogo: nuevoServicio.id_catalogo,
-            nombre: nuevoServicio.nombre, 
-            precio: nuevoServicio.precio 
+            nombre: nuevoServicio.nombre,
+            precio: nuevoServicio.precio
           })
         });
       }
@@ -271,7 +271,7 @@ export default function PanelPerfil() {
       if (respuesta.ok) {
         alert(servicioEditando ? "Servicio actualizado" : "Servicio creado con éxito");
         setServicioEditando(null);
-        setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 }); 
+        setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 });
         cargarDatos();
       } else {
         alert(`Error al guardar el servicio en el servidor.`);
@@ -283,11 +283,11 @@ export default function PanelPerfil() {
 
   const iniciarEdicionServicio = (servicio) => {
     setServicioEditando(servicio);
-    setNuevoServicio({ 
-      id_catalogo: servicio.id_catalogo || '', 
-      nombre: servicio.nombre, 
-      precio: servicio.precio, 
-      duracion: servicio.duracion 
+    setNuevoServicio({
+      id_catalogo: servicio.id_catalogo || '',
+      nombre: servicio.nombre,
+      precio: servicio.precio,
+      duracion: servicio.duracion
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -308,11 +308,11 @@ export default function PanelPerfil() {
   };
 
   const handleGuardarHorario = async (id_servicio, horarioData, idEditando) => {
-    const duplicado = disponibilidad.some(d => 
+    const duplicado = disponibilidad.some(d =>
       d.id_servicio === id_servicio &&
-      d.dia === horarioData.dia && 
-      d.inicio === horarioData.inicio && 
-      d.fin === horarioData.fin && 
+      d.dia === horarioData.dia &&
+      d.inicio === horarioData.inicio &&
+      d.fin === horarioData.fin &&
       d.id !== idEditando
     );
 
@@ -336,12 +336,12 @@ export default function PanelPerfil() {
         respuesta = await fetch('http://localhost:3000/api/disponibilidad', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            id_fonoaudiologo: idFonoaudiologo, 
-            id_servicio: id_servicio, 
-            dia: horarioData.dia, 
-            inicio: horarioData.inicio, 
-            fin: horarioData.fin 
+          body: JSON.stringify({
+            id_fonoaudiologo: idFonoaudiologo,
+            id_servicio: id_servicio,
+            dia: horarioData.dia,
+            inicio: horarioData.inicio,
+            fin: horarioData.fin
           })
         });
       }
@@ -373,12 +373,12 @@ export default function PanelPerfil() {
 
 
   // RENDERIZADO VISUAL
-  
+
   if (cargando) return <div style={{ padding: '50px', textAlign: 'center' }}>Cargando información...</div>;
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '60px' }}>
-      
+
       {/* Título de la página */}
       <div style={{ marginBottom: '20px' }}>
         <div style={{ fontSize: '12px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>Configuración Clínica</div>
@@ -388,13 +388,13 @@ export default function PanelPerfil() {
 
       {/* Navegación de Pestañas */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-        <button 
+        <button
           onClick={() => setPestanaActiva('perfil')}
           style={{ ...btnPestanaStyle, borderBottom: pestanaActiva === 'perfil' ? '3px solid #1d4ed8' : '3px solid transparent', color: pestanaActiva === 'perfil' ? '#1d4ed8' : '#64748b' }}
         >
           Mi Perfil
         </button>
-        <button 
+        <button
           onClick={() => setPestanaActiva('servicios')}
           style={{ ...btnPestanaStyle, borderBottom: pestanaActiva === 'servicios' ? '3px solid #1d4ed8' : '3px solid transparent', color: pestanaActiva === 'servicios' ? '#1d4ed8' : '#64748b' }}
         >
@@ -406,7 +406,7 @@ export default function PanelPerfil() {
       {pestanaActiva === 'perfil' && (
         <div style={panelContainerStyle}>
           <form onSubmit={guardarPerfil} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div><label style={labelStyle}>Nombre Completo (Fijo)</label><input type="text" value={perfil.nombre_completo} disabled style={inputDisabledStyle} /></div>
               <div><label style={labelStyle}>RUT (Fijo)</label><input type="text" value={perfil.rut} disabled style={inputDisabledStyle} /></div>
@@ -476,10 +476,10 @@ export default function PanelPerfil() {
             <div>
               <label style={labelStyle}>Comuna de Atención</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <select 
-                  name="id_ubicacion" 
-                  value={perfil.id_ubicacion} 
-                  onChange={manejarCambioPerfil} 
+                <select
+                  name="id_ubicacion"
+                  value={perfil.id_ubicacion}
+                  onChange={manejarCambioPerfil}
                   style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
                 >
                   <option value="">Selecciona tu comuna</option>
@@ -534,78 +534,78 @@ export default function PanelPerfil() {
       {pestanaActiva === 'servicios' && (
         <>
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', padding: '24px', marginBottom: '40px', border: servicioEditando ? '2px solid #fbbf24' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-               <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>
-                 {servicioEditando ? 'Editando Catálogo de Servicio' : 'Añadir Servicio Oficial a mi Perfil'}
-               </h2>
-               <span style={{ fontSize: '12px', fontWeight: '700', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '6px 12px', borderRadius: '20px', border: '1px solid #bfdbfe' }}>
-                 Filtro activo: Público {perfil.publico_objetivo || 'Ambos'}
-               </span>
-             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>
+                {servicioEditando ? 'Editando Catálogo de Servicio' : 'Añadir Servicio Oficial a mi Perfil'}
+              </h2>
+              <span style={{ fontSize: '12px', fontWeight: '700', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '6px 12px', borderRadius: '20px', border: '1px solid #bfdbfe' }}>
+                Filtro activo: Público {perfil.publico_objetivo || 'Ambos'}
+              </span>
+            </div>
 
-             <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
-                <div style={{ flex: 2 }}>
-                  <label style={labelStyle}>Selecciona un servicio oficial</label>
-                  <select
-                    required
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                    value={nuevoServicio.nombre}
-                    onChange={handleSeleccionarServicioCatalogo}
-                  >
-                    <option value=""> Elige un tratamiento del catálogo </option>
-                    {catalogoFiltrado.map(item => {
-                      const yaAgregado = servicios.some(
-                        s => s.nombre.toLowerCase().trim() === item.nombre_servicio.toLowerCase().trim() &&
+            <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
+              <div style={{ flex: 2 }}>
+                <label style={labelStyle}>Selecciona un servicio oficial</label>
+                <select
+                  required
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                  value={nuevoServicio.nombre}
+                  onChange={handleSeleccionarServicioCatalogo}
+                >
+                  <option value=""> Elige un tratamiento del catálogo </option>
+                  {catalogoFiltrado.map(item => {
+                    const yaAgregado = servicios.some(
+                      s => s.nombre.toLowerCase().trim() === item.nombre_servicio.toLowerCase().trim() &&
                         (!servicioEditando || s.id !== servicioEditando.id)
-                      );
-                      return (
-                        <option 
-                          key={item.id_catalogo} 
-                          value={item.nombre_servicio}
-                          disabled={yaAgregado}
-                        >
-                          {perfil.publico_objetivo === 'Ambos' ? `[${item.publico_objetivo}] ` : ''}
-                          {item.nombre_servicio} {yaAgregado ? '(Ya agregado)' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Precio (CLP)</label>
-                  <input type="number" required style={inputStyle} placeholder="35000" value={nuevoServicio.precio} onChange={e => setNuevoServicio({...nuevoServicio, precio: e.target.value})} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Duración (min)</label>
-                  <input type="number" required style={inputStyle} value={nuevoServicio.duracion} onChange={e => setNuevoServicio({...nuevoServicio, duracion: e.target.value})} />
-                </div>
-                <button type="submit" style={btnStyle}>
-                  {servicioEditando ? 'Guardar Cambios' : '+ Añadir Catálogo'}
-                </button>
-                {servicioEditando && (
-                  <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
-                )}
-             </form>
+                    );
+                    return (
+                      <option
+                        key={item.id_catalogo}
+                        value={item.nombre_servicio}
+                        disabled={yaAgregado}
+                      >
+                        {perfil.publico_objetivo === 'Ambos' ? `[${item.publico_objetivo}] ` : ''}
+                        {item.nombre_servicio} {yaAgregado ? '(Ya agregado)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Precio (CLP)</label>
+                <input type="number" required style={inputStyle} placeholder="35000" value={nuevoServicio.precio} onChange={e => setNuevoServicio({ ...nuevoServicio, precio: e.target.value })} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Duración (min)</label>
+                <input type="number" required style={inputStyle} value={nuevoServicio.duracion} onChange={e => setNuevoServicio({ ...nuevoServicio, duracion: e.target.value })} />
+              </div>
+              <button type="submit" style={btnStyle}>
+                {servicioEditando ? 'Guardar Cambios' : '+ Añadir Catálogo'}
+              </button>
+              {servicioEditando && (
+                <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 }); }} style={{ ...btnStyle, backgroundColor: '#64748b' }}>Cancelar</button>
+              )}
+            </form>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
             {servicios.length === 0 ? (
-               <div style={{ textAlign: 'center', padding: '50px 0', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
-                  <p style={{ color: '#64748b', fontSize: '16px', fontWeight: '500' }}>No tienes servicios registrados aún.</p>
-                  <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '5px' }}>Selecciona tu primer servicio arriba para asignarle horarios.</p>
-               </div>
+              <div style={{ textAlign: 'center', padding: '50px 0', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+                <p style={{ color: '#64748b', fontSize: '16px', fontWeight: '500' }}>No tienes servicios registrados aún.</p>
+                <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '5px' }}>Selecciona tu primer servicio arriba para asignarle horarios.</p>
+              </div>
             ) : (
-               servicios.map(s => (
-                 <TarjetaServicio 
-                    key={s.id}
-                    servicio={s}
-                    disponibilidad={disponibilidad.filter(d => d.id_servicio === s.id)}
-                    onEditServicio={() => iniciarEdicionServicio(s)}
-                    onDeleteServicio={() => handleEliminarServicio(s.id)}
-                    onGuardarHorario={handleGuardarHorario}
-                    onEliminarHorario={handleEliminarHorario}
-                 />
-               ))
+              servicios.map(s => (
+                <TarjetaServicio
+                  key={s.id}
+                  servicio={s}
+                  disponibilidad={disponibilidad.filter(d => d.id_servicio === s.id)}
+                  onEditServicio={() => iniciarEdicionServicio(s)}
+                  onDeleteServicio={() => handleEliminarServicio(s.id)}
+                  onGuardarHorario={handleGuardarHorario}
+                  onEliminarHorario={handleEliminarHorario}
+                />
+              ))
             )}
           </div>
         </>
@@ -615,99 +615,137 @@ export default function PanelPerfil() {
   );
 }
 
-// Tarjeta Independiente para cada Servicio
+// Tarjeta Independiente para cada Servicio (Plegable y Desplegable)
 function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteServicio, onGuardarHorario, onEliminarHorario }) {
-   const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00', fin: '13:00' });
-   const [idEditando, setIdEditando] = useState(null);
+  const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00', fin: '13:00' });
+  const [idEditando, setIdEditando] = useState(null);
+  const [desplegado, setDesplegado] = useState(true);
 
-   const onSubmitHorario = (e) => {
-       e.preventDefault();
-       onGuardarHorario(servicio.id, horarioForm, idEditando);
-       setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' });
-       setIdEditando(null);
-   };
+  const onSubmitHorario = (e) => {
+    e.preventDefault();
+    onGuardarHorario(servicio.id, horarioForm, idEditando);
+    setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' });
+    setIdEditando(null);
+  };
 
-   const iniciarEdicion = (d) => {
-       setIdEditando(d.id);
-       setHorarioForm({ dia: d.dia, inicio: d.inicio, fin: d.fin });
-   };
+  const iniciarEdicion = (d) => {
+    setIdEditando(d.id);
+    setHorarioForm({ dia: d.dia, inicio: d.inicio, fin: d.fin });
+    setDesplegado(true);
+  };
 
-   return (
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.04)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-         
-         {/* HEADER LOS DATOS DEL SERVICIO */}
-         <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-               {servicio.nombre}
-            </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#cbd5e1', fontSize: '14px', fontWeight: '500' }}>
-               <span> {servicio.duracion} min</span>
-               <span> ${(servicio.precio || 0).toLocaleString('es-CL')} CLP</span>
-               <div style={{ display: 'flex', gap: '8px', marginLeft: '10px' }}>
-                  <button onClick={onEditServicio} style={{...iconBtnStyle, color: 'white'}} title="Editar nombre/precio"><Pencil size={20} color="#ffffff" /></button>
-                  <button onClick={onDeleteServicio} style={{...iconBtnStyle, color: '#f87171'}} title="Eliminar servicio"><Trash size={20} color="#ffffff"/></button>
-               </div>
-            </div>
-         </div>
-         
-         {/* BODY LOS HORARIOS EXCLUSIVOS DE ESTE SERVICIO */}
-         <div style={{ padding: '24px', backgroundColor: '#f8fafc' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
-               Bloques de agenda exclusivos para este servicio:
-            </h3>
+  return (
+    <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.04)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
 
-            {/* Listado de horas */}
-            {disponibilidad.length > 0 ? (
-              <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {disponibilidad.map(d => (
-                  <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#ffffff' }}>
-                    <span style={{ fontWeight: '700', color: '#2563eb' }}>{d.dia}</span>
-                    <div style={{ display: 'flex', gap: '15px', color: '#475569', fontSize: '14px', fontWeight: '600', alignItems: 'center' }}>
-                      <span>{d.inicio} hrs - {d.fin} hrs</span>
-                      <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid #e2e8f0', paddingLeft: '15px' }}>
-                        <button onClick={() => iniciarEdicion(d)} style={iconBtnStyle}><Pencil size={20} color="#1a365d" /></button>
-                        <button onClick={() => onEliminarHorario(d.id)} style={iconBtnStyle}><Trash size={20} color="#1a365d"/></button>
-                      </div>
+      {/* HEADER LOS DATOS DEL SERVICIO (Clickeable para plegar/desplegar) */}
+      <div
+        onClick={() => setDesplegado(!desplegado)}
+        style={{
+          padding: '20px 24px',
+          borderBottom: desplegado ? '1px solid #e2e8f0' : 'none',
+          backgroundColor: '#1e293b',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: '18px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <ChevronDown
+            size={20}
+            color="#ffffffff"
+            style={{
+              transform: desplegado ? 'rotate(0deg)' : 'rotate(-90deg)',
+              transition: 'transform 0.2s ease',
+              flexShrink: 0
+            }}
+          />
+          <span>{servicio.nombre}</span>
+          <span style={{
+            fontSize: '12px',
+            fontWeight: '700',
+            backgroundColor: 'rgba(255,255,255,0.12)',
+            color: '#e2e8f0',
+            padding: '3px 10px',
+            borderRadius: '999px'
+          }}>
+            {disponibilidad.length} {disponibilidad.length === 1 ? 'bloque' : 'bloques'}
+          </span>
+        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#cbd5e1', fontSize: '14px', fontWeight: '500' }}>
+          <span> {servicio.duracion} min</span>
+          <span> ${(servicio.precio || 0).toLocaleString('es-CL')} CLP</span>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ display: 'flex', gap: '8px', marginLeft: '10px' }}
+          >
+            <button onClick={onEditServicio} style={{ ...iconBtnStyle, color: 'white' }} title="Editar nombre/precio"><Pencil size={20} color="#ffffff" /></button>
+            <button onClick={onDeleteServicio} style={{ ...iconBtnStyle, color: '#f87171' }} title="Eliminar servicio"><Trash size={20} color="#ffffff" /></button>
+          </div>
+        </div>
+      </div>
+
+      {/* BODY LOS HORARIOS EXCLUSIVOS DE ESTE SERVICIO (Plegable) */}
+      {desplegado && (
+        <div style={{ padding: '24px', backgroundColor: '#f8fafc' }}>
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#475569', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Bloques de agenda exclusivos para este servicio:
+          </h3>
+
+          {/* Listado de horas */}
+          {disponibilidad.length > 0 ? (
+            <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {disponibilidad.map(d => (
+                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#ffffff' }}>
+                  <span style={{ fontWeight: '700', color: '#2563eb' }}>{d.dia}</span>
+                  <div style={{ display: 'flex', gap: '15px', color: '#475569', fontSize: '14px', fontWeight: '600', alignItems: 'center' }}>
+                    <span>{d.inicio} hrs - {d.fin} hrs</span>
+                    <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid #e2e8f0', paddingLeft: '15px' }}>
+                      <button onClick={() => iniciarEdicion(d)} style={iconBtnStyle}><Pencil size={20} color="#1a365d" /></button>
+                      <button onClick={() => onEliminarHorario(d.id)} style={iconBtnStyle}><Trash size={20} color="#1a365d" /></button>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic', marginBottom: '20px' }}>
-                 No hay bloques asignados. Este servicio no aparecerá en el calendario web de los pacientes.
-              </p>
-            )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic', marginBottom: '20px' }}>
+              No hay bloques asignados. Este servicio no aparecerá en el calendario web de los pacientes.
+            </p>
+          )}
 
-            {/* Formulario Interno para añadir horas solo a este servicio */}
-            <form onSubmit={onSubmitHorario} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '16px', borderRadius: '8px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Fecha</label>
-                <input 
-                  type="date" 
-                  required 
-                  style={inputStyle} 
-                  value={horarioForm.dia} 
-                  onChange={e => setHorarioForm({...horarioForm, dia: e.target.value})} 
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Inicio</label>
-                <input type="time" required style={inputStyle} value={horarioForm.inicio} onChange={e => setHorarioForm({...horarioForm, inicio: e.target.value})} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Fin</label>
-                <input type="time" required style={inputStyle} value={horarioForm.fin} onChange={e => setHorarioForm({...horarioForm, fin: e.target.value})} />
-              </div>
-              <button type="submit" style={{...btnStyle, backgroundColor: '#2563eb'}}>
-                {idEditando ? 'Guardar' : '+ Añadir Horario'}
-              </button>
-              {idEditando && (
-                <button type="button" onClick={() => { setIdEditando(null); setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' }); }} style={{...btnStyle, backgroundColor: '#64748b'}}>Cancelar</button>
-              )}
-            </form>
-         </div>
-      </div>
-   );
+          {/* Formulario Interno para añadir horas solo a este servicio */}
+          <form onSubmit={onSubmitHorario} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '16px', borderRadius: '8px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Fecha</label>
+              <input
+                type="date"
+                required
+                style={inputStyle}
+                value={horarioForm.dia}
+                onChange={e => setHorarioForm({ ...horarioForm, dia: e.target.value })}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Inicio</label>
+              <input type="time" required style={inputStyle} value={horarioForm.inicio} onChange={e => setHorarioForm({ ...horarioForm, inicio: e.target.value })} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Fin</label>
+              <input type="time" required style={inputStyle} value={horarioForm.fin} onChange={e => setHorarioForm({ ...horarioForm, fin: e.target.value })} />
+            </div>
+            <button type="submit" style={{ ...btnStyle, backgroundColor: '#2563eb' }}>
+              {idEditando ? 'Guardar' : '+ Añadir Horario'}
+            </button>
+            {idEditando && (
+              <button type="button" onClick={() => { setIdEditando(null); setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' }); }} style={{ ...btnStyle, backgroundColor: '#64748b' }}>Cancelar</button>
+            )}
+          </form>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const btnPestanaStyle = { backgroundColor: 'transparent', border: 'none', padding: '10px 15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', transition: '0.2s', marginBottom: '-12px' };
@@ -717,6 +755,6 @@ const inputStyle = { width: '100%', padding: '12px 16px', borderRadius: '8px', b
 const inputDisabledStyle = { ...inputStyle, backgroundColor: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' };
 const btnPrimarioStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' };
 const btnUbicacionStyle = { backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0 15px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' };
-const btnStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', height: '44px', whiteSpace: 'nowrap' }; 
+const btnStyle = { backgroundColor: '#1a365d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', height: '44px', whiteSpace: 'nowrap' };
 const iconBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '4px', opacity: 0.7 };
 const mensajeStyleObj = (tipo) => ({ padding: '12px', borderRadius: '8px', backgroundColor: tipo === 'exito' ? '#dcfce7' : '#fee2e2', color: tipo === 'exito' ? '#166534' : '#991b1b', fontWeight: '600', fontSize: '14px', textAlign: 'center' });

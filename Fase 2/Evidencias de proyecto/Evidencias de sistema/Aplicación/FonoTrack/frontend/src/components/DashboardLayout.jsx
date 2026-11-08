@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { House, Calendar, Users, UserRound, BarChart2 } from 'lucide-react';
+import { House, Calendar, Users, UserRound, BarChart2, ArrowLeft } from 'lucide-react';
 
 
 export default function DashboardLayout() {
@@ -14,8 +14,12 @@ export default function DashboardLayout() {
       {/* Barra lateral */}
       <aside style={{ width: '260px', backgroundColor: '#1a365d', color: '#ffffff', display: 'flex', flexDirection: 'column' }}>
         
-        {/* Logo FonoTrack */}
-        <div style={{ padding: '35px 25px', display: 'flex', alignItems: 'center', gap: '15px' }}>
+        {/* Logo FonoTrack (Clickeable para volver al inicio de la página) */}
+        <Link
+          to="/"
+          title="Volver a la página principal"
+          style={{ padding: '35px 25px', display: 'flex', alignItems: 'center', gap: '15px', textDecoration: 'none', color: '#ffffff' }}
+        >
           <div style={{ backgroundColor: '#ffffff', color: '#1a365d', width: '42px', height: '42px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '24px' }}>
             +
           </div>
@@ -23,10 +27,10 @@ export default function DashboardLayout() {
             <div style={{ fontWeight: '800', fontSize: '20px', letterSpacing: '0.5px' }}>FONO<br/>TRACK</div>
             <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '4px' }}>Panel profesional</div>
           </div>
-        </div>
+        </Link>
 
         {/* Menú de navegación */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '5px', padding: '0 15px' }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '5px', padding: '0 15px', flex: 1 }}>
           <Link to="/panel" style={navItemStyle(isActive('/panel'))}>
             <span style={{ marginRight: '10px' }}><House size={20} /></span> Inicio
           </Link>
@@ -43,6 +47,28 @@ export default function DashboardLayout() {
             <span style={{ marginRight: '10px' }}><UserRound size={20} /></span> Mi Perfil
           </Link>
         </nav>
+
+        {/* Botón inferior con flecha para regresar al inicio de la página */}
+        <div style={{ padding: '20px 15px', borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
+          <Link
+            to="/"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '14px',
+              color: '#cbd5e1',
+              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <ArrowLeft size={18} /> Volver al inicio
+          </Link>
+        </div>
       </aside>
       
       {/* Contenedor principal de las pantallas */}
