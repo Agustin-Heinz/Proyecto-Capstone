@@ -100,7 +100,8 @@ export default function Contact() {
         hora_inicio: hora, 
         duracion_minutos: 50, // Estándar de la plataforma
         precio: s.precio,
-        email: datosPaciente.email
+        email: datosPaciente.email,
+        telefono: datosPaciente.telefono
       };
 
       const respuestaCita = await fetch('http://localhost:3000/api/citas', {
