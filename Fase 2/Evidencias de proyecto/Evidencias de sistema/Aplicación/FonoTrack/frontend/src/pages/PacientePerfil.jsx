@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Calendar, Clock,
-   MapPin, FileText, X, RefreshCw, Trash2, ClipboardList, LayoutGrid, Stethoscope, ArrowLeft, BookOpen
+   MapPin, FileText, X, RefreshCw, Trash2, ClipboardList, LayoutGrid, Stethoscope, ArrowLeft, BookOpen, FileDown, Star
 } from 'lucide-react';
+import {
+  exportarFichaClinicaPDF,
+  exportarPautaSesionPDF
+} from '../utils/exportarPdfClinico';
 
 export default function PacientePerfil() {
   const navigate = useNavigate();
+  const idBaseResena = useId();
 
   // Navegación principal de 3 vistas: 'inicio', 'citas', 'fichas'
   const [vistaActiva, setVistaActiva] = useState('inicio');
@@ -19,6 +24,7 @@ export default function PacientePerfil() {
 
   // Datos desde el backend
   const [nombrePaciente, setNombrePaciente] = useState('Paciente');
+  const [datosPaciente, setDatosPaciente] = useState(null);
   const [citas, setCitas] = useState([]);
   const [fichas, setFichas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -26,6 +32,19 @@ export default function PacientePerfil() {
   // Cita seleccionada (modal en vista Citas) y Ficha seleccionada (vista detallada en Mis Fichas)
   const [citaSeleccionada, setCitaSeleccionada] = useState(null);
   const [fichaSeleccionada, setFichaSeleccionada] = useState(null);
+
+  // Estados para calificar y dejar reseña en citas atendidas
+  const [calificacionResena, setCalificacionResena] = useState(5);
+  const [comentarioResena, setComentarioResena] = useState('');
+  const [enviandoResena, setEnviandoResena] = useState(false);
+  const [estadoResena, setEstadoResena] = useState({ texto: '', tipo: '' });
+  const [citasCalificadas, setCitasCalificadas] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('citasCalificadasPaciente')) || {};
+    } catch {
+      return {};
+    }
+  });
 
   // Estados locales para confirmaciones y anulaciones del paciente
   const [estadosLocales, setEstadosLocales] = useState(() => {
@@ -62,6 +81,7 @@ export default function PacientePerfil() {
 
         if (resPac.ok) {
           const pacData = await resPac.json();
+          setDatosPaciente(pacData);
           if (pacData?.nombre_completo) {
             setNombrePaciente(pacData.nombre_completo);
           }
@@ -240,6 +260,68 @@ export default function PacientePerfil() {
     setFichaSeleccionada(ficha);
     setVistaActiva('fichas');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const abrirModalCita = (cita) => {
+    const guardada = citasCalificadas[cita.id_citas];
+    setCalificacionResena(guardada?.calificacion || 5);
+    setComentarioResena(guardada?.comentario || '');
+    setEstadoResena({ texto: '', tipo: '' });
+    setCitaSeleccionada(cita);
+  };
+
+  const handlePublicarResena = async (e) => {
+    e.preventDefault();
+    if (!citaSeleccionada) return;
+
+    setEnviandoResena(true);
+    setEstadoResena({ texto: '', tipo: '' });
+
+    let idPaciente = datosPaciente?.id_paciente || parseInt(localStorage.getItem('perfilId'));
+    if (!idPaciente || isNaN(idPaciente)) idPaciente = 1;
+
+    try {
+      const res = await fetch('http://localhost:3000/api/resenas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_paciente: idPaciente,
+          id_fonoaudiologo: citaSeleccionada.id_fonoaudiologo,
+          calificacion: calificacionResena,
+          comentario: comentarioResena.trim()
+        })
+      });
+
+      if (res.ok) {
+        const nuevasCalificadas = {
+          ...citasCalificadas,
+          [citaSeleccionada.id_citas]: {
+            calificacion: calificacionResena,
+            comentario: comentarioResena.trim(),
+            fecha: new Date().toISOString()
+          }
+        };
+        setCitasCalificadas(nuevasCalificadas);
+        localStorage.setItem('citasCalificadasPaciente', JSON.stringify(nuevasCalificadas));
+        setEstadoResena({
+          texto: '¡Tu calificación y reseña han sido publicadas en el perfil del especialista!',
+          tipo: 'exito'
+        });
+      } else {
+        setEstadoResena({
+          texto: 'No se pudo guardar tu reseña. Inténtalo nuevamente.',
+          tipo: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error enviando reseña:', error);
+      setEstadoResena({
+        texto: 'Error de conexión al publicar la reseña.',
+        tipo: 'error'
+      });
+    } finally {
+      setEnviandoResena(false);
+    }
   };
 
   const renderAvatarFono = (foto, nombre, size = 48) => (
@@ -737,7 +819,7 @@ export default function PacientePerfil() {
                     return (
                       <div
                         key={cita.id_citas}
-                        onClick={() => setCitaSeleccionada(cita)}
+                        onClick={() => abrirModalCita(cita)}
                         style={{
                           backgroundColor: '#ffffff',
                           border: '1px solid #e2e8f0',
@@ -775,8 +857,16 @@ export default function PacientePerfil() {
                           <div style={{ fontSize: '14px', fontWeight: '800', color: '#1a365d' }}>
                             {cita.nombre_servicio || 'Sesión Fonoaudiológica'}
                           </div>
-                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            Ver opciones de cita <ChevronRight size={15} />
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: categoria === 'atendidas' ? '#d97706' : '#1e40af', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {categoria === 'atendidas' ? (
+                              citasCalificadas[cita.id_citas] ? (
+                                <>★ Calificada ({citasCalificadas[cita.id_citas].calificacion}/5) • Ver detalle <ChevronRight size={15} /></>
+                              ) : (
+                                <>★ Calificar especialista <ChevronRight size={15} /></>
+                              )
+                            ) : (
+                              <>Ver opciones de cita <ChevronRight size={15} /></>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -812,7 +902,26 @@ export default function PacientePerfil() {
                       <ArrowLeft size={16} /> Volver al listado de fichas
                     </button>
 
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          exportarPautaSesionPDF({
+                            pacienteNombre: nombrePaciente,
+                            pacienteRut: datosPaciente?.rut,
+                            fechaTexto: `${formatearFecha(fichaSeleccionada.fecha)} • ${obtenerHora(fichaSeleccionada.hora_inicio)} hrs`,
+                            servicioNombre: fichaSeleccionada.nombre_servicio,
+                            observaciones: fichaSeleccionada.observaciones_clinicas,
+                            tareas: fichaSeleccionada.actividades_hogar,
+                            especialistaNombre: fichaSeleccionada.nombre_fono,
+                            especialidad: fichaSeleccionada.especialidad_fono
+                          })
+                        }
+                        style={{ backgroundColor: '#1a365d', border: 'none', color: '#ffffff', padding: '7px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <FileDown size={14} /> Descargar Informe y Pauta (PDF)
+                      </button>
+
                       <span style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', color: '#1a365d', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Calendar size={14} color="#1e40af" /> {formatearFecha(fichaSeleccionada.fecha)}
                       </span>
@@ -872,13 +981,46 @@ export default function PacientePerfil() {
               ) : (
                 /* LISTADO GENERAL DE FICHAS EN LA 3RA PESTAÑA */
                 <div>
-                  <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9' }}>
-                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>
-                      Mis Fichas Clínicas y Observaciones
-                    </h2>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                      Haz clic sobre cualquier sesión para abrir el informe completo con las observaciones de tu fonoaudiólogo y tus tareas para la casa.
-                    </p>
+                  <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>
+                        Mis Fichas Clínicas y Observaciones
+                      </h2>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                        Haz clic sobre cualquier sesión para abrir el informe completo con las observaciones de tu fonoaudiólogo y tus tareas para la casa.
+                      </p>
+                    </div>
+
+                    {fichas.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          exportarFichaClinicaPDF({
+                            paciente: {
+                              nombre: nombrePaciente,
+                              rut: datosPaciente?.rut || 'En registro',
+                              nacimiento: datosPaciente?.fecha_nacimiento ? String(datosPaciente.fecha_nacimiento).split('T')[0] : 'No registrada',
+                              genero: datosPaciente?.genero || 'No especificado',
+                              fono: datosPaciente?.telefono || 'No registrado',
+                              email: datosPaciente?.email || 'En registro',
+                              direccion: datosPaciente?.direccion || 'No registrada',
+                              emergencia: datosPaciente?.emergencia || 'Sin contacto',
+                              notas: datosPaciente?.notas || ''
+                            },
+                            sesiones: fichas.map(f => ({
+                              fechaTexto: `${formatearFecha(f.fecha)} - ${obtenerHora(f.hora_inicio)} hrs`,
+                              servicio: f.nombre_servicio,
+                              observaciones: f.observaciones_clinicas,
+                              tareas: f.actividades_hogar
+                            })),
+                            especialistaNombre: fichas[0]?.nombre_fono || 'Especialista FonoTrack'
+                          })
+                        }
+                        style={{ backgroundColor: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '9px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <FileDown size={15} /> Descargar Historial Clínico (PDF)
+                      </button>
+                    )}
                   </div>
 
                   {fichas.length === 0 ? (
@@ -1104,6 +1246,103 @@ export default function PacientePerfil() {
                   <Trash2 size={15} /> Anular
                 </button>
               </div>
+            ) : clasificarCita(citaSeleccionada) === 'atendidas' ? (
+              <form
+                onSubmit={handlePublicarResena}
+                style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}
+              >
+                <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
+                  <legend style={{ fontSize: '13.5px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
+                    ¿Cómo calificarías tu atención con Flgo/a. {citaSeleccionada.nombre_fono}?
+                  </legend>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {[1, 2, 3, 4, 5].map(num => {
+                      const radioId = `${idBaseResena}-star-${num}`;
+                      return (
+                        <React.Fragment key={num}>
+                          <input
+                            id={radioId}
+                            type="radio"
+                            name="calificacion"
+                            value={num}
+                            checked={calificacionResena === num}
+                            onChange={() => setCalificacionResena(num)}
+                            className="visually-hidden star-radio-input"
+                          />
+                          <label
+                            htmlFor={radioId}
+                            className="star-radio-label"
+                            title={`${num} ${num === 1 ? 'estrella' : 'estrellas'}`}
+                            style={{ cursor: 'pointer', display: 'inline-flex', padding: '4px' }}
+                          >
+                            <Star
+                              size={26}
+                              color={num <= calificacionResena ? '#f59e0b' : '#cbd5e1'}
+                              fill={num <= calificacionResena ? '#fbbf24' : 'transparent'}
+                            />
+                            <span className="visually-hidden">{num} estrellas</span>
+                          </label>
+                        </React.Fragment>
+                      );
+                    })}
+                    <span style={{ marginLeft: '6px', fontSize: '13px', fontWeight: '700', color: '#475569' }}>
+                      {calificacionResena} de 5
+                    </span>
+                  </div>
+                </fieldset>
+
+                <div>
+                  <label
+                    htmlFor={`${idBaseResena}-comentario`}
+                    style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}
+                  >
+                    Tu opinión o comentario sobre la sesión
+                  </label>
+                  <textarea
+                    id={`${idBaseResena}-comentario`}
+                    name="comentario"
+                    rows={3}
+                    placeholder="Comparte tu experiencia con el especialista..."
+                    value={comentarioResena}
+                    onChange={e => setComentarioResena(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '13.5px', resize: 'vertical', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+
+                {estadoResena.texto && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      backgroundColor: estadoResena.tipo === 'exito' ? '#dcfce7' : '#fee2e2',
+                      color: estadoResena.tipo === 'exito' ? '#166534' : '#991b1b'
+                    }}
+                  >
+                    {estadoResena.texto}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '2px' }}>
+                  <Link
+                    to={`/detalle/${citaSeleccionada.id_fonoaudiologo}`}
+                    style={{ fontSize: '12.5px', fontWeight: '700', color: '#1e40af', textDecoration: 'none' }}
+                  >
+                    Ver perfil público del especialista →
+                  </Link>
+
+                  <button
+                    type="submit"
+                    disabled={enviandoResena}
+                    style={{ backgroundColor: '#1a365d', color: '#ffffff', border: 'none', padding: '9px 18px', borderRadius: '8px', fontWeight: '700', fontSize: '13px', cursor: enviandoResena ? 'not-allowed' : 'pointer' }}
+                  >
+                    {enviandoResena ? 'Publicando...' : citasCalificadas[citaSeleccionada.id_citas] ? 'Enviar nueva reseña' : 'Publicar reseña'}
+                  </button>
+                </div>
+              </form>
             ) : (
               <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
                 Esta atención forma parte de tu registro de citas {clasificarCita(citaSeleccionada)}.
