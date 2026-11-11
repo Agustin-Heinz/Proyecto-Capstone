@@ -110,7 +110,15 @@ export default function Contact() {
         body: JSON.stringify(paqueteCita)
       });
 
-      if (!respuestaCita.ok) throw new Error("Error al crear la cita");
+      if (!respuestaCita.ok) {
+        const errorCita = await respuestaCita.json().catch(() => ({}));
+        if (respuestaCita.status === 409) {
+          alert(errorCita.mensaje || "Este bloque horario ya fue ocupado por otro paciente.");
+          navigate(`/reserva/${profId}/${servId}`);
+          return;
+        }
+        throw new Error(errorCita.mensaje || "Error al crear la cita");
+      }
 
       const nuevaCita = await respuestaCita.json();
 

@@ -2,13 +2,44 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../config/prisma');
 
+function calcularDvModulo11(cuerpoNum) {
+  let suma = 0;
+  let multiplo = 2;
+  const digitos = String(cuerpoNum).replace(/\D/g, '');
+  for (let i = digitos.length - 1; i >= 0; i--) {
+    suma += parseInt(digitos.charAt(i), 10) * multiplo;
+    multiplo = multiplo < 7 ? multiplo + 1 : 2;
+  }
+  const resto = 11 - (suma % 11);
+  if (resto === 11) return '0';
+  if (resto === 10) return 'K';
+  return String(resto);
+}
+
+function formatearRutChileno(rutRaw) {
+  if (!rutRaw) return '';
+  const limpio = String(rutRaw).replace(/[^0-9kK]/g, '').toUpperCase();
+  if (limpio.length < 2) return limpio;
+  const cuerpo = limpio.slice(0, -1);
+  const dv = limpio.slice(-1);
+  const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${cuerpoConPuntos}-${dv}`;
+}
+
+function generarRutChilenoDesdeSemilla(semilla) {
+  const seisDigitos = String(semilla).replace(/\D/g, '').slice(-6).padStart(6, '0');
+  const cuerpo = `18${seisDigitos}`;
+  const dv = calcularDvModulo11(cuerpo);
+  return formatearRutChileno(`${cuerpo}${dv}`);
+}
+
 // AUTENTICACIÓN: Registro y Login
 
 router.post('/registro', async (req, res) => {
   try {
     const { nombre, email, password, rol, rut, fechaNacimiento, fechaNcimiento, genero, telefono } = req.body;
     const emailLimpio = email ? email.trim() : '';
-    const rutLimpio = rut ? rut.trim() : '';
+    const rutLimpio = rut ? formatearRutChileno(rut.trim()) : '';
     const fechaRaw = fechaNacimiento || fechaNcimiento;
     const fechaNacValida = (fechaRaw && !isNaN(new Date(fechaRaw).getTime()))
       ? new Date(fechaRaw)
@@ -58,7 +89,7 @@ router.post('/registro', async (req, res) => {
             data: {
               id_usuario: nuevoUsuario.id_usuario,
               nombre_completo: nombre,
-              rut: rutLimpio || `PD-${Date.now().toString().slice(-6)}`,
+              rut: rutLimpio || generarRutChilenoDesdeSemilla(Date.now()),
               subespecialidad: 'General',
               publico_objetivo: 'Ambos',
               acerca_de_mi: 'Nuevo profesional en FonoTrack',
