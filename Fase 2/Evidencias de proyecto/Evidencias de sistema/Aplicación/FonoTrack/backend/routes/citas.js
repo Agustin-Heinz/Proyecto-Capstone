@@ -77,20 +77,42 @@ router.get('/ocupadas', async (req, res) => {
     if (!fecha || !id_fonoaudiologo) return res.status(400).json({ mensaje: "Faltan parámetros" });
 
     const soloFecha = String(fecha).split('T')[0];
+    const inicioDia = new Date(`${soloFecha}T00:00:00.000Z`);
+    const finDia = new Date(`${soloFecha}T23:59:59.999Z`);
+
     const citasOcupadas = await prisma.citas.findMany({
       where: {
-        fecha: new Date(`${soloFecha}T00:00:00.000Z`),
         id_fonoaudiologo: Number(id_fonoaudiologo),
-        estado_asistencia: { not: 'Anulada' },
-        estado_pago: { in: ['Pagado', 'Pendiente'] } // Si una cita pasa a 'Cancelado', libera la hora
+        fecha: { gte: inicioDia, lte: finDia },
+        AND: [
+          {
+            OR: [
+              { estado_asistencia: { not: 'Anulada' } },
+              { estado_asistencia: null }
+            ]
+          },
+          {
+            OR: [
+              { estado_pago: { not: 'Cancelado' } },
+              { estado_pago: null }
+            ]
+          }
+        ]
       },
       select: { hora_inicio: true }
     });
 
-    // Extraemos los 5 caracteres de la hora ("HH:MM") de forma estándar (en vez de la del equipo local)
-    const horasOcupadas = citasOcupadas.map(cita => {
-      return cita.hora_inicio ? cita.hora_inicio.toISOString().substring(11, 16) : null;
-    }).filter(Boolean);
+    // Extraemos los 5 caracteres de la hora ("HH:MM") de forma estándar y sin duplicados
+    const horasOcupadas = [...new Set(
+      citasOcupadas.map(cita => {
+        if (!cita.hora_inicio) return null;
+        const iso = cita.hora_inicio instanceof Date
+          ? cita.hora_inicio.toISOString()
+          : String(cita.hora_inicio);
+        const match = iso.match(/(\d{2}:\d{2})/);
+        return match ? match[1] : null;
+      }).filter(Boolean)
+    )];
 
     res.json(horasOcupadas);
   } catch (error) {
@@ -110,6 +132,44 @@ router.post('/', async (req, res) => {
       if (coincidencia) horaLimpia = coincidencia[0];
     }
     const fechaHoraInicio = new Date(`${soloFecha}T${horaLimpia}:00.000Z`);
+    const inicioDia = new Date(`${soloFecha}T00:00:00.000Z`);
+    const finDia = new Date(`${soloFecha}T23:59:59.999Z`);
+
+    // Validación anti-superposición: verificar si el bloque ya está agendado en la BD
+    const citasDelDia = await prisma.citas.findMany({
+      where: {
+        id_fonoaudiologo: Number(id_fonoaudiologo),
+        fecha: { gte: inicioDia, lte: finDia },
+        AND: [
+          {
+            OR: [
+              { estado_asistencia: { not: 'Anulada' } },
+              { estado_asistencia: null }
+            ]
+          },
+          {
+            OR: [
+              { estado_pago: { not: 'Cancelado' } },
+              { estado_pago: null }
+            ]
+          }
+        ]
+      },
+      select: { id_citas: true, hora_inicio: true }
+    });
+
+    const bloqueOcupado = citasDelDia.some(c => {
+      if (!c.hora_inicio) return false;
+      const iso = c.hora_inicio instanceof Date ? c.hora_inicio.toISOString() : String(c.hora_inicio);
+      const match = iso.match(/(\d{2}:\d{2})/);
+      return match && match[1] === horaLimpia;
+    });
+
+    if (bloqueOcupado) {
+      return res.status(409).json({
+        mensaje: "Este bloque horario ya se encuentra ocupado por otro paciente."
+      });
+    }
 
     let idPacienteFinal = Number(id_paciente);
     if ((!idPacienteFinal || isNaN(idPacienteFinal)) && email) {

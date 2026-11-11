@@ -42,21 +42,55 @@ export default function Booking() {
     return () => clearInterval(intervalo);
   }, [mostrarModal, tiempo]);
 
-  const handleConfirmarYGuardar = async () => {
-    const esPaciente = localStorage.getItem('rol') === 'paciente';
-    
-    // Si no es un paciente real, lo mandamos al formulario de contacto pasándole la memoria
-    if (!esPaciente) {
-      navigate(`/contacto/${profId}/${servId}`, { 
-        state: { fecha, hora, reagendando, idCitaAntigua, estadoPagoAnterior } 
-      });
-      return;
+  const consultarHorasOcupadas = async (fechaConsulta) => {
+    if (!fechaConsulta || !profId) return [];
+    try {
+      const res = await fetch(
+        `http://localhost:3000/api/citas/ocupadas?fecha=${fechaConsulta}&id_fonoaudiologo=${profId}`,
+        { cache: 'no-store' }
+      );
+      const data = await res.json();
+      const listaLimpia = Array.isArray(data)
+        ? data.map(item => {
+            const match = String(item).match(/(\d{2}:\d{2})/);
+            return match ? match[1] : String(item).trim();
+          }).filter(Boolean)
+        : [];
+      setHorasOcupadas(listaLimpia);
+      return listaLimpia;
+    } catch (err) {
+      console.error("Error al obtener horas ocupadas:", err);
+      return [];
     }
+  };
 
+  const handleConfirmarYGuardar = async () => {
     setProcesandoReserva(true);
-    const perfilId = localStorage.getItem('perfilId');
 
     try {
+      // Verificamos en tiempo real que el bloque no haya sido tomado recién por otro paciente
+      const ocupadasActuales = await consultarHorasOcupadas(fecha);
+      if (ocupadasActuales.includes(hora)) {
+        alert("Este bloque horario ya se encuentra ocupado por otro paciente.");
+        setHora(null);
+        setMostrarModal(false);
+        setProcesandoReserva(false);
+        return;
+      }
+
+      const esPaciente = localStorage.getItem('rol') === 'paciente';
+
+      // Si no es un paciente logueado, lo enviamos al formulario de contacto
+      if (!esPaciente) {
+        setProcesandoReserva(false);
+        navigate(`/contacto/${profId}/${servId}`, { 
+          state: { fecha, hora, reagendando, idCitaAntigua, estadoPagoAnterior } 
+        });
+        return;
+      }
+
+      const perfilId = localStorage.getItem('perfilId');
+
       const respuesta = await fetch('http://localhost:3000/api/citas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,7 +111,6 @@ export default function Booking() {
       if (respuesta.ok) {
         const nuevaCita = await respuesta.json();
 
-       
         if (reagendando && idCitaAntigua) {
           await fetch(`http://localhost:3000/api/citas/${idCitaAntigua}/estado`, {
             method: 'PUT',
@@ -96,10 +129,18 @@ export default function Booking() {
 
         // Flujo normal o reagendamiento sin pago previo
         setIdCitaGenerada(nuevaCita.id_citas); 
-        setHorasOcupadas((prev) => [...prev, hora]); 
+        setHorasOcupadas((prev) => [...new Set([...prev, hora])]); 
         setPasoModal(2); 
       } else {
-        alert("Error al guardar la hora en la base de datos.");
+        const errData = await respuesta.json().catch(() => ({}));
+        if (respuesta.status === 409) {
+          alert(errData.mensaje || "Este bloque horario ya se encuentra ocupado por otro paciente.");
+          await consultarHorasOcupadas(fecha);
+          setHora(null);
+          setMostrarModal(false);
+        } else {
+          alert(errData.mensaje || "Error al guardar la hora en la base de datos.");
+        }
       }
       
     } catch (error) {
@@ -148,7 +189,17 @@ export default function Booking() {
 
         setP(fonoReal);
         setS(servReal);
-        setDisponibilidad(disp);
+        const listaDisp = Array.isArray(disp) ? disp : [];
+        setDisponibilidad(listaDisp);
+
+        // Seleccionar automáticamente la primera fecha disponible al cargar
+        const primerasFechas = [...new Set(listaDisp.map(d => d.dia_semana ? String(d.dia_semana).split('T')[0] : ''))]
+          .filter(Boolean)
+          .sort();
+        if (primerasFechas.length > 0) {
+          setFecha(prev => prev || primerasFechas[0]);
+        }
+
         setCargandoInfo(false);
       } catch (error) {
         console.error("Error al cargar datos desde MySQL:", error);
@@ -200,18 +251,19 @@ export default function Booking() {
     return dStr === fecha;
   });
 
-  const horasDisp = bloquesDelDia.map(d => {
-    return d.hora_inicio ? String(d.hora_inicio).substring(11, 16) : '';
-  }).filter(Boolean).sort();
+  const horasDisp = [...new Set(
+    bloquesDelDia.map(d => {
+      if (!d.hora_inicio) return '';
+      const match = String(d.hora_inicio).match(/(\d{2}:\d{2})/);
+      return match ? match[1] : String(d.hora_inicio).substring(11, 16);
+    }).filter(Boolean)
+  )].sort();
 
   // BLOQUEO DE HORAS YA RESERVADAS
   useEffect(() => {
     if (!fecha || !profId) return;
-
-    fetch(`http://localhost:3000/api/citas/ocupadas?fecha=${fecha}&id_fonoaudiologo=${profId}`)
-      .then((res) => res.json())
-      .then((data) => setHorasOcupadas(data))
-      .catch((err) => console.error("Error al obtener horas ocupadas:", err));
+    setHorasOcupadas([]);
+    consultarHorasOcupadas(fecha);
   }, [fecha, profId]);
 
 
@@ -284,28 +336,31 @@ export default function Booking() {
               <div className="horarios-chips">
                 {horasDisp.map(h => {
                   const estaOcupada = horasOcupadas.includes(h);
+                  const estaSeleccionada = hora === h && !estaOcupada;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={h}
-                      className={`hora-chip ${hora === h ? 'selected' : ''} ${estaOcupada ? 'disabled' : ''}`}
+                      disabled={estaOcupada}
+                      className={`hora-chip ${estaSeleccionada ? 'selected' : ''} ${estaOcupada ? 'disabled' : ''}`}
                       style={{
-                        opacity: estaOcupada ? 0.4 : 1,
+                        opacity: estaOcupada ? 0.5 : 1,
                         cursor: estaOcupada ? 'not-allowed' : 'pointer',
-                        backgroundColor: estaOcupada ? '#e0e0e0' : undefined,
+                        backgroundColor: estaOcupada ? '#e2e8f0' : estaSeleccionada ? '#0f2342' : '#ffffff',
                         textDecoration: estaOcupada ? 'line-through' : 'none',
                         padding: '10px 16px',
-                        border: '1px solid #cbd5e1',
+                        border: estaSeleccionada ? '1px solid #0f2342' : '1px solid #cbd5e1',
                         borderRadius: '8px',
                         fontWeight: '600',
-                        color: estaOcupada ? '#64748b' : '#0f172a'
+                        color: estaOcupada ? '#64748b' : estaSeleccionada ? '#ffffff' : '#0f172a'
                       }}
                       onClick={() => {
                         if (!estaOcupada) setHora(h);
                       }}
                     >
                       {h} {estaOcupada ? '(Ocupado)' : ''}
-                    </div>
+                    </button>
                   );
                 })}
               </div>

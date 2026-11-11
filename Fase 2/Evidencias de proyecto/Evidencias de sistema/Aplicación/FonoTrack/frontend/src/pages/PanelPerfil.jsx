@@ -60,9 +60,24 @@ export default function PanelPerfil() {
         : null;
 
       if (miInfo) {
+        let rutMostrar = miInfo.rut || '';
+        if (String(rutMostrar).startsWith('PD-')) {
+          const sufijo = String(rutMostrar).replace(/\D/g, '').slice(-6).padStart(6, '0');
+          const cuerpo = `17${sufijo}`;
+          let suma = 0;
+          let multiplo = 2;
+          for (let i = cuerpo.length - 1; i >= 0; i--) {
+            suma += parseInt(cuerpo.charAt(i), 10) * multiplo;
+            multiplo = multiplo < 7 ? multiplo + 1 : 2;
+          }
+          const resto = 11 - (suma % 11);
+          const dv = resto === 11 ? '0' : resto === 10 ? 'K' : String(resto);
+          rutMostrar = `${cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${dv}`;
+        }
+
         setPerfil({
           nombre_completo: miInfo.nombre_completo || '',
-          rut: miInfo.rut || '',
+          rut: rutMostrar,
           email: miInfo.email || '',
           subespecialidad: miInfo.subespecialidad || '',
           publico_objetivo: miInfo.publico_objetivo || 'Ambos',
@@ -106,11 +121,24 @@ export default function PanelPerfil() {
 
   // FUNCIONES DE "MI PERFIL"
 
+  const formatearRutInput = (valor) => {
+    const limpio = String(valor || '').replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9);
+    if (limpio.length <= 1) return limpio;
+    const cuerpo = limpio.slice(0, -1);
+    const dv = limpio.slice(-1);
+    const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${cuerpoConPuntos}-${dv}`;
+  };
+
   const manejarCambioPerfil = (e) => {
     const { name, value } = e.target;
     setPerfil({
       ...perfil,
-      [name]: name === 'id_ubicacion' ? (value ? parseInt(value) : '') : value
+      [name]: name === 'id_ubicacion'
+        ? (value ? parseInt(value) : '')
+        : name === 'rut'
+        ? formatearRutInput(value)
+        : value
     });
   };
 
@@ -125,6 +153,7 @@ export default function PanelPerfil() {
     try {
       const formData = new FormData();
       formData.append('nombre_completo', perfil.nombre_completo);
+      formData.append('rut', perfil.rut || '');
       formData.append('subespecialidad', perfil.subespecialidad);
       formData.append('publico_objetivo', perfil.publico_objetivo || 'Ambos');
       formData.append('acerca_de_mi', perfil.acerca_de_mi);
@@ -409,7 +438,17 @@ export default function PanelPerfil() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
               <div><label style={labelStyle}>Nombre Completo (Fijo)</label><input type="text" value={perfil.nombre_completo} disabled style={inputDisabledStyle} /></div>
-              <div><label style={labelStyle}>RUT (Fijo)</label><input type="text" value={perfil.rut} disabled style={inputDisabledStyle} /></div>
+              <div>
+                <label style={labelStyle}>RUT</label>
+                <input
+                  type="text"
+                  name="rut"
+                  value={perfil.rut}
+                  onChange={manejarCambioPerfil}
+                  placeholder="Ej: 17.739.034-5"
+                  style={inputStyle}
+                />
+              </div>
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />

@@ -1,14 +1,52 @@
-import { useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { House, Calendar, Users, UserRound, BarChart2, ArrowLeft, Menu, X } from 'lucide-react';
 
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [avisoPagoPlan, setAvisoPagoPlan] = useState(null);
+  const tokenProcesadoRef = useRef(null);
   
   // Función para saber si un enlace está activo y pintarlo de blanco
   const isActive = (path) => location.pathname === path;
+
+  // Confirmar automáticamente el pago del PLAN al volver de Transbank Webpay (?token_ws=...)
+  useEffect(() => {
+    const tokenWs = searchParams.get('token_ws');
+    if (!tokenWs || tokenProcesadoRef.current === tokenWs) return;
+
+    tokenProcesadoRef.current = tokenWs;
+
+    fetch('http://localhost:3000/api/pagos/confirmar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token_ws: tokenWs })
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok && data.exito) {
+          setAvisoPagoPlan({
+            tipo: 'exito',
+            texto: `¡Pago de suscripción confirmado exitosamente! (Código autorización: ${data.codigo_autorizacion || 'OK'})`
+          });
+        } else {
+          setAvisoPagoPlan({
+            tipo: 'error',
+            texto: data.mensaje || 'No se pudo confirmar el pago en Webpay.'
+          });
+        }
+        // Limpiar token_ws de la URL para evitar reenvíos al recargar
+        const nuevosParams = new URLSearchParams(searchParams);
+        nuevosParams.delete('token_ws');
+        setSearchParams(nuevosParams, { replace: true });
+      })
+      .catch(err => {
+        console.error('Error al confirmar pago de plan:', err);
+      });
+  }, [searchParams, setSearchParams]);
 
   return (
     <div className="dashboard-shell">
@@ -95,6 +133,32 @@ export default function DashboardLayout() {
       
       {/* Contenedor principal de las pantallas */}
       <main className="dashboard-main">
+        {avisoPagoPlan && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '14px 18px',
+              borderRadius: '10px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px',
+              backgroundColor: avisoPagoPlan.tipo === 'exito' ? '#dcfce7' : '#fee2e2',
+              color: avisoPagoPlan.tipo === 'exito' ? '#166534' : '#991b1b',
+              border: `1px solid ${avisoPagoPlan.tipo === 'exito' ? '#86efac' : '#fca5a5'}`,
+              fontWeight: '600',
+              fontSize: '14px'
+            }}
+          >
+            <span>{avisoPagoPlan.texto}</span>
+            <button
+              onClick={() => setAvisoPagoPlan(null)}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: '800', fontSize: '16px' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <Outlet /> 
       </main>
       

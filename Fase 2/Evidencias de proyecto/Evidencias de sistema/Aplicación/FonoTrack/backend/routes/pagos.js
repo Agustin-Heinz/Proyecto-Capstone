@@ -58,6 +58,21 @@ router.post('/confirmar', async (req, res) => {
       return res.status(400).json({ mensaje: "Pago anulado o token no recibido" });
     }
 
+    // Evitar doble commit si React StrictMode dispara dos veces la petición
+    const pagoPreviaConfirmacion = await prisma.pagos.findFirst({
+      where: { tbk_token: token_ws }
+    });
+    if (pagoPreviaConfirmacion && pagoPreviaConfirmacion.estado_pago === 'PAGADO') {
+      return res.status(200).json({
+        exito: true,
+        tipo: 'PLAN',
+        id_fonoaudiologo: pagoPreviaConfirmacion.id_fonoaudiologo,
+        id_plan: pagoPreviaConfirmacion.id_plan,
+        monto: pagoPreviaConfirmacion.monto_final,
+        codigo_autorizacion: pagoPreviaConfirmacion.tbk_codigo_autorizacion
+      });
+    }
+
     const commitResponse = await tx.commit(token_ws);
 
     if (commitResponse.status !== 'AUTHORIZED') {
@@ -119,6 +134,18 @@ router.post('/confirmar', async (req, res) => {
         });
       }
 
+      // Actualizar también cualquier intento previo que haya quedado en PENDIENTE para este fonoaudiólogo
+      await prisma.pagos.updateMany({
+        where: {
+          id_fonoaudiologo: idFono,
+          estado_pago: 'PENDIENTE'
+        },
+        data: {
+          estado_pago: 'PAGADO',
+          tbk_codigo_autorizacion: String(commitResponse.authorization_code)
+        }
+      });
+
       return res.status(200).json({
         exito: true,
         tipo: 'PLAN',
@@ -131,7 +158,7 @@ router.post('/confirmar', async (req, res) => {
 
   } catch (error) {
     // Si React dispara la confirmación 2 veces por el StrictMode, ignoramos el falso error
-    if (error.message && error.message.includes('locked by another process')) {
+    if (error.message && (error.message.includes('locked by another process') || error.message.includes('Invalid status'))) {
       return res.status(200).json({ exito: true, mensaje: "El pago ya había sido confirmado" });
     }
     

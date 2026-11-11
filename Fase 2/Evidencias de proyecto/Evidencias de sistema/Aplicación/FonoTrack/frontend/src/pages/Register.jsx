@@ -16,6 +16,15 @@ export default function Register() {
   
   const navigate = useNavigate();
 
+  const formatearRut = (valor) => {
+    const limpio = String(valor || '').replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9);
+    if (limpio.length <= 1) return limpio;
+    const cuerpo = limpio.slice(0, -1);
+    const dv = limpio.slice(-1);
+    const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${cuerpoConPuntos}-${dv}`;
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
     
@@ -61,41 +70,43 @@ export default function Register() {
             <input type="text" placeholder="Ej: Diego Sepúlveda" onChange={e => setFormData({ ...formData, nombre: e.target.value })} required />
           </div>
 
-          {/* 2. Renderizado condicional: Solo se muestra si el rol es "paciente" */}
-          {formData.rol === 'paciente' && (
-            <>
-              <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
-                <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
-                  <label>RUT</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ej: 12.345.678-9" 
-                    onChange={e => setFormData({ ...formData, rut: e.target.value })} 
-                    required 
-                  />
-                </div>
-                
-                <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
-                  <label>Fecha de Nacimiento</label>
-                  <input 
-                    type="date" 
-                    onChange={e => setFormData({ ...formData, fechaNacimiento: e.target.value })} 
-                    required 
-                  />
-                </div>
-              </div>
+          <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+            <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
+              <label>RUT</label>
+              <input 
+                type="text" 
+                placeholder="Ej: 12.345.678-9" 
+                value={formData.rut}
+                onChange={e => setFormData({ ...formData, rut: formatearRut(e.target.value) })} 
+                required 
+              />
+            </div>
 
-              <div className="cf-group">
-                <label>Teléfono (WhatsApp)</label>
+            <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
+              <label>Teléfono (WhatsApp)</label>
+              <input 
+                type="tel" 
+                placeholder="+56 9 1234 5678" 
+                value={formData.telefono}
+                onChange={e => setFormData({ ...formData, telefono: e.target.value })} 
+                required 
+              />
+            </div>
+          </div>
+
+          {/* 2. Renderizado condicional: Fecha de nacimiento y género solo si el rol es "paciente" */}
+          {formData.rol === 'paciente' && (
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+              <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
+                <label>Fecha de Nacimiento</label>
                 <input 
-                  type="tel" 
-                  placeholder="+56 9 1234 5678" 
-                  onChange={e => setFormData({ ...formData, telefono: e.target.value })} 
+                  type="date" 
+                  onChange={e => setFormData({ ...formData, fechaNacimiento: e.target.value })} 
                   required 
                 />
               </div>
 
-              <div className="cf-group">
+              <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
                 <label>Género</label>
                 <select 
                   value={formData.genero} 
@@ -110,7 +121,7 @@ export default function Register() {
                   <option value="prefiero_no_decirlo">Prefiero no decirlo</option>
                 </select>
               </div>
-            </>
+            </div>
           )}
 
           <div className="cf-group">
