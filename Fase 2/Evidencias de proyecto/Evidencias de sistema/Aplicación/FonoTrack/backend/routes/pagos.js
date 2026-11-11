@@ -167,5 +167,50 @@ router.post('/confirmar', async (req, res) => {
   }
 });
 
+// Consultar si un fonoaudiólogo tiene un plan pagado activo y vigente
+router.get('/estado/:id_fonoaudiologo', async (req, res) => {
+  try {
+    const idFono = parseInt(req.params.id_fonoaudiologo);
+    if (!idFono || isNaN(idFono)) {
+      return res.status(400).json({ planActivo: false, mensaje: "ID inválido" });
+    }
+
+    const pagoConfirmado = await prisma.pagos.findFirst({
+      where: {
+        id_fonoaudiologo: idFono,
+        estado_pago: { in: ['PAGADO', 'Pagado', 'pagado', 'AUTORIZADO', 'Aprobado'] }
+      },
+      orderBy: { id_pago: 'desc' }
+    });
+
+    if (!pagoConfirmado) {
+      return res.status(200).json({ planActivo: false, pago: null });
+    }
+
+    const planInfo = await prisma.planes.findUnique({
+      where: { id_plan: pagoConfirmado.id_plan }
+    });
+    const duracionDias = planInfo?.duracion_dias || 30;
+
+    let planVigente = true;
+    let fechaVencimiento = null;
+
+    if (pagoConfirmado.fecha_pago) {
+      fechaVencimiento = new Date(pagoConfirmado.fecha_pago);
+      fechaVencimiento.setDate(fechaVencimiento.getDate() + duracionDias);
+      planVigente = fechaVencimiento >= new Date();
+    }
+
+    return res.status(200).json({
+      planActivo: planVigente,
+      fechaVencimiento,
+      pago: pagoConfirmado
+    });
+  } catch (error) {
+    console.error("Error al consultar estado de suscripción:", error);
+    return res.status(500).json({ planActivo: false, error: error.message });
+  }
+});
+
 module.exports = router;
 

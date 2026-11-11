@@ -150,11 +150,36 @@ router.post('/login', async (req, res) => {
 
     let perfilId = null;
     let nombre = "Usuario";
+    let planActivo = false;
 
     if (usuario.rol === 'fonoaudiologo') {
       const perfil = await prisma.fonoaudiologos.findFirst({ where: { id_usuario: usuario.id_usuario } });
       perfilId = perfil ? perfil.id_fonoaudiologo : null;
       nombre = perfil ? perfil.nombre_completo : "Fonoaudiólogo";
+
+      if (perfilId) {
+        const pagoConfirmado = await prisma.pagos.findFirst({
+          where: {
+            id_fonoaudiologo: perfilId,
+            estado_pago: { in: ['PAGADO', 'Pagado', 'pagado', 'AUTORIZADO', 'Aprobado'] }
+          },
+          orderBy: { id_pago: 'desc' }
+        });
+
+        if (pagoConfirmado) {
+          const planInfo = await prisma.planes.findUnique({
+            where: { id_plan: pagoConfirmado.id_plan }
+          });
+          const duracionDias = planInfo?.duracion_dias || 30;
+          if (pagoConfirmado.fecha_pago) {
+            const fechaVencimiento = new Date(pagoConfirmado.fecha_pago);
+            fechaVencimiento.setDate(fechaVencimiento.getDate() + duracionDias);
+            planActivo = fechaVencimiento >= new Date();
+          } else {
+            planActivo = true;
+          }
+        }
+      }
 
     } else if (usuario.rol === 'paciente') {
       const perfil = await prisma.pacientes.findFirst({
@@ -166,7 +191,7 @@ router.post('/login', async (req, res) => {
     }
 
     console.log("Inicio de sesión exitoso:", usuario.email);
-    res.status(200).json({ ...usuario, perfilId, nombre });
+    res.status(200).json({ ...usuario, perfilId, nombre, planActivo });
 
   } catch (error) {
     res.status(500).json({ mensaje: "Error al iniciar sesión", detalle: error.message });

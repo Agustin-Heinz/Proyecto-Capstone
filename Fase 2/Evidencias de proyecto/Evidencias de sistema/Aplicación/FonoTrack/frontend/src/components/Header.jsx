@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, X, UserCircle2, Stethoscope, FileText, Calendar, MapPin, RefreshCw, CheckCircle2, Trash2 } from 'lucide-react';
 
@@ -8,6 +8,21 @@ export default function Header() {
 
   const rol = localStorage.getItem('rol');
   const nombre = localStorage.getItem('nombre');
+  const perfilId = localStorage.getItem('perfilId');
+  const [planActivo, setPlanActivo] = useState(() => localStorage.getItem('planActivo') === 'true');
+
+  useEffect(() => {
+    if (rol === 'fonoaudiologo' && perfilId) {
+      fetch(`http://localhost:3000/api/pagos/estado/${perfilId}`, { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          const activo = Boolean(data && data.planActivo);
+          localStorage.setItem('planActivo', activo ? 'true' : 'false');
+          setPlanActivo(activo);
+        })
+        .catch(() => {});
+    }
+  }, [rol, perfilId, location.pathname]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -140,9 +155,26 @@ export default function Header() {
               <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
                  {nombre?.split(' ')[0]}
               </span>
-              <Link to="/panel" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
-                Mi Panel
-              </Link>
+              {planActivo ? (
+                <Link to="/panel" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
+                  Mi Panel
+                </Link>
+              ) : (
+                <a
+                  href="/#planes"
+                  style={{
+                    textDecoration: 'none',
+                    backgroundColor: '#f59e0b',
+                    color: '#0f172a',
+                    padding: '6px 12px',
+                    borderRadius: '999px',
+                    fontSize: '12px',
+                    fontWeight: '700'
+                  }}
+                >
+                  Contratar Plan (Desbloquear Panel)
+                </a>
+              )}
               <button 
                 onClick={handleLogout} 
                 className="header-cta" 

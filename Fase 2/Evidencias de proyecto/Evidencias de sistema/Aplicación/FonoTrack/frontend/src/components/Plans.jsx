@@ -4,12 +4,37 @@ import { useNavigate } from 'react-router-dom';
 export default function Plans() {
   // El estado y la llamada a tu API ahora viven dentro de su propio componente
   const [planes, setPlanes] = useState([]);
+  const [planPagadoActual, setPlanPagadoActual] = useState(null);
+  const [tienePlanActivo, setTienePlanActivo] = useState(() => localStorage.getItem('planActivo') === 'true');
 
   useEffect(() => {
     fetch('http://localhost:3000/api/planes')
       .then(respuesta => respuesta.json())
       .then(datos => setPlanes(datos))
       .catch(error => console.error("Error de conexión:", error));
+
+    const rol = localStorage.getItem('rol');
+    const perfilId = localStorage.getItem('perfilId');
+    if (rol === 'fonoaudiologo' && perfilId) {
+      fetch(`http://localhost:3000/api/pagos/estado/${perfilId}`, { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          const activo = Boolean(data && data.planActivo);
+          localStorage.setItem('planActivo', activo ? 'true' : 'false');
+          setTienePlanActivo(activo);
+          if (data && data.pago) {
+            setPlanPagadoActual(data.pago.id_plan);
+          }
+        })
+        .catch(() => {});
+    }
+
+    if (window.location.hash === '#planes') {
+      setTimeout(() => {
+        const el = document.getElementById('planes');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    }
   }, []);
 
   const navigate = useNavigate();
@@ -23,6 +48,12 @@ export default function Plans() {
     if (!perfilId || rol !== 'fonoaudiologo') {
       alert("Debes iniciar sesión o registrarte como Fonoaudiólogo para contratar un plan.");
       navigate('/login');
+      return;
+    }
+
+    // Si ya tiene un plan pagado en la base de datos, no tiene que volver a pagar: lo llevamos directo a su panel
+    if (tienePlanActivo) {
+      navigate('/panel');
       return;
     }
 
@@ -67,7 +98,7 @@ export default function Plans() {
   };
 
   return (
-    <div className="plans-section">
+    <div id="planes" className="plans-section">
       <div className="wrap">
         <h2>Todo en un único plan</h2>
         <div className="sub">Agenda gratis como paciente. Los planes son para profesionales.</div>
@@ -123,7 +154,9 @@ export default function Plans() {
                       onClick={() => handleContratarPlan(plan)}
                       disabled={procesandoId === plan.id_plan}
                       style={{
-                        backgroundColor: '#1d70b8',
+                        backgroundColor: tienePlanActivo
+                          ? (planPagadoActual === plan.id_plan ? '#16a34a' : '#1a365d')
+                          : '#1d70b8',
                         color: '#ffffff',
                         border: 'none',
                         padding: '10px 22px',
@@ -133,7 +166,11 @@ export default function Plans() {
                         cursor: 'pointer'
                       }}
                     >
-                      {procesandoId === plan.id_plan ? 'Conectando...' : 'Prueba Ahora'}
+                      {procesandoId === plan.id_plan
+                        ? 'Conectando...'
+                        : tienePlanActivo
+                        ? (planPagadoActual === plan.id_plan ? '✓ Plan Activo · Ir al Panel' : 'Ir a Mi Panel')
+                        : 'Prueba Ahora'}
                     </button>
                   </div>
 

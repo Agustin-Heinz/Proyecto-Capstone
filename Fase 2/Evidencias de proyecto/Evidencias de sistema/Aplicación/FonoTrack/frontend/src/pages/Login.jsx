@@ -27,12 +27,18 @@ export default function Login() {
         localStorage.setItem('rol', usuario.rol);
         localStorage.setItem('nombre', usuario.nombre);
         localStorage.setItem('email', usuario.email);
+        localStorage.setItem('planActivo', usuario.planActivo ? 'true' : 'false');
 
-        alert(`¡Bienvenido ${usuario.nombre}!`);
-        
         if (usuario.rol === 'fonoaudiologo') {
-          navigate('/panel');
+          if (usuario.planActivo) {
+            alert(`¡Bienvenido ${usuario.nombre}!`);
+            navigate('/panel');
+          } else {
+            alert(`¡Bienvenido ${usuario.nombre}! Para desbloquear tu Panel Profesional, selecciona y contrata uno de los planes disponibles.`);
+            navigate('/#planes');
+          }
         } else {
+          alert(`¡Bienvenido ${usuario.nombre}!`);
           navigate('/');
         }
       } else {

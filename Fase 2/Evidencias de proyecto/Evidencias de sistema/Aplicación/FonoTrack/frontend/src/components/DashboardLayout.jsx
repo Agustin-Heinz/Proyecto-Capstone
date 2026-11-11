@@ -8,45 +8,117 @@ export default function DashboardLayout() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [avisoPagoPlan, setAvisoPagoPlan] = useState(null);
+  const [verificandoPlan, setVerificandoPlan] = useState(true);
+  const [planHabilitado, setPlanHabilitado] = useState(false);
   const tokenProcesadoRef = useRef(null);
   
   // Función para saber si un enlace está activo y pintarlo de blanco
   const isActive = (path) => location.pathname === path;
 
-  // Confirmar automáticamente el pago del PLAN al volver de Transbank Webpay (?token_ws=...)
+  // Confirmar pago del PLAN al volver de Webpay (?token_ws=...) o verificar si ya tiene un plan PAGADO
   useEffect(() => {
     const tokenWs = searchParams.get('token_ws');
-    if (!tokenWs || tokenProcesadoRef.current === tokenWs) return;
+    const perfilId = localStorage.getItem('perfilId');
 
-    tokenProcesadoRef.current = tokenWs;
+    if (tokenWs && tokenProcesadoRef.current !== tokenWs) {
+      tokenProcesadoRef.current = tokenWs;
+      setVerificandoPlan(true);
 
-    fetch('http://localhost:3000/api/pagos/confirmar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token_ws: tokenWs })
-    })
-      .then(res => res.json().then(data => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (ok && data.exito) {
-          setAvisoPagoPlan({
-            tipo: 'exito',
-            texto: `¡Pago de suscripción confirmado exitosamente! (Código autorización: ${data.codigo_autorizacion || 'OK'})`
-          });
-        } else {
-          setAvisoPagoPlan({
-            tipo: 'error',
-            texto: data.mensaje || 'No se pudo confirmar el pago en Webpay.'
-          });
-        }
-        // Limpiar token_ws de la URL para evitar reenvíos al recargar
-        const nuevosParams = new URLSearchParams(searchParams);
-        nuevosParams.delete('token_ws');
-        setSearchParams(nuevosParams, { replace: true });
+      fetch('http://localhost:3000/api/pagos/confirmar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token_ws: tokenWs })
+      })
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+          if (ok && data.exito) {
+            localStorage.setItem('planActivo', 'true');
+            setPlanHabilitado(true);
+            setAvisoPagoPlan({
+              tipo: 'exito',
+              texto: `¡Pago de suscripción confirmado exitosamente! Tu Panel Profesional ha sido desbloqueado. (Código: ${data.codigo_autorizacion || 'OK'})`
+            });
+          } else {
+            localStorage.setItem('planActivo', 'false');
+            setPlanHabilitado(false);
+            setAvisoPagoPlan({
+              tipo: 'error',
+              texto: data.mensaje || 'No se pudo confirmar el pago en Webpay.'
+            });
+          }
+          // Limpiar token_ws de la URL para evitar reenvíos al recargar
+          const nuevosParams = new URLSearchParams(searchParams);
+          nuevosParams.delete('token_ws');
+          setSearchParams(nuevosParams, { replace: true });
+          setVerificandoPlan(false);
+        })
+        .catch(err => {
+          console.error('Error al confirmar pago de plan:', err);
+          setVerificandoPlan(false);
+        });
+      return;
+    }
+
+    if (!perfilId) {
+      setPlanHabilitado(false);
+      setVerificandoPlan(false);
+      return;
+    }
+
+    fetch(`http://localhost:3000/api/pagos/estado/${perfilId}`, { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        const activo = Boolean(data && data.planActivo);
+        localStorage.setItem('planActivo', activo ? 'true' : 'false');
+        setPlanHabilitado(activo);
+        setVerificandoPlan(false);
       })
       .catch(err => {
-        console.error('Error al confirmar pago de plan:', err);
+        console.error('Error verificando estado del plan:', err);
+        setPlanHabilitado(localStorage.getItem('planActivo') === 'true');
+        setVerificandoPlan(false);
       });
   }, [searchParams, setSearchParams]);
+
+  if (verificandoPlan) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', color: '#1a365d', fontWeight: '700', fontSize: '16px' }}>
+        Verificando suscripción profesional...
+      </div>
+    );
+  }
+
+  if (!planHabilitado) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', padding: '24px' }}>
+        <div style={{ backgroundColor: '#ffffff', maxWidth: '480px', width: '100%', padding: '36px 30px', borderRadius: '18px', boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', margin: '0 auto 18px' }}>
+            🔒
+          </div>
+          <h2 style={{ margin: '0 0 10px 0', color: '#0f172a', fontSize: '22px', fontWeight: '800' }}>
+            Panel Profesional Bloqueado
+          </h2>
+          <p style={{ margin: '0 0 24px 0', color: '#475569', fontSize: '15px', lineHeight: '1.6' }}>
+            Para acceder a tu agenda, gestión de pacientes, fichas clínicas y reportes, primero debes activar uno de los <strong>planes profesionales de FonoTrack</strong>.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <a
+              href="/#planes"
+              style={{ display: 'block', backgroundColor: '#1d4ed8', color: '#ffffff', textDecoration: 'none', padding: '14px 20px', borderRadius: '10px', fontWeight: '700', fontSize: '15px' }}
+            >
+              Ver y contratar un Plan
+            </a>
+            <Link
+              to="/"
+              style={{ display: 'block', color: '#64748b', textDecoration: 'none', padding: '10px', fontWeight: '600', fontSize: '14px' }}
+            >
+              Volver al inicio
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-shell">
