@@ -8,7 +8,7 @@ const { enviarMensajeWhatsApp } = require('../config/whatsapp');
 
 router.post('/', async (req, res) => {
   try {
-    const { id_cita, observaciones_clinicas, actividades_hogar, pacienteEmail, pacienteNombre, fonoaudiologoNombre } = req.body;
+    const { id_cita, id_paciente, telefono, observaciones_clinicas, actividades_hogar, pacienteEmail, pacienteNombre, fonoaudiologoNombre } = req.body;
 
     // Guardamos la ficha en la base de datos
     const nuevaFicha = await prisma.evoluciones_sesion.create({
@@ -19,63 +19,81 @@ router.post('/', async (req, res) => {
       }
     });
 
-    // Primero, buscamos la cita para saber qué paciente es
+    // Primero, buscamos la cita para saber qué paciente y especialista corresponden
     const cita = await prisma.citas.findUnique({
       where: { id_citas: parseInt(id_cita) }
     });
 
-    if (cita) {
-      // Ahora buscamos los datos del paciente en la tabla 'pacientes'
-      const paciente = await prisma.pacientes.findUnique({
-        where: { id_paciente: cita.id_paciente }
+    const idPacienteBusqueda = cita ? cita.id_paciente : (id_paciente ? parseInt(id_paciente) : null);
+    const paciente = idPacienteBusqueda
+      ? await prisma.pacientes.findUnique({ where: { id_paciente: idPacienteBusqueda } })
+      : null;
+
+    let nombreEspecialista = null;
+    if (cita && cita.id_fonoaudiologo) {
+      const fono = await prisma.fonoaudiologos.findUnique({
+        where: { id_fonoaudiologo: cita.id_fonoaudiologo }
       });
-
-      if (paciente) {
-        // Extrae el correo en la tabla 'usuarios'
-        const usuarioPaciente = await prisma.usuarios.findUnique({
-          where: { id_usuario: paciente.id_usuario }
-        });
-
-        // Extrae el mail del paciente para saber donde enviar la ficha
-        if (usuarioPaciente && usuarioPaciente.email) {
-          const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: usuarioPaciente.email,
-            subject: `FonoTrack - Resumen de tu sesión con ${fonoaudiologoNombre || 'tu especialista'}`,
-            text: `Hola ${paciente.nombre_completo},\n\nEl/La especialista ${fonoaudiologoNombre || 'tu especialista'} ha registrado el resumen de tu última sesión:\n\nObservaciones Clínicas:\n${observaciones_clinicas}\n\nActividades e Indicaciones:\n${actividades_hogar}\n\nEste es un mensaje automático generado por FonoTrack.`
-          };
-
-          // Enviamos el correo
-          transporter.sendMail(mailOptions)
-            .then(() => console.log(` Correo enviado a: ${usuarioPaciente.email}`))
-            .catch(err => console.error("Error enviando correo a paciente:", err));
-        } else {
-          console.log(" Ficha guardada sin correo: El usuario no tiene email registrado.");
-        }
-
-        // Enviamos también el resumen de la ficha clínica y actividades al WhatsApp del paciente
-        if (paciente.telefono) {
-          let nombreEspecialista = fonoaudiologoNombre;
-          if (!nombreEspecialista && cita.id_fonoaudiologo) {
-            const fono = await prisma.fonoaudiologos.findUnique({
-              where: { id_fonoaudiologo: cita.id_fonoaudiologo }
-            });
-            nombreEspecialista = fono?.nombre_completo;
-          }
-
-          const mensajeFichaWhatsApp =
-            `¡Hola *${paciente.nombre_completo}*!\n\n` +
-            `El/La especialista *${nombreEspecialista || 'tu especialista'}* ha registrado el resumen de tu última sesión en *FonoTrack*:\n\n` +
-            `*Observaciones Clínicas:*\n${observaciones_clinicas || 'Sin observaciones registradas.'}\n\n` +
-            `*Actividades e Indicaciones para el Hogar:*\n${actividades_hogar || 'Sin actividades adicionales.'}\n\n` +
-            `Puedes revisar el detalle completo en tu portal de paciente de FonoTrack.`;
-
-          await enviarMensajeWhatsApp(paciente.telefono, mensajeFichaWhatsApp);
-        }
-      }
+      nombreEspecialista = fono?.nombre_completo;
+    }
+    if (!nombreEspecialista) {
+      nombreEspecialista = fonoaudiologoNombre || 'tu especialista';
     }
 
-    res.status(201).json(nuevaFicha);
+    let whatsappEnviado = false;
+
+    if (paciente) {
+      // Extrae el correo en la tabla 'usuarios'
+      const usuarioPaciente = await prisma.usuarios.findUnique({
+        where: { id_usuario: paciente.id_usuario }
+      });
+
+      const emailDestino = (usuarioPaciente && usuarioPaciente.email) || pacienteEmail;
+
+      // Extrae el mail del paciente para saber donde enviar la ficha
+      if (emailDestino) {
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: emailDestino,
+          subject: `FonoTrack - Resumen de tu sesión con ${nombreEspecialista}`,
+          text: `Hola ${paciente.nombre_completo},\n\nEl/La especialista ${nombreEspecialista} ha registrado el resumen de tu última sesión:\n\nObservaciones Clínicas:\n${observaciones_clinicas}\n\nTareas Asignadas:\n${actividades_hogar || 'Sin tareas adicionales.'}\n\nEste es un mensaje automático generado por FonoTrack.`
+        };
+
+        // Enviamos el correo
+        transporter.sendMail(mailOptions)
+          .then(() => console.log(` Correo enviado a: ${emailDestino}`))
+          .catch(err => console.error("Error enviando correo a paciente:", err));
+      } else {
+        console.log(" Ficha guardada sin correo: El usuario no tiene email registrado.");
+      }
+
+      // Enviamos el resumen de las observaciones clínicas y tareas al WhatsApp del paciente
+      const telefonoDestino = paciente.telefono || telefono;
+      if (telefonoDestino) {
+        const fechaSesion = cita?.fecha ? String(cita.fecha.toISOString()).split('T')[0] : null;
+        const lineaFecha = fechaSesion ? `📅 *Fecha de sesión:* ${fechaSesion}\n` : '';
+
+        const mensajeFichaWhatsApp =
+          `¡Hola *${paciente.nombre_completo}*! 👋\n\n` +
+          `El/La especialista *${nombreEspecialista}* ha registrado las observaciones de tu sesión en *FonoTrack*:\n\n` +
+          lineaFecha +
+          `🩺 *Observaciones Clínicas:*\n${observaciones_clinicas || 'Sin observaciones registradas.'}\n\n` +
+          `📝 *Tareas Asignadas:*\n${actividades_hogar || 'Sin tareas asignadas.'}\n\n` +
+          `Puedes revisar el historial completo en tu portal de paciente de FonoTrack.`;
+
+        whatsappEnviado = await enviarMensajeWhatsApp(telefonoDestino, mensajeFichaWhatsApp);
+      }
+    } else if (telefono) {
+      const mensajeFichaWhatsApp =
+        `¡Hola *${pacienteNombre || 'Paciente'}*! 👋\n\n` +
+        `El/La especialista *${nombreEspecialista}* ha registrado las observaciones de tu sesión en *FonoTrack*:\n\n` +
+        `🩺 *Observaciones Clínicas:*\n${observaciones_clinicas || 'Sin observaciones registradas.'}\n\n` +
+        `📝 *Tareas Asignadas:*\n${actividades_hogar || 'Sin tareas asignadas.'}`;
+
+      whatsappEnviado = await enviarMensajeWhatsApp(telefono, mensajeFichaWhatsApp);
+    }
+
+    res.status(201).json({ ...nuevaFicha, whatsappEnviado });
   } catch (error) {
     console.error("Error al guardar la ficha:", error);
     res.status(500).json({ mensaje: "Error al guardar la ficha", detalle: error.message });

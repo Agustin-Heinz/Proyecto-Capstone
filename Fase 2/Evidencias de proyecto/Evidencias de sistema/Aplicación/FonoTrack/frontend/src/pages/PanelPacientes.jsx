@@ -126,6 +126,10 @@ export default function PanelPacientes() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id_cita: pacienteActivo.idUltimaCita,
+          id_paciente: pacienteActivo.id,
+          telefono: pacienteActivo.fono,
+          pacienteNombre: pacienteActivo.nombre,
+          pacienteEmail: pacienteActivo.email !== 'Sin correo' ? pacienteActivo.email : undefined,
           observaciones_clinicas: observaciones,
           actividades_hogar: tareas,
           fonoaudiologoNombre: nombreFono
@@ -133,7 +137,12 @@ export default function PanelPacientes() {
       });
 
       if (respuesta.ok) {
-        alert("Registro guardado con éxito. Se ha enviado una copia al correo del paciente.");
+        const resultado = await respuesta.json();
+        if (resultado.whatsappEnviado) {
+          alert("Registro guardado con éxito. Se han enviado las observaciones al WhatsApp y correo del paciente.");
+        } else {
+          alert("Registro guardado con éxito. Se ha enviado una copia al correo del paciente (verifica que el cliente de WhatsApp esté conectado y el paciente tenga teléfono registrado).");
+        }
         setObservaciones(''); 
         setTareas('');
         
