@@ -86,17 +86,7 @@ export default function Hero() {
         </div>
 
         {/*  4 fotografías con marco blanco */}
-        <div 
-          style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(4, 1fr)', 
-            gap: '6px', 
-            backgroundColor: '#ffffff', 
-            padding: '6px', 
-            borderRadius: '4px',
-            boxShadow: '0 10px 25px rgba(15, 41, 74, 0.08)'
-          }}
-        >
+        <div className="hero-photos-grid">
           {fotosClinicas.map((foto, index) => (
             <div 
               key={index} 

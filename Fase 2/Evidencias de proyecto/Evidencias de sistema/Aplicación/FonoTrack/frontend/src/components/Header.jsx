@@ -120,7 +120,7 @@ export default function Header() {
           <div className="header-spacer"></div>
           
           {rol === 'paciente' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
                 Hola, {nombre?.split(' ')[0]}
               </span>
@@ -136,7 +136,7 @@ export default function Header() {
               </button>
             </div>
           ) : rol === 'fonoaudiologo' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
                  {nombre?.split(' ')[0]}
               </span>
@@ -152,12 +152,12 @@ export default function Header() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               
               {/* BOTÓN PARA BUSCAR CITA */}
               <button 
                 onClick={() => setMostrarModalBusqueda(true)}
-                style={{ backgroundColor: 'transparent', color: '#ffffff', border: '1px solid #cbd5e1', padding: '8px 18px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{ backgroundColor: 'transparent', color: '#ffffff', border: '1px solid #cbd5e1', padding: '8px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Search size={16} /> Buscar mi cita
               </button>
@@ -165,7 +165,7 @@ export default function Header() {
               {/* BOTÓN INGRESAR */}
               <Link 
                 to="/login" 
-                style={{ textDecoration: 'none', backgroundColor: '#1976d2', color: '#ffffff', padding: '8px 22px', borderRadius: '6px', fontSize: '14px', fontWeight: '700', display: 'inline-block' }}
+                style={{ textDecoration: 'none', backgroundColor: '#1976d2', color: '#ffffff', padding: '8px 18px', borderRadius: '6px', fontSize: '14px', fontWeight: '700', display: 'inline-block' }}
               >
                 Ingresar
               </Link>

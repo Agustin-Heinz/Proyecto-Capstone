@@ -80,7 +80,7 @@ export default function Audience() {
           style={{ 
             backgroundColor: esProfesional ? '#e8f1ff' : '#1273d4', 
             borderRadius: '28px', 
-            padding: '34px 36px 40px', 
+            padding: 'clamp(20px, 4vw, 36px)', 
             boxShadow: '0 12px 30px rgba(15, 35, 66, 0.08)',
             transition: 'background-color 0.3s ease',
             textAlign: 'left',
@@ -183,7 +183,7 @@ export default function Audience() {
         </div>
 
         {/* Botones inferiores de cambio (Fonoaudiólogo / Paciente) */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <button 
             onClick={() => setAudience('profesional')}
             style={{ 
@@ -191,7 +191,7 @@ export default function Audience() {
               color: esProfesional ? '#ffffff' : '#1273d4', 
               border: 'none', 
               borderRadius: '999px', 
-              padding: '13px 42px', 
+              padding: '13px 32px', 
               fontSize: '15px', 
               fontWeight: '700', 
               cursor: 'pointer',
@@ -209,7 +209,7 @@ export default function Audience() {
               color: !esProfesional ? '#ffffff' : '#1273d4', 
               border: 'none', 
               borderRadius: '999px', 
-              padding: '13px 54px', 
+              padding: '13px 40px', 
               fontSize: '15px', 
               fontWeight: '700', 
               cursor: 'pointer',

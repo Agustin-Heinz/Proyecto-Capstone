@@ -75,7 +75,7 @@ export default function PanelReportes() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '20px' }}>
         <div style={cardStyle}>
           <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Asistencia real</div>
           <div style={{ color: '#0f172a', fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>{metricas.asistenciaPromedio}</div>
@@ -102,11 +102,11 @@ export default function PanelReportes() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
         
         {/* GRÁFICO DE BARRAS */}
         <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', letterSpacing: '1px', textTransform: 'uppercase' }}>Control de Flujo</div>
               <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#0f172a' }}>Asistencias vs Inasistencias</h2>
@@ -134,7 +134,7 @@ export default function PanelReportes() {
 
         {/* GRÁFICO DE CIRCULO */}
         <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', letterSpacing: '1px', textTransform: 'uppercase' }}>Demanda e Ingresos</div>
               <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#0f172a' }}>Servicios más solicitados</h2>
@@ -147,7 +147,7 @@ export default function PanelReportes() {
             </div>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <div style={{ width: '220px', height: '220px' }}>
               <ResponsiveContainer>
                 <PieChart>
