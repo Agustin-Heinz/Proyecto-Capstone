@@ -164,7 +164,7 @@ export default function PanelPacientes() {
       {!pacienteActivo ? (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
 
-          <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid #f1f5f9' }}>
             <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}><UserRoundGroup size={24} color="#1a365d" />
                Directorio de Pacientes
             </h2>
@@ -173,7 +173,8 @@ export default function PanelPacientes() {
             </button>
           </div>
 
-          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+          <div className="table-responsive">
+          <table style={{ width: '100%', minWidth: '580px', textAlign: 'left', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8fafc' }}>
                 <th style={thStyle}>Nombre</th>
@@ -213,11 +214,12 @@ export default function PanelPacientes() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
 
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <button
               onClick={() => setPacienteActivo(null)}
               style={{ background: 'none', border: 'none', color: '#64748b', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}
@@ -227,8 +229,8 @@ export default function PanelPacientes() {
             <span style={{ fontWeight: '700', color: '#1a365d' }}>Ficha Clínica</span>
           </div>
 
-          <div style={{ display: 'flex' }}>
-            <div style={{ width: '320px', borderRight: '1px solid #f1f5f9', padding: '30px 24px' }}>
+          <div className="ficha-split-layout">
+            <div className="ficha-sidebar-info">
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
                 <div style={{ width: '56px', height: '56px', backgroundColor: '#bfdbfe', color: '#1e3a8a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}> <UserRound size={38} color="#475569" /></div>
                 <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>{pacienteActivo.nombre}</h3>
@@ -246,7 +248,7 @@ export default function PanelPacientes() {
               </div>
             </div>
 
-            <div style={{ flex: 1, padding: '30px 40px' }}>
+            <div className="ficha-main-content">
               <h3 style={{ margin: '0 0 20px 0', color: '#1a365d', display: 'flex', alignItems: 'center', gap: '8px' }}>
                  Sesiones Previas
               </h3>

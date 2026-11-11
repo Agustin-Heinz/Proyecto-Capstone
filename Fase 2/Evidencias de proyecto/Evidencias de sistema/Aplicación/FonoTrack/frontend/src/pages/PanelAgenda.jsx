@@ -110,15 +110,15 @@ export default function PanelAgenda() {
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '30px 40px', backgroundColor: '#f8fafc', minHeight: '100vh', boxSizing: 'border-box' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: 'clamp(16px, 3vw, 30px) clamp(12px, 3vw, 40px)', backgroundColor: '#f8fafc', minHeight: '100vh', boxSizing: 'border-box' }}>
       
       {/* CABECERA */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '30px' }}>
         <div>
           <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>
             Panel de Control
           </div>
-          <h1 style={{ margin: 0, fontSize: '26px', color: '#0f172a', fontWeight: '800' }}>
+          <h1 style={{ margin: 0, fontSize: 'clamp(22px, 3vw, 26px)', color: '#0f172a', fontWeight: '800' }}>
             Buenos días, Flga. {nombreProfesional}
           </h1>
           <p style={{ color: '#64748b', marginTop: '6px', fontSize: '14px' }}>Aquí tienes el resumen operativo de tu jornada.</p>
@@ -129,7 +129,7 @@ export default function PanelAgenda() {
       </div>
 
       {/* MÉTRICAS SUPERIORES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '35px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '35px' }}>
         <MetricCard 
           titulo="Citas de hoy" 
           valor={cargando ? "..." : citasSoloHoyVigentes.length} 
@@ -151,8 +151,8 @@ export default function PanelAgenda() {
       </div>
 
       {/* ÁREA DE ACCIÓN RÁPIDA (DURA HASTA LAS 00:00) */}
-      <div style={{ backgroundColor: '#f1f5f9', padding: '28px', borderRadius: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ backgroundColor: '#f1f5f9', padding: 'clamp(16px, 3vw, 28px)', borderRadius: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
           <div>
             <div style={{ fontSize: '11px', fontWeight: '800', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>
               Acción Rápida
@@ -190,9 +190,9 @@ export default function PanelAgenda() {
               const esFalto = estado === 'Faltó';
 
               return (
-                <div key={c.id_citas} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ffffff', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+                <div key={c.id_citas} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', backgroundColor: '#ffffff', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div style={{ backgroundColor: '#eff6ff', color: '#1e40af', fontWeight: '800', fontSize: '14px', padding: '8px 14px', borderRadius: '8px', textAlign: 'center' }}>
                       {horaLimpia}
                     </div>
@@ -206,7 +206,7 @@ export default function PanelAgenda() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ backgroundColor: badgeBg, color: badgeColor, padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' }}>
                       {estado}
                     </span>

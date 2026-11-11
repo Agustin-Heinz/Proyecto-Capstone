@@ -60,12 +60,12 @@ export default function FloatingChat() {
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 9999 }}>
+    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999 }}>
 
       {/* Ventana del Chat  */}
       {abierto && (
         <div style={{
-          width: '350px', height: '450px', backgroundColor: '#ffffff', borderRadius: '16px',
+          width: 'min(350px, calc(100vw - 32px))', height: 'min(450px, calc(100vh - 110px))', backgroundColor: '#ffffff', borderRadius: '16px',
           boxShadow: '0 10px 25px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column',
           border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '16px'
         }}>

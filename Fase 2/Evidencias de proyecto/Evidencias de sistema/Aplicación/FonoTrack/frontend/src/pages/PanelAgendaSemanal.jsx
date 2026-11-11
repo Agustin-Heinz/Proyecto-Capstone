@@ -151,7 +151,7 @@ export default function PanelAgendaSemanal() {
       </div>
 
       {/* SOLO CAMBIAN ESTOS 2 BLOQUES SUPERIORES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '30px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
         <MetricCard 
           titulo="Citas en esta vista" 
           valor={cargando ? "..." : citasEnVista.length} 
@@ -166,12 +166,12 @@ export default function PanelAgendaSemanal() {
         />
       </div>
 
-      <div style={{ display: 'flex', gap: '25px', alignItems: 'flex-start' }}>
+      <div className="agenda-semanal-layout">
         
         {/* CALENDARIO CON BLOQUES GUARDADOS (Diseño original intacto) */}
-        <div style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+        <div style={{ flex: 1, width: '100%', minWidth: 0, backgroundColor: '#ffffff', borderRadius: '16px', padding: 'clamp(14px, 2.5vw, 24px)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase' }}>Vista Dinámica</div>
               <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', color: '#0f172a' }}>{tituloRango}</h2>
@@ -183,7 +183,8 @@ export default function PanelAgendaSemanal() {
             </div>
           </div>
 
-          <div style={{ borderTop: '1px solid #f1f5f9', borderLeft: '1px solid #f1f5f9' }}>
+          <div className="calendar-scroll-wrap">
+            <div className="calendar-min-width" style={{ borderTop: '1px solid #f1f5f9', borderLeft: '1px solid #f1f5f9' }}>
             
             {/* Cabeceras de los Días Generados */}
             <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)' }}>
@@ -256,11 +257,12 @@ export default function PanelAgendaSemanal() {
                 </div>
               ))}
             </div>
+            </div>
           </div>
         </div>
 
         {/* CUADROS DE LAS RESERVAS ENTRANTES (Diseño original intacto) */}
-        <div style={{ width: '320px', flexShrink: 0 }}>
+        <div className="agenda-semanal-reservas">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#1a365d', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px' }}>Control Administrativo</div>

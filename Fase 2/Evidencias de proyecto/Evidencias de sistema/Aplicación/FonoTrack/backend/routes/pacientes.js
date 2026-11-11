@@ -7,34 +7,21 @@ const prisma = require('../config/prisma');
 router.post('/', async (req, res) => {
   try {
     const { id_usuario, nombre_completo, rut, telefono, fecha_nacimiento, email } = req.body;
+    const rutLimpio = rut ? String(rut).trim() : '';
+    const emailLimpio = email ? String(email).trim() : '';
 
-    const pacienteExistente = await prisma.pacientes.findUnique({
-      where: { rut: rut }
-    });
+    let usuarioIdFinal = parseInt(id_usuario) || 1;
 
-    if (pacienteExistente) {
-      const pacienteActualizado = await prisma.pacientes.update({
-        where: { id_paciente: pacienteExistente.id_paciente },
-        data: {
-          ...(nombre_completo && { nombre_completo }),
-          ...(telefono && { telefono })
-        }
-      });
-      return res.status(200).json(pacienteActualizado);
-    }
-
-    let usuarioIdFinal = parseInt(id_usuario);
-
-    // Si viene el email del formulario de contacto (no logueado), guardamos su correo en usuarios
-    if (email) {
+    // Si viene el email del formulario de contacto (no logueado), guardamos o recuperamos su correo en usuarios
+    if (emailLimpio) {
       let usuarioInvitado = await prisma.usuarios.findUnique({
-        where: { email: email }
+        where: { email: emailLimpio }
       });
 
       if (!usuarioInvitado) {
         usuarioInvitado = await prisma.usuarios.create({
           data: {
-            email: email,
+            email: emailLimpio,
             contrasena: `invitado-${Date.now()}`,
             rol: 'paciente'
           }
@@ -43,20 +30,40 @@ router.post('/', async (req, res) => {
       usuarioIdFinal = usuarioInvitado.id_usuario;
     }
 
+    const pacienteExistente = rutLimpio
+      ? await prisma.pacientes.findUnique({ where: { rut: rutLimpio } })
+      : null;
+
+    if (pacienteExistente) {
+      const pacienteActualizado = await prisma.pacientes.update({
+        where: { id_paciente: pacienteExistente.id_paciente },
+        data: {
+          ...(nombre_completo && { nombre_completo }),
+          ...(telefono && { telefono }),
+          ...(emailLimpio && { id_usuario: usuarioIdFinal })
+        }
+      });
+      return res.status(200).json(pacienteActualizado);
+    }
+
+    const fechaNacValida = (fecha_nacimiento && !isNaN(new Date(fecha_nacimiento).getTime()))
+      ? new Date(fecha_nacimiento)
+      : null;
+
     const pacienteNuevo = await prisma.pacientes.create({
       data: {
         id_usuario: usuarioIdFinal,
         nombre_completo: nombre_completo,
-        rut: rut,
-        telefono: telefono,
-        fecha_nacimiento: fecha_nacimiento ? new Date(fecha_nacimiento) : null
+        rut: rutLimpio,
+        telefono: telefono || null,
+        fecha_nacimiento: fechaNacValida
       }
     });
 
     res.status(201).json(pacienteNuevo);
   } catch (error) {
     console.error("Error al crear el paciente:", error);
-    res.status(500).json({ mensaje: "Error al crear el paciente" });
+    res.status(500).json({ mensaje: "Error al crear el paciente", detalle: error.message });
   }
 });
 

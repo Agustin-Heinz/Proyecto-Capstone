@@ -285,8 +285,8 @@ export default function PacientePerfil() {
   };
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: 'calc(100vh - 64px)', padding: '36px 24px 80px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
-      <div style={{ maxWidth: '1180px', margin: '0 auto', display: 'grid', gridTemplateColumns: '250px 1fr', gap: '30px', alignItems: 'start' }}>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: 'calc(100vh - 64px)', padding: 'clamp(20px, 4vw, 36px) clamp(14px, 3vw, 24px) 80px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+      <div className="paciente-portal-grid">
         
         {/* COLUMNA LATERAL DE NAVEGACIÓN CON LAS 3 OPCIONES */}
         <aside style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '22px 16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
@@ -498,6 +498,7 @@ export default function PacientePerfil() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
+                                flexWrap: 'wrap',
                                 gap: '16px',
                                 cursor: 'pointer',
                                 boxShadow: '0 2px 6px rgba(15, 23, 42, 0.02)'
@@ -612,6 +613,7 @@ export default function PacientePerfil() {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
+                            flexWrap: 'wrap',
                             gap: '20px',
                             cursor: 'pointer',
                             boxShadow: '0 2px 6px rgba(15, 23, 42, 0.02)'
@@ -682,7 +684,7 @@ export default function PacientePerfil() {
                 </div>
 
                 {/* 3 PASTILLAS DE FILTRO */}
-                <div style={{ display: 'inline-flex', gap: '6px', backgroundColor: '#f1f5f9', padding: '5px', borderRadius: '999px' }}>
+                <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '6px', backgroundColor: '#f1f5f9', padding: '5px', borderRadius: '16px' }}>
                   {[
                     { id: 'agendadas', label: `Agendadas (${citasAgendadas.length})` },
                     { id: 'atendidas', label: `Ya atendidas (${citasAtendidas.length})` },
@@ -745,6 +747,7 @@ export default function PacientePerfil() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
+                          flexWrap: 'wrap',
                           gap: '16px',
                           cursor: 'pointer',
                           boxShadow: '0 2px 6px rgba(15, 23, 42, 0.02)'
@@ -903,6 +906,7 @@ export default function PacientePerfil() {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
+                            flexWrap: 'wrap',
                             gap: '20px',
                             cursor: 'pointer',
                             boxShadow: '0 2px 6px rgba(15, 23, 42, 0.02)'

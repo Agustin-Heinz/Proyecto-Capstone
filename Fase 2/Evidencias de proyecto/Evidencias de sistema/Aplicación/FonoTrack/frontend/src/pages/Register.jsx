@@ -64,8 +64,8 @@ export default function Register() {
           {/* 2. Renderizado condicional: Solo se muestra si el rol es "paciente" */}
           {formData.rol === 'paciente' && (
             <>
-              <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-                <div className="cf-group" style={{ flex: 1, marginBottom: 0 }}>
+              <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
                   <label>RUT</label>
                   <input 
                     type="text" 
@@ -75,7 +75,7 @@ export default function Register() {
                   />
                 </div>
                 
-                <div className="cf-group" style={{ flex: 1, marginBottom: 0 }}>
+                <div className="cf-group" style={{ flex: 1, minWidth: '180px', marginBottom: 0 }}>
                   <label>Fecha de Nacimiento</label>
                   <input 
                     type="date" 

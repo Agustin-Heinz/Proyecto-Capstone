@@ -407,14 +407,14 @@ export default function PanelPerfil() {
         <div style={panelContainerStyle}>
           <form onSubmit={guardarPerfil} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
               <div><label style={labelStyle}>Nombre Completo (Fijo)</label><input type="text" value={perfil.nombre_completo} disabled style={inputDisabledStyle} /></div>
               <div><label style={labelStyle}>RUT (Fijo)</label><input type="text" value={perfil.rut} disabled style={inputDisabledStyle} /></div>
             </div>
 
             <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '5px 0' }} />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
               <div>
                 <label style={labelStyle}> Público que atiendes (Filtra tu catálogo)</label>
                 <select
@@ -449,7 +449,7 @@ export default function PanelPerfil() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
               <div>
                 <label style={labelStyle}>Teléfono de Contacto</label>
                 <input
@@ -475,12 +475,12 @@ export default function PanelPerfil() {
 
             <div>
               <label style={labelStyle}>Comuna de Atención</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <select
                   name="id_ubicacion"
                   value={perfil.id_ubicacion}
                   onChange={manejarCambioPerfil}
-                  style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
+                  style={{ ...inputStyle, flex: 1, minWidth: '180px', cursor: 'pointer' }}
                 >
                   <option value="">Selecciona tu comuna</option>
                   {listaComunas.map(c => (
@@ -489,7 +489,7 @@ export default function PanelPerfil() {
                     </option>
                   ))}
                 </select>
-                <button type="button" onClick={detectarUbicacion} style={btnUbicacionStyle}>
+                <button type="button" onClick={detectarUbicacion} style={{ ...btnUbicacionStyle, minHeight: '44px' }}>
                   <MapPin size={18} color="#1d4ed8" /> Detectar
                 </button>
               </div>
@@ -504,7 +504,7 @@ export default function PanelPerfil() {
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
                 Foto de Perfil (Opcional)
               </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
                 {perfil.foto_perfil && (
                   <img src={perfil.foto_perfil} alt="Actual" style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
                 )}
@@ -512,7 +512,7 @@ export default function PanelPerfil() {
                   type="file"
                   accept="image/png, image/jpeg, image/jpg"
                   onChange={e => setFotoArchivo(e.target.files[0])}
-                  style={{ ...inputStyle, padding: '9px 14px', cursor: 'pointer' }}
+                  style={{ ...inputStyle, padding: '9px 14px', cursor: 'pointer', flex: 1, minWidth: '200px' }}
                 />
               </div>
             </div>
@@ -534,7 +534,7 @@ export default function PanelPerfil() {
       {pestanaActiva === 'servicios' && (
         <>
           <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', padding: '24px', marginBottom: '40px', border: servicioEditando ? '2px solid #fbbf24' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
               <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>
                 {servicioEditando ? 'Editando Catálogo de Servicio' : 'Añadir Servicio Oficial a mi Perfil'}
               </h2>
@@ -543,8 +543,8 @@ export default function PanelPerfil() {
               </span>
             </div>
 
-            <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
-              <div style={{ flex: 2 }}>
+            <form onSubmit={handleGuardarServicio} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: 2, minWidth: '220px' }}>
                 <label style={labelStyle}>Selecciona un servicio oficial</label>
                 <select
                   required
@@ -571,11 +571,11 @@ export default function PanelPerfil() {
                   })}
                 </select>
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>Precio (CLP)</label>
                 <input type="number" required style={inputStyle} placeholder="35000" value={nuevoServicio.precio} onChange={e => setNuevoServicio({ ...nuevoServicio, precio: e.target.value })} />
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>Duración (min)</label>
                 <input type="number" required style={inputStyle} value={nuevoServicio.duracion} onChange={e => setNuevoServicio({ ...nuevoServicio, duracion: e.target.value })} />
               </div>
@@ -647,11 +647,13 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
           cursor: 'pointer',
           userSelect: 'none'
         }}
       >
-        <h2 style={{ margin: 0, fontSize: '18px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <h2 style={{ margin: 0, fontSize: '18px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <ChevronDown
             size={20}
             color="#ffffffff"
@@ -673,7 +675,7 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
             {disponibilidad.length} {disponibilidad.length === 1 ? 'bloque' : 'bloques'}
           </span>
         </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', color: '#cbd5e1', fontSize: '14px', fontWeight: '500' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', color: '#cbd5e1', fontSize: '14px', fontWeight: '500' }}>
           <span> {servicio.duracion} min</span>
           <span> ${(servicio.precio || 0).toLocaleString('es-CL')} CLP</span>
           <div
@@ -697,9 +699,9 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
           {disponibilidad.length > 0 ? (
             <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {disponibilidad.map(d => (
-                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#ffffff' }}>
+                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#ffffff' }}>
                   <span style={{ fontWeight: '700', color: '#2563eb' }}>{d.dia}</span>
-                  <div style={{ display: 'flex', gap: '15px', color: '#475569', fontSize: '14px', fontWeight: '600', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '15px', color: '#475569', fontSize: '14px', fontWeight: '600', alignItems: 'center', flexWrap: 'wrap' }}>
                     <span>{d.inicio} hrs - {d.fin} hrs</span>
                     <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid #e2e8f0', paddingLeft: '15px' }}>
                       <button onClick={() => iniciarEdicion(d)} style={iconBtnStyle}><Pencil size={20} color="#1a365d" /></button>
@@ -716,8 +718,8 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
           )}
 
           {/* Formulario Interno para añadir horas solo a este servicio */}
-          <form onSubmit={onSubmitHorario} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '16px', borderRadius: '8px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
-            <div style={{ flex: 1 }}>
+          <form onSubmit={onSubmitHorario} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', flexWrap: 'wrap', backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '16px', borderRadius: '8px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
+            <div style={{ flex: 1, minWidth: '140px' }}>
               <label style={labelStyle}>Fecha</label>
               <input
                 type="date"
@@ -727,11 +729,11 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
                 onChange={e => setHorarioForm({ ...horarioForm, dia: e.target.value })}
               />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: '120px' }}>
               <label style={labelStyle}>Inicio</label>
               <input type="time" required style={inputStyle} value={horarioForm.inicio} onChange={e => setHorarioForm({ ...horarioForm, inicio: e.target.value })} />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: '120px' }}>
               <label style={labelStyle}>Fin</label>
               <input type="time" required style={inputStyle} value={horarioForm.fin} onChange={e => setHorarioForm({ ...horarioForm, fin: e.target.value })} />
             </div>
