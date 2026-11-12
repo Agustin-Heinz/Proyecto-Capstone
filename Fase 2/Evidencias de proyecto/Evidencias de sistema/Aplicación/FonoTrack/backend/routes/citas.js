@@ -257,7 +257,7 @@ router.post('/', async (req, res) => {
         `- *Hora:* ${horaLimpia} hrs\n` +
         `- *Especialista:* ${nombreEspecialista}\n` +
         `- *Servicio:* ${nombreServicio}\n\n` +
-        `Responde con *1* para CONFIRMAR tu asistencia o con *2* para ANULAR tu cita.\n` +
+        `Responde con *1* para CONFIRMAR tu asistencia, con *2* para ANULAR o con *3* para REAGENDAR tu cita.\n` +
         `¡Te esperamos!`;
 
       await enviarMensajeWhatsApp(telefonoDestino, mensajeWhatsApp);

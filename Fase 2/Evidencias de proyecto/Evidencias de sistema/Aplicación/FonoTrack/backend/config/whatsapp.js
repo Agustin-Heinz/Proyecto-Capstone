@@ -316,6 +316,149 @@ const buscarRutEnMensaje = (texto, todosPacientes) => {
 // Sesiones verificadas por RUT para cada teléfono de WhatsApp
 const sesionesRutPorTelefono = new Map();
 
+// Obtiene únicamente los horarios libres reales creados por el fonoaudiólogo en prisma.disponibilidad (descartando los ya ocupados en prisma.citas)
+const obtenerHorariosDisponiblesEspecialista = async (idFonoaudiologo = null, idServicio = null) => {
+  const ahora = new Date();
+  const hoyStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+  const inicioDeHoy = new Date(`${hoyStr}T00:00:00.000Z`);
+
+  const [todosFonos, todosServicios, todaDisponibilidad, citasOcupadasBD] = await Promise.all([
+    prisma.fonoaudiologos.findMany(),
+    prisma.servicios.findMany(),
+    prisma.disponibilidad.findMany({ orderBy: { id_disponibilidad: 'desc' } }),
+    prisma.citas.findMany({
+      where: {
+        fecha: { gte: inicioDeHoy },
+        AND: [
+          {
+            OR: [
+              { estado_asistencia: { not: 'Anulada' } },
+              { estado_asistencia: null }
+            ]
+          },
+          {
+            OR: [
+              { estado_pago: { not: 'Cancelado' } },
+              { estado_pago: null }
+            ]
+          }
+        ]
+      }
+    })
+  ]);
+
+  const mapaFonos = new Map(todosFonos.map((f) => [f.id_fonoaudiologo, f]));
+  const mapaServicios = new Map(todosServicios.map((s) => [s.id_servicios, s]));
+
+  // Conjunto de bloques ya reservados en prisma.citas: "id_fonoaudiologo|YYYY-MM-DD|HH:MM"
+  const ocupadosSet = new Set(
+    citasOcupadasBD.map((c) => {
+      const fStr = c.fecha ? c.fecha.toISOString().split('T')[0] : '';
+      let hStr = '';
+      if (c.hora_inicio) {
+        const iso = c.hora_inicio instanceof Date ? c.hora_inicio.toISOString() : String(c.hora_inicio);
+        const match = iso.match(/(\d{2}:\d{2})/);
+        hStr = match ? match[1] : iso.substring(11, 16);
+      }
+      return `${c.id_fonoaudiologo}|${fStr}|${hStr}`;
+    })
+  );
+
+  const diasNombres = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const formatearEtiquetaSlot = (fechaStr, horaStr) => {
+    const [yyyy, mm, dd] = fechaStr.split('-').map(Number);
+    const dObj = new Date(yyyy, mm - 1, dd, 12, 0, 0);
+    const diaSem = diasNombres[dObj.getDay()] || '';
+    return `${diaSem} ${String(dd).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yyyy} a las ${horaStr} hrs`;
+  };
+
+  // Extrae únicamente bloques reales de prisma.disponibilidad que estén libres y vigentes
+  const extraerSlotsDeDisponibilidad = (bloques) => {
+    const mapa = new Map();
+    for (const d of bloques) {
+      const fechaCand = d.dia_semana ? String(d.dia_semana).split('T')[0] : '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaCand) || fechaCand < hoyStr) continue;
+
+      let horaCand = '';
+      if (d.hora_inicio) {
+        const iso = d.hora_inicio instanceof Date ? d.hora_inicio.toISOString() : String(d.hora_inicio);
+        const match = iso.match(/(\d{2}:\d{2})/);
+        horaCand = match ? match[1] : iso.substring(11, 16);
+      }
+      if (!horaCand) continue;
+
+      const claveOcupado = `${d.id_fonoaudiologo}|${fechaCand}|${horaCand}`;
+      if (!ocupadosSet.has(claveOcupado) && !mapa.has(claveOcupado)) {
+        const fonoSlot = mapaFonos.get(d.id_fonoaudiologo) || null;
+        const servSlot = mapaServicios.get(d.id_servicio) || null;
+        mapa.set(claveOcupado, {
+          fecha: fechaCand,
+          hora: horaCand,
+          id_fonoaudiologo: d.id_fonoaudiologo,
+          nombre_fono: fonoSlot?.nombre_completo || 'Especialista FonoTrack',
+          id_servicio: d.id_servicio,
+          nombre_servicio: servSlot?.nombre_servicio || 'Atención Fonoaudiológica',
+          precio: servSlot?.precio || 25000
+        });
+      }
+    }
+    return Array.from(mapa.values());
+  };
+
+  const fonoIdNum = idFonoaudiologo ? Number(idFonoaudiologo) : null;
+  // El fonoaudiólogo que configuró horarios más recientemente en el panel
+  const fonoMasRecienteId = todaDisponibilidad.length > 0 ? Number(todaDisponibilidad[0].id_fonoaudiologo) : null;
+  const fonoObjetivoId = fonoMasRecienteId || fonoIdNum;
+
+  // 1. Buscar los horarios libres creados en prisma.disponibilidad por el fonoaudiólogo activo
+  let slotsLibres = [];
+  if (fonoObjetivoId) {
+    slotsLibres = extraerSlotsDeDisponibilidad(
+      todaDisponibilidad.filter((d) => Number(d.id_fonoaudiologo) === fonoObjetivoId)
+    );
+  }
+
+  // 2. Si ese fonoaudiólogo no tiene bloques futuros libres, revisar el resto de prisma.disponibilidad
+  if (slotsLibres.length === 0) {
+    slotsLibres = extraerSlotsDeDisponibilidad(todaDisponibilidad);
+  }
+
+  const listaOrdenada = slotsLibres
+    .sort((a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`))
+    .slice(0, 10)
+    .map((slot, idx) => ({
+      indice: idx + 1,
+      fecha: slot.fecha,
+      hora: slot.hora,
+      id_fonoaudiologo: slot.id_fonoaudiologo,
+      nombre_fono: slot.nombre_fono,
+      id_servicio: slot.id_servicio,
+      nombre_servicio: slot.nombre_servicio,
+      precio: slot.precio,
+      etiqueta: `${formatearEtiquetaSlot(slot.fecha, slot.hora)} — ${slot.nombre_servicio}`
+    }));
+
+  const primerSlot = listaOrdenada[0] || null;
+  const fonoElegido =
+    (primerSlot && mapaFonos.get(primerSlot.id_fonoaudiologo)) ||
+    (fonoIdNum && mapaFonos.get(fonoIdNum)) ||
+    todosFonos[0] ||
+    null;
+
+  const servicioElegido =
+    (primerSlot && mapaServicios.get(primerSlot.id_servicio)) ||
+    (servIdNum && mapaServicios.get(servIdNum)) ||
+    (fonoElegido && todosServicios.find((s) => s.id_fonoaudiologo === fonoElegido.id_fonoaudiologo)) ||
+    todosServicios[0] ||
+    null;
+
+  return {
+    fonoaudiologo: fonoElegido,
+    servicio: servicioElegido,
+    opciones: listaOrdenada
+  };
+};
+
 // Obtiene el contexto clínico completo únicamente para el paciente del RUT verificado
 const obtenerContextoClinicoPaciente = async (pacientesCoincidentes) => {
   const idsPacientes = pacientesCoincidentes.map((p) => p.id_paciente);
@@ -354,6 +497,12 @@ const obtenerContextoClinicoPaciente = async (pacientesCoincidentes) => {
 
   const mapaCitas = new Map(todasCitas.map((c) => [c.id_citas, c]));
 
+  // Determinar especialista y servicio de referencia para consultar disponibilidad
+  const citaRef = proximasCitas[0] || todasCitas[todasCitas.length - 1] || null;
+  const idFonoRef = citaRef?.id_fonoaudiologo || 2;
+  const idServRef = citaRef?.id_servicio || null;
+  const disponibilidadEspecialista = await obtenerHorariosDisponiblesEspecialista(idFonoRef, idServRef);
+
   const listaProximasTexto = proximasCitas.length > 0
     ? proximasCitas.map((c, idx) => {
         const fechaStr = c.fecha ? c.fecha.toISOString().split('T')[0] : 'Sin fecha';
@@ -376,6 +525,10 @@ const obtenerContextoClinicoPaciente = async (pacientesCoincidentes) => {
       }).join('\n\n')
     : 'Aún no tiene observaciones clínicas ni tareas registradas en su ficha.';
 
+  const listaHorariosDisponiblesTexto = disponibilidadEspecialista.opciones.length > 0
+    ? disponibilidadEspecialista.opciones.map((op) => `*Opción ${op.indice}:* ${op.etiqueta}`).join('\n')
+    : 'No hay bloques horarios libres configurados próximamente.';
+
   return {
     nombrePaciente,
     rutPaciente,
@@ -385,13 +538,26 @@ const obtenerContextoClinicoPaciente = async (pacientesCoincidentes) => {
     mapaFonos,
     mapaServicios,
     listaProximasTexto,
-    listaObservacionesTexto
+    listaObservacionesTexto,
+    disponibilidadEspecialista,
+    listaHorariosDisponiblesTexto
   };
 };
 
-// Encabezado fijo de presentación de FonoBot y todas sus funciones disponibles
+// Detecta si la persona pregunta qué puede hacer el bot / pide el menú de ayuda
+const esPreguntaQuePuedeHacerBot = (texto = '') => {
+  const limpio = String(texto || '').trim().toLowerCase();
+  if (['menu', 'menú', 'ayuda', 'opciones', 'funciones', 'comandos', 'que haces', 'qué haces'].includes(limpio)) {
+    return true;
+  }
+  return /(qu[eé]\s+(puedes?|puede|sabes?|sabe)\s+hacer|qu[eé]\s+hace\s+el\s+bot|en\s+qu[eé]\s+(me\s+)?(puedes?|puede|pude)\s+ayudar|cu[aá]les\s+son\s+tus\s+funciones|qu[eé]\s+funciones\s+tienes|para\s+qu[eé]\s+sirves|c[oó]mo\s+funcionas|qu[eé]\s+opciones\s+(tienes|hay))/i.test(
+    limpio
+  );
+};
+
+// Encabezado de presentación de FonoBot y todas sus funciones disponibles (solo para el 1er mensaje o cuando pregunten qué hace el bot)
 const construirEncabezadoPresentacionBot = (nombrePaciente, rutPaciente = '') => {
-  const saludoNombre = nombrePaciente && nombrePaciente !== 'Paciente' ? ` *${nombrePaciente}*` : '';
+  const saludoNombre = nombrePaciente && nombrePaciente !== 'Paciente' ? ` ${nombrePaciente}` : '';
   const lineaFicha = rutPaciente
     ? `👤 *Ficha consultada:* ${nombrePaciente} (RUT: *${rutPaciente}*)\n_(Si deseas consultar otro RUT, escríbelo en cualquier momento)_\n`
     : '';
@@ -399,9 +565,10 @@ const construirEncabezadoPresentacionBot = (nombrePaciente, rutPaciente = '') =>
     `🤖 *¡Hola${saludoNombre}! Soy FonoBot, tu asistente virtual de FonoTrack.*\n\n` +
     `*¿En qué te puedo ayudar?*\n` +
     `• 📅 *Próximas sesiones:* Consultar fechas, horarios, especialista y estado de tus citas.\n` +
+    `• 🔄 *Disponibilidad y Reagendar:* Ver horarios libres de tu especialista y cambiar tu hora (escribe *3* o *"reagendar"*).\n` +
     `• 🩺 *Observaciones y tareas:* Revisar las observaciones clínicas y ejercicios indicados en tus sesiones.\n` +
     `• 🗣️ *Orientación de especialidad:* Recomendarte a qué fonoaudiólogo/a acudir según tus síntomas.\n` +
-    `• ✅ *Confirmar o anular citas:* Responder con *1* para CONFIRMAR o con *2* para ANULAR tu próxima atención.\n` +
+    `• ✅ *Confirmar o anular citas:* Responder con *1* para CONFIRMAR, *2* para ANULAR o *3* para REAGENDAR.\n` +
     (lineaFicha ? `\n${lineaFicha}` : '') +
     `────────────────────\n\n`
   );
@@ -410,45 +577,69 @@ const construirEncabezadoPresentacionBot = (nombrePaciente, rutPaciente = '') =>
 // Respuesta de respaldo directa desde la base de datos si Gemini no está disponible
 const generarRespuestaRespaldoBot = (textoUsuario, ctx) => {
   const t = textoUsuario.toLowerCase();
+  const preguntaDisponibilidad = /reagend|cambiar.*(cita|hora|fecha|sesi[oó]n)|horarios?\s*(disponibles?|libres?)|disponibilidad|qu[eé]\s*horas?\s*tiene/.test(t);
   const preguntaCitas = /cita|sesi[oó]n|sesiones|hora|agenda|cu[aá]ndo|pr[oó]xim/.test(t);
   const preguntaObservaciones = /observaci[oó]n|observaciones|ficha|tarea|ejercicio|evoluci[oó]n|indicaci[oó]n|resumen|nota/.test(t);
 
+  if (preguntaDisponibilidad) {
+    const nombreEsp = ctx.disponibilidadEspecialista?.fonoaudiologo?.nombre_completo || 'tu especialista';
+    return (
+      `*Horarios disponibles con ${nombreEsp}:*\n\n` +
+      `${ctx.listaHorariosDisponiblesTexto}\n\n` +
+      `🔄 _Para reagendar o tomar una de estas horas, escribe *3* o *"reagendar"* y luego indica el número de la opción._`
+    );
+  }
+
   if (preguntaCitas && !preguntaObservaciones) {
     if (ctx.proximasCitas.length === 0) {
-      return `*Respuesta a tu consulta:*\nEl paciente *${ctx.nombrePaciente}* (RUT *${ctx.rutPaciente}*) no tiene próximas sesiones agendadas actualmente en FonoTrack.`;
+      return `*Próximas sesiones de ${ctx.nombrePaciente} (RUT ${ctx.rutPaciente}):*\nNo tiene próximas sesiones agendadas actualmente en FonoTrack.\n\n💡 _Si deseas ver horarios disponibles para agendar con tu especialista, escribe *3* o *"horarios disponibles"*._`;
     }
-    return `*Respuesta a tu consulta (Próximas sesiones de ${ctx.nombrePaciente}):*\n\n${ctx.listaProximasTexto}\n\n💡 _Recuerda que puedes responder con *1* para confirmar o *2* para anular tu próxima cita._`;
+    return `*Próximas sesiones de ${ctx.nombrePaciente} (RUT ${ctx.rutPaciente}):*\n\n${ctx.listaProximasTexto}\n\n💡 _Puedes responder con *1* para confirmar, *2* para anular o *3* para reagendar tu próxima cita._`;
   }
 
   if (preguntaObservaciones && !preguntaCitas) {
     if (ctx.evoluciones.length === 0) {
-      return `*Respuesta a tu consulta:*\nEl paciente *${ctx.nombrePaciente}* (RUT *${ctx.rutPaciente}*) aún no tiene observaciones clínicas ni tareas registradas en su ficha de FonoTrack.`;
+      return `*Observaciones y tareas de ${ctx.nombrePaciente} (RUT ${ctx.rutPaciente}):*\nAún no tiene observaciones clínicas ni tareas registradas en su ficha de FonoTrack.`;
     }
-    return `*Respuesta a tu consulta (Observaciones y tareas de ${ctx.nombrePaciente}):*\n\n${ctx.listaObservacionesTexto}`;
+    return `*Observaciones y tareas de ${ctx.nombrePaciente} (RUT ${ctx.rutPaciente}):*\n\n${ctx.listaObservacionesTexto}`;
   }
 
   return (
     `*Resumen actual de la ficha de ${ctx.nombrePaciente} (RUT ${ctx.rutPaciente}):*\n\n` +
     `📅 *Próximas sesiones:*\n${ctx.listaProximasTexto}\n\n` +
-    `🩺 *Últimas observaciones y tareas:*\n${ctx.listaObservacionesTexto}`
+    `🩺 *Últimas observaciones y tareas:*\n${ctx.listaObservacionesTexto}\n\n` +
+    `💡 _Escribe *1* para confirmar, *2* para anular o *3* para consultar disponibilidad y reagendar._`
   );
 };
 
 // Consulta a FonoBot (Gemini IA) con los datos reales del paciente en WhatsApp
-const responderConFonoBotWhatsApp = async (textoUsuario, ctx) => {
-  const encabezado = construirEncabezadoPresentacionBot(ctx.nombrePaciente, ctx.rutPaciente);
+const responderConFonoBotWhatsApp = async (textoUsuario, ctx, incluirPresentacion = false) => {
+  const pidioMenuFunciones = esPreguntaQuePuedeHacerBot(textoUsuario);
+  const encabezado =
+    incluirPresentacion || pidioMenuFunciones
+      ? construirEncabezadoPresentacionBot(ctx.nombrePaciente, ctx.rutPaciente)
+      : '';
+
+  // Si la persona preguntó específicamente qué puede hacer el bot, mostrar solo la presentación de funciones
+  if (pidioMenuFunciones) {
+    return construirEncabezadoPresentacionBot(ctx.nombrePaciente, ctx.rutPaciente).trim();
+  }
 
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
+    const nombreEspDisp = ctx.disponibilidadEspecialista?.fonoaudiologo?.nombre_completo || 'Especialista FonoTrack';
 
     const promptContexto = `Eres FonoBot, el asistente virtual de FonoTrack en WhatsApp.
 Estás atendiendo exclusivamente la ficha del paciente: "${ctx.nombrePaciente}" (RUT: "${ctx.rutPaciente}").
-NOTA IMPORTANTE: El sistema YA agregó arriba de tu mensaje tu saludo de presentación y la lista de todo lo que puedes hacer, por lo tanto NO repitas "Hola soy FonoBot" ni vuelvas a listar tus funciones generales; ve directo a responder la pregunta puntual del paciente usando únicamente los datos de este RUT.
+NOTA ESTRICTA: NO saludes diciendo "Hola soy FonoBot", NO listes tus funciones generales y NO agregues al final frases como "¿En qué te gustaría que te ayude hoy?" o "¿En qué te puedo ayudar?"; ve directo al grano y responde únicamente la consulta puntual del paciente usando los datos reales de este RUT.
 
 DATOS REALES DEL PACIENTE (RUT ${ctx.rutPaciente}) EN FONOTRACK:
 
 [PRÓXIMAS SESIONES AGENDADAS]
 ${ctx.listaProximasTexto}
+
+[HORARIOS DISPONIBLES DE ${nombreEspDisp.toUpperCase()} PARA AGENDAR O REAGENDAR]
+${ctx.listaHorariosDisponiblesTexto}
 
 [HISTORIAL DE OBSERVACIONES CLÍNICAS Y TAREAS ASIGNADAS]
 ${ctx.listaObservacionesTexto}
@@ -467,12 +658,14 @@ ${ctx.listaObservacionesTexto}
 - Lavado de oídos infantil y adultos (Extracción de cerumen)
 
 REGLAS DE RESPUESTA:
-1. Sé muy amable, claro y conciso. Usa formato apto para WhatsApp (*negritas* con un asterisco y viñetas simples).
-2. Si el paciente consulta por sus próximas sesiones, citas, fechas u horarios, responde directamente con los datos exactos de [PRÓXIMAS SESIONES AGENDADAS] para este RUT e indícale que puede responder *1* para confirmar o *2* para anular su próxima cita.
-3. Si el paciente consulta por sus observaciones clínicas, qué le dijo el especialista, ficha médica, evolución, ejercicios o tareas para la casa, responde directamente con los datos exactos de [HISTORIAL DE OBSERVACIONES CLÍNICAS Y TAREAS ASIGNADAS] para este RUT.
-4. Si el paciente describe síntomas o pregunta a qué especialista acudir, oriéntalo sin dar diagnóstico médico y recomiéndale la subespecialidad de la lista que corresponda.
-5. Si el paciente solo envió su RUT o un saludo general, muéstrale un resumen breve de sus próximas sesiones y últimas observaciones registradas para su RUT.
-6. No inventes citas ni observaciones que no aparezcan en los datos reales del paciente.
+1. Sé amable, claro y conciso. Usa formato apto para WhatsApp (*negritas* con un asterisco y viñetas simples).
+2. NO incluyas saludos de presentación ni cierres preguntando "¿En qué te puedo ayudar hoy?".
+3. Si el paciente consulta por sus próximas sesiones, citas, fechas u horarios agendados, responde directamente con los datos exactos de [PRÓXIMAS SESIONES AGENDADAS] e indícale que puede responder *1* para confirmar, *2* para anular o *3* para reagendar.
+4. Si el paciente pregunta por horarios disponibles, disponibilidad del especialista o cambiar/reagendar hora, muéstrale la lista de [HORARIOS DISPONIBLES] e indícale que escriba *3* o *"reagendar"* para elegir una opción.
+5. Si el paciente consulta por sus observaciones clínicas, qué le dijo el especialista, ficha médica, evolución, ejercicios o tareas para la casa, responde directamente con los datos exactos de [HISTORIAL DE OBSERVACIONES CLÍNICAS Y TAREAS ASIGNADAS] para este RUT.
+6. Si el paciente describe síntomas o pregunta a qué especialista acudir, oriéntalo sin dar diagnóstico médico y recomiéndale la subespecialidad de la lista que corresponda.
+7. Si el paciente solo envió su RUT, muéstrale un resumen breve de sus próximas sesiones y últimas observaciones registradas para su RUT sin agregar preguntas de "¿En qué te puedo ayudar?" al final.
+8. No inventes citas ni observaciones que no aparezcan en los datos reales del paciente.
 
 Mensaje del paciente en WhatsApp: "${textoUsuario}"`;
 
@@ -567,12 +760,122 @@ const obtenerNumeroPropioSesion = async () => {
   return null;
 };
 
-// Escuchar mensajes de pacientes por WhatsApp ("1"/"2" para citas, o consultas a FonoBot)
+// Escuchar mensajes de pacientes por WhatsApp ("1"/"2"/"3" para citas, o consultas a FonoBot)
 const mensajesProcesados = new Set();
+
+// Detecta si el mensaje solicita reagendar o consultar horarios disponibles de forma interactiva
+const esSolicitudReagendar = (texto = '') => {
+  const limpio = String(texto || '').trim().toLowerCase();
+  if (
+    [
+      '3',
+      'reagendar',
+      'reagendar cita',
+      'cambiar hora',
+      'cambiar cita',
+      'cambiar fecha',
+      'mover cita',
+      'horarios',
+      'horarios disponibles',
+      'horas disponibles',
+      'disponibilidad',
+      'consultar disponibilidad',
+      'ver disponibilidad'
+    ].includes(limpio)
+  ) {
+    return true;
+  }
+  return /\b(reagendar|cambiar\s+(mi\s+)?(hora|cita|fecha)|mover\s+(mi\s+)?cita|disponibilidad|(horarios?|horas?)\s+(disponibles?|libres?)|qu[eé]\s+horas?\s+tiene)\b/i.test(limpio);
+};
+
+// Inicia el flujo interactivo de reagendamiento por WhatsApp mostrando opciones numeradas
+const iniciarFlujoReagendarWhatsApp = async (numeroRemitente, pacienteObjetivo) => {
+  const ahora = new Date();
+  const inicioDeHoy = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()));
+
+  const todasCitasPaciente = await prisma.citas.findMany({
+    where: { id_paciente: pacienteObjetivo.id_paciente },
+    orderBy: [{ fecha: 'asc' }, { hora_inicio: 'asc' }]
+  });
+
+  const proximaCita = todasCitasPaciente.find((c) => {
+    const esFuturaOHoy = c.fecha && c.fecha >= inicioDeHoy;
+    const noAnulada = !['Anulada', 'Asistió', 'Faltó'].includes(c.estado_asistencia || '');
+    const noCancelada = c.estado_pago !== 'Cancelado';
+    return esFuturaOHoy && noAnulada && noCancelada;
+  });
+
+  const ultimaCita = todasCitasPaciente.length > 0 ? todasCitasPaciente[todasCitasPaciente.length - 1] : null;
+  const idFonoReferencia = proximaCita?.id_fonoaudiologo || ultimaCita?.id_fonoaudiologo || null;
+  const idServReferencia = proximaCita?.id_servicio || ultimaCita?.id_servicio || null;
+
+  const disp = await obtenerHorariosDisponiblesEspecialista(idFonoReferencia, idServReferencia);
+
+  if (!disp.opciones || disp.opciones.length === 0) {
+    await enviarMensajeWhatsApp(
+      numeroRemitente,
+      `⚠️ En este momento el fonoaudiólogo no tiene horas libres disponibles configuradas en la agenda.`
+    );
+    return;
+  }
+
+  const fechaAnterior = proximaCita?.fecha ? proximaCita.fecha.toISOString().split('T')[0] : null;
+  const horaAnterior = proximaCita?.hora_inicio ? proximaCita.hora_inicio.toISOString().substring(11, 16) : null;
+  const nombreFono = disp.fonoaudiologo?.nombre_completo || 'Especialista FonoTrack';
+  const nombreServicio = disp.servicio?.nombre_servicio || 'Atención Fonoaudiológica';
+
+  const sesionPrevia = sesionesRutPorTelefono.get(numeroRemitente) || {};
+  sesionesRutPorTelefono.set(numeroRemitente, {
+    ...sesionPrevia,
+    id_paciente: pacienteObjetivo.id_paciente,
+    rut: pacienteObjetivo.rut,
+    nombre_completo: pacienteObjetivo.nombre_completo,
+    preguntaPendiente: null,
+    timestamp: Date.now(),
+    reagendando: {
+      id_cita: proximaCita ? proximaCita.id_citas : null,
+      fecha_anterior: fechaAnterior,
+      hora_anterior: horaAnterior,
+      id_fonoaudiologo: disp.fonoaudiologo?.id_fonoaudiologo || idFonoReferencia || 2,
+      nombre_fono: nombreFono,
+      id_servicio: disp.servicio?.id_servicios || idServReferencia || 1,
+      nombre_servicio: nombreServicio,
+      precio: proximaCita?.precio || disp.servicio?.precio || 25000,
+      duracion_minutos: proximaCita?.duracion_minutos || disp.servicio?.duracion_minutos || 50,
+      opciones: disp.opciones
+    }
+  });
+
+  const textoCitaActual = proximaCita
+    ? `📌 *Tu cita actual programada:*\n` +
+      `- *Fecha:* ${fechaAnterior} a las ${horaAnterior} hrs\n` +
+      `- *Especialista:* ${nombreFono}\n` +
+      `- *Servicio:* ${nombreServicio}\n\n`
+    : `📌 *No tienes una cita futura activa*, por lo que puedes tomar una de las horas creadas por *${nombreFono}* (*${nombreServicio}*).\n\n`;
+
+  const textoOpciones = disp.opciones
+    .map((op) => `*Opción ${op.indice}:* ${op.etiqueta}`)
+    .join('\n');
+
+  const instruccionSeleccion =
+    disp.opciones.length === 1
+      ? `👉 *Responde con 1* para agendar/reagendar tu cita a este horario inmediatamente, o escribe *cancelar* para mantener tu hora sin cambios.`
+      : `👉 *Responde con el número de la opción* (del *1* al *${disp.opciones.length}*) para cambiar tu cita a ese horario inmediatamente, o escribe *cancelar* para mantener tu hora sin cambios.`;
+
+  const mensajeReagendar =
+    `🗓️ *Disponibilidad y Reagendamiento — FonoTrack*\n` +
+    `👤 *Paciente:* ${pacienteObjetivo.nombre_completo} (RUT: *${pacienteObjetivo.rut}*)\n\n` +
+    textoCitaActual +
+    `✨ *Horas disponibles creadas por ${nombreFono}:*\n` +
+    `${textoOpciones}\n\n` +
+    instruccionSeleccion;
+
+  await enviarMensajeWhatsApp(numeroRemitente, mensajeReagendar);
+};
 
 const procesarRespuestaCitaWhatsApp = async (msg) => {
   try {
-    // Ignorar estados de WhatsApp, mensajes de grupos o mensajes vacíos
+    // Ignorar estados de WhatsApp, canales (@newsletter), difusiones (@broadcast), grupos (@g.us) o mensajes vacíos
     const origenId = typeof msg.from === 'object' ? (msg.from?._serialized || '') : String(msg.from || '');
     const destinoId = typeof msg.to === 'object' ? (msg.to?._serialized || '') : String(msg.to || '');
     const esFromMe = Boolean(msg.fromMe ?? msg.id?.fromMe);
@@ -581,7 +884,11 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
       msg.isStatus ||
       origenId === 'status@broadcast' ||
       origenId.endsWith('@g.us') ||
-      destinoId.endsWith('@g.us')
+      destinoId.endsWith('@g.us') ||
+      origenId.endsWith('@newsletter') ||
+      destinoId.endsWith('@newsletter') ||
+      origenId.endsWith('@broadcast') ||
+      destinoId.endsWith('@broadcast')
     ) {
       return;
     }
@@ -604,9 +911,9 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
     let numeroRemitente = await resolverNumeroJid(origenId, msg);
     if (!numeroRemitente && esFromMe) {
       numeroRemitente = await obtenerNumeroPropioSesion();
-    }
-    if (!numeroRemitente && ultimoTelefonoEnviado) {
-      numeroRemitente = ultimoTelefonoEnviado;
+      if (!numeroRemitente && ultimoTelefonoEnviado) {
+        numeroRemitente = ultimoTelefonoEnviado;
+      }
     }
 
     // Si el mensaje fue enviado desde el teléfono vinculado (fromMe), solo responder si es el chat consigo mismo (pruebas)
@@ -639,6 +946,169 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
         `🔒 *Por favor ingresa el RUT del paciente que deseas consultar* (ejemplo: *21.570.782-2*).`;
       await enviarMensajeWhatsApp(numeroRemitente, mensajeCambioRut);
       return;
+    }
+
+    // CASO 0: Flujo interactivo activo de Reagendamiento de cita (el paciente está eligiendo una opción numerada)
+    if (sesionActual?.reagendando) {
+      const estadoReag = sesionActual.reagendando;
+
+      if (['cancelar', 'no', '0', 'mantener', 'volver'].includes(texto)) {
+        sesionesRutPorTelefono.set(numeroRemitente, {
+          ...sesionActual,
+          reagendando: null
+        });
+        await enviarMensajeWhatsApp(
+          numeroRemitente,
+          `👍 Hemos cancelado el reagendamiento. Tu cita actual se mantiene sin cambios.`
+        );
+        return;
+      }
+
+      // Detectar selección por número de opción (ej: "1", "opcion 2", "opción 3", "#1") o por fecha/hora
+      const matchOpcion = texto.match(/^(?:opci[oó]n\s*|#\s*)?([1-9]|10)\.?$/i);
+      let slotElegido = null;
+
+      if (matchOpcion) {
+        const numOpcion = Number(matchOpcion[1]);
+        slotElegido = (estadoReag.opciones || []).find((op) => op.indice === numOpcion) || null;
+      } else {
+        // También permitir que escriba la fecha y hora directamente (ej: "2026-11-19 09:00" o "19/11/2026 09:00")
+        const matchFechaIso = textoOriginal.match(/(\d{4}-\d{2}-\d{2}).*?(\d{2}:\d{2})/);
+        const matchFechaLatam = textoOriginal.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2}:\d{2})/);
+        if (matchFechaIso) {
+          slotElegido = {
+            fecha: matchFechaIso[1],
+            hora: matchFechaIso[2],
+            etiqueta: `${matchFechaIso[1]} a las ${matchFechaIso[2]} hrs`
+          };
+        } else if (matchFechaLatam) {
+          const fIso = `${matchFechaLatam[3]}-${matchFechaLatam[2]}-${matchFechaLatam[1]}`;
+          slotElegido = {
+            fecha: fIso,
+            hora: matchFechaLatam[4],
+            etiqueta: `${matchFechaLatam[1]}/${matchFechaLatam[2]}/${matchFechaLatam[3]} a las ${matchFechaLatam[4]} hrs`
+          };
+        }
+      }
+
+      if (slotElegido) {
+        const inicioDia = new Date(`${slotElegido.fecha}T00:00:00.000Z`);
+        const finDia = new Date(`${slotElegido.fecha}T23:59:59.999Z`);
+        const nuevaHoraInicio = new Date(`${slotElegido.fecha}T${slotElegido.hora}:00.000Z`);
+        const idFonoDestino = Number(slotElegido.id_fonoaudiologo || estadoReag.id_fonoaudiologo);
+        const idServDestino = Number(slotElegido.id_servicio || estadoReag.id_servicio);
+        const nombreFonoDestino = slotElegido.nombre_fono || estadoReag.nombre_fono;
+        const nombreServDestino = slotElegido.nombre_servicio || estadoReag.nombre_servicio;
+        const precioDestino = Number(slotElegido.precio || estadoReag.precio) || 25000;
+
+        // Verificar que el bloque elegido siga libre en la base de datos
+        const citasDiaFono = await prisma.citas.findMany({
+          where: {
+            id_fonoaudiologo: idFonoDestino,
+            fecha: { gte: inicioDia, lte: finDia },
+            AND: [
+              {
+                OR: [
+                  { estado_asistencia: { not: 'Anulada' } },
+                  { estado_asistencia: null }
+                ]
+              },
+              {
+                OR: [
+                  { estado_pago: { not: 'Cancelado' } },
+                  { estado_pago: null }
+                ]
+              }
+            ]
+          }
+        });
+
+        const ocupadoPorOtraCita = citasDiaFono.some((c) => {
+          if (estadoReag.id_cita && c.id_citas === estadoReag.id_cita) return false;
+          const h = c.hora_inicio ? c.hora_inicio.toISOString().substring(11, 16) : '';
+          return h === slotElegido.hora;
+        });
+
+        if (ocupadoPorOtraCita) {
+          const dispActualizada = await obtenerHorariosDisponiblesEspecialista(
+            idFonoDestino,
+            idServDestino
+          );
+          sesionesRutPorTelefono.set(numeroRemitente, {
+            ...sesionActual,
+            reagendando: {
+              ...estadoReag,
+              opciones: dispActualizada.opciones
+            }
+          });
+          const nuevasOpcionesTxt = dispActualizada.opciones
+            .map((op) => `*Opción ${op.indice}:* ${op.etiqueta}`)
+            .join('\n');
+          await enviarMensajeWhatsApp(
+            numeroRemitente,
+            `⚠️ Ese bloque horario acaba de ocuparse. Por favor elige uno de estos horarios actualizados:\n\n${nuevasOpcionesTxt}\n\nResponde con el número de la opción o escribe *cancelar*.`
+          );
+          return;
+        }
+
+        if (estadoReag.id_cita) {
+          await prisma.citas.update({
+            where: { id_citas: estadoReag.id_cita },
+            data: {
+              id_fonoaudiologo: idFonoDestino,
+              id_servicio: idServDestino,
+              fecha: inicioDia,
+              hora_inicio: nuevaHoraInicio,
+              estado_asistencia: 'Confirmada'
+            }
+          });
+        } else {
+          await prisma.citas.create({
+            data: {
+              id_paciente: sesionActual.id_paciente,
+              id_fonoaudiologo: idFonoDestino,
+              id_servicio: idServDestino,
+              fecha: inicioDia,
+              hora_inicio: nuevaHoraInicio,
+              duracion_minutos: Number(estadoReag.duracion_minutos) || 50,
+              precio: precioDestino,
+              estado_pago: 'Pendiente',
+              estado_asistencia: 'Confirmada'
+            }
+          });
+        }
+
+        sesionesRutPorTelefono.set(numeroRemitente, {
+          ...sesionActual,
+          reagendando: null
+        });
+
+        const detalleAnterior = estadoReag.fecha_anterior
+          ? `🔄 *Hora anterior liberada:* ${estadoReag.fecha_anterior} a las ${estadoReag.hora_anterior} hrs\n`
+          : '';
+
+        const mensajeExitoReagendar =
+          `✅ *¡Tu cita ha sido reagendada exitosamente en FonoTrack!*\n\n` +
+          `👤 *Paciente:* ${sesionActual.nombre_completo} (RUT: *${sesionActual.rut}*)\n` +
+          detalleAnterior +
+          `📅 *Nueva Fecha y Hora:* ${slotElegido.etiqueta}\n` +
+          `👩‍⚕️ *Especialista:* ${nombreFonoDestino}\n` +
+          `🩺 *Servicio:* ${nombreServDestino}\n` +
+          `📌 *Estado:* Confirmada\n\n` +
+          `💡 _En cualquier momento puedes responder *1* (Confirmar), *2* (Anular), *3* (Reagendar de nuevo) o hacerme consultas sobre tus sesiones y tareas._`;
+
+        await enviarMensajeWhatsApp(numeroRemitente, mensajeExitoReagendar);
+        console.log(
+          `Cita reagendada vía WhatsApp para RUT ${sesionActual.rut} al ${slotElegido.fecha} ${slotElegido.hora} hrs`
+        );
+        return;
+      }
+
+      // Si el usuario escribió otra cosa que no es opción ni otro comando, sacamos del modo reagendando o si pidió reagendar de nuevo refrescamos
+      sesionesRutPorTelefono.set(numeroRemitente, {
+        ...sesionActual,
+        reagendando: null
+      });
     }
 
     // CASO 1: Confirmar ("1") o Anular ("2") la próxima cita
@@ -711,14 +1181,57 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
       return;
     }
 
+    const esPrimerMensaje = !sesionActual?.saludoEnviado;
+    const pidioQueHaceElBot = esPreguntaQuePuedeHacerBot(textoOriginal);
+    const mostrarEncabezado = esPrimerMensaje || pidioQueHaceElBot;
+
+    // CASO 1.5: Solicitud de Reagendar ("3", "reagendar", "cambiar hora", "horarios disponibles")
+    if (esSolicitudReagendar(textoOriginal)) {
+      if (sesionActual?.id_paciente) {
+        const pacienteObj =
+          todosPacientes.find((p) => p.id_paciente === sesionActual.id_paciente) || {
+            id_paciente: sesionActual.id_paciente,
+            rut: sesionActual.rut,
+            nombre_completo: sesionActual.nombre_completo
+          };
+        await iniciarFlujoReagendarWhatsApp(numeroRemitente, pacienteObj);
+        return;
+      } else {
+        sesionesRutPorTelefono.set(numeroRemitente, {
+          id_paciente: null,
+          rut: null,
+          nombre_completo: null,
+          preguntaPendiente: 'reagendar',
+          saludoEnviado: true,
+          timestamp: Date.now(),
+          reagendando: null
+        });
+        const prefijo = mostrarEncabezado ? construirEncabezadoPresentacionBot(null) : '';
+        await enviarMensajeWhatsApp(
+          numeroRemitente,
+          `${prefijo}🔒 Para consultar horarios disponibles y reagendar tu cita, primero *ingresa tu RUT* (ejemplo: *21.570.782-2*).`
+        );
+        return;
+      }
+    }
+
     // CASO 2: Verificar si el mensaje incluye un RUT (para iniciar o cambiar el RUT consultado)
     const { rutDetectado, paciente: pacientePorRut, preguntaAdicional } = buscarRutEnMensaje(textoOriginal, todosPacientes);
 
     if (rutDetectado) {
       if (!pacientePorRut) {
+        sesionesRutPorTelefono.set(numeroRemitente, {
+          ...(sesionActual || {}),
+          id_paciente: null,
+          rut: null,
+          nombre_completo: null,
+          saludoEnviado: true,
+          timestamp: Date.now(),
+          reagendando: null
+        });
+        const prefijo = mostrarEncabezado ? construirEncabezadoPresentacionBot(null) : '';
         const msgNoEncontrado =
-          construirEncabezadoPresentacionBot(null) +
-          `⚠️ No encontramos ningún paciente registrado en *FonoTrack* con el RUT *${rutDetectado}*.\n\n` +
+          `${prefijo}⚠️ No encontramos ningún paciente registrado en *FonoTrack* con el RUT *${rutDetectado}*.\n\n` +
           `Por favor verifica el RUT e ingrésalo nuevamente (ejemplo: *21.570.782-2*).`;
         await enviarMensajeWhatsApp(numeroRemitente, msgNoEncontrado);
         return;
@@ -731,7 +1244,9 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
         rut: pacientePorRut.rut,
         nombre_completo: pacientePorRut.nombre_completo,
         preguntaPendiente: null,
-        timestamp: Date.now()
+        saludoEnviado: true,
+        timestamp: Date.now(),
+        reagendando: null
       });
 
       const consultaFinal =
@@ -739,8 +1254,15 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
         preguntaPrevia ||
         'Muéstrame el resumen de mis próximas sesiones agendadas y mis últimas observaciones clínicas y tareas.';
 
+      // Si la consulta pendiente o adicional era reagendar / ver horarios disponibles, iniciar flujo interactivo de inmediato
+      if (esSolicitudReagendar(consultaFinal)) {
+        await iniciarFlujoReagendarWhatsApp(numeroRemitente, pacientePorRut);
+        console.log(`FonoBot verificó RUT ${pacientePorRut.rut} e inició reagendamiento para ${numeroRemitente}`);
+        return;
+      }
+
       const contextoClinico = await obtenerContextoClinicoPaciente([pacientePorRut]);
-      const respuestaBot = await responderConFonoBotWhatsApp(consultaFinal, contextoClinico);
+      const respuestaBot = await responderConFonoBotWhatsApp(consultaFinal, contextoClinico, mostrarEncabezado);
       await enviarMensajeWhatsApp(numeroRemitente, respuestaBot);
       console.log(`FonoBot verificó RUT ${pacientePorRut.rut} y respondió consulta a ${numeroRemitente}`);
       return;
@@ -753,14 +1275,17 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
         id_paciente: null,
         rut: null,
         nombre_completo: null,
-        preguntaPendiente: esSoloSaludo ? null : textoOriginal,
-        timestamp: Date.now()
+        preguntaPendiente: esSoloSaludo || pidioQueHaceElBot ? null : textoOriginal,
+        saludoEnviado: true,
+        timestamp: Date.now(),
+        reagendando: null
       });
 
+      const prefijo = mostrarEncabezado ? construirEncabezadoPresentacionBot(null) : '';
       const mensajePedirRut =
-        construirEncabezadoPresentacionBot(null) +
+        `${prefijo}` +
         `🔒 *Validación de RUT requerida:*\n` +
-        `Para proteger tu privacidad y brindarte únicamente la información personal de tu ficha (próximas sesiones, observaciones clínicas y tareas), *por favor ingresa tu RUT* (ejemplo: *21.570.782-2*).`;
+        `Para proteger tu privacidad y brindarte únicamente la información personal de tu ficha (próximas sesiones, observaciones clínicas, tareas y reagendamiento), *por favor ingresa tu RUT* (ejemplo: *21.570.782-2*).`;
 
       await enviarMensajeWhatsApp(numeroRemitente, mensajePedirRut);
       console.log(`FonoBot solicitó RUT a ${numeroRemitente}`);
@@ -776,7 +1301,7 @@ const procesarRespuestaCitaWhatsApp = async (msg) => {
       };
 
     const contextoClinico = await obtenerContextoClinicoPaciente([pacienteVerificado]);
-    const respuestaBot = await responderConFonoBotWhatsApp(textoOriginal, contextoClinico);
+    const respuestaBot = await responderConFonoBotWhatsApp(textoOriginal, contextoClinico, mostrarEncabezado);
     await enviarMensajeWhatsApp(numeroRemitente, respuestaBot);
     console.log(`FonoBot respondió consulta de WhatsApp para RUT ${pacienteVerificado.rut} a ${numeroRemitente}`);
   } catch (error) {
@@ -838,7 +1363,7 @@ const enviarRecordatoriosManana = async () => {
           `- *Hora:* ${horaCita} hrs\n` +
           `- *Especialista:* ${nombreEspecialista}\n` +
           `- *Servicio:* ${nombreServicio}\n\n` +
-          `Responde con *1* para CONFIRMAR tu asistencia o con *2* para ANULAR tu cita.`;
+          `Responde con *1* para CONFIRMAR tu asistencia, con *2* para ANULAR o con *3* para REAGENDAR tu cita.`;
 
         const ok = await enviarMensajeWhatsApp(paciente.telefono, mensajeRecordatorio);
         if (ok) enviados++;
@@ -871,6 +1396,7 @@ module.exports = {
   formatearNumeroWhatsApp,
   enviarMensajeWhatsApp,
   enviarRecordatoriosManana,
+  obtenerHorariosDisponiblesEspecialista,
   iniciarWhatsApp
 };
 

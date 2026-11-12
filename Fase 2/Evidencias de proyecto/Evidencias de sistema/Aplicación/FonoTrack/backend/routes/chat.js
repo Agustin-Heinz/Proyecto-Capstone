@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const prisma = require('../config/prisma');
+const { obtenerHorariosDisponiblesEspecialista } = require('../config/whatsapp');
 
 // POST PARA EL CHATBOT WEB (FONOBOT CON VALIDACIÓN DE RUT Y CONSULTA CLÍNICA)
 
@@ -50,8 +51,18 @@ const buscarRutEnMensaje = (texto, todosPacientes) => {
   return { rutDetectado: null, paciente: null, preguntaAdicional: textoLimpio };
 };
 
+const esPreguntaQuePuedeHacerBotWeb = (texto = '') => {
+  const limpio = String(texto || '').trim().toLowerCase();
+  if (['menu', 'menú', 'ayuda', 'opciones', 'funciones', 'comandos', 'que haces', 'qué haces'].includes(limpio)) {
+    return true;
+  }
+  return /(qu[eé]\s+(puedes?|puede|sabes?|sabe)\s+hacer|qu[eé]\s+hace\s+el\s+bot|en\s+qu[eé]\s+(me\s+)?(puedes?|puede|pude)\s+ayudar|cu[aá]les\s+son\s+tus\s+funciones|qu[eé]\s+funciones\s+tienes|para\s+qu[eé]\s+sirves|c[oó]mo\s+funcionas|qu[eé]\s+opciones\s+(tienes|hay))/i.test(
+    limpio
+  );
+};
+
 const construirEncabezadoPresentacionWeb = (nombrePaciente = '', rutPaciente = '') => {
-  const saludoNombre = nombrePaciente && nombrePaciente !== 'Paciente' ? ` *${nombrePaciente}*` : '';
+  const saludoNombre = nombrePaciente && nombrePaciente !== 'Paciente' ? ` ${nombrePaciente}` : '';
   const lineaFicha = rutPaciente
     ? `👤 *Ficha consultada:* ${nombrePaciente} (RUT: *${rutPaciente}*)\n`
     : '';
@@ -59,6 +70,7 @@ const construirEncabezadoPresentacionWeb = (nombrePaciente = '', rutPaciente = '
     `🤖 *¡Hola${saludoNombre}! Soy FonoBot, tu asistente virtual de FonoTrack.*\n\n` +
     `*¿En qué te puedo ayudar?*\n` +
     `• 📅 *Próximas sesiones:* Consultar fechas, horarios, especialista y estado de tus citas.\n` +
+    `• 🔄 *Disponibilidad:* Consultar los horarios libres creados por tu especialista.\n` +
     `• 🩺 *Observaciones y tareas:* Revisar las observaciones clínicas y ejercicios indicados en tus sesiones.\n` +
     `• 🗣️ *Orientación de especialidad:* Recomendarte a qué fonoaudiólogo/a acudir según tus síntomas.\n` +
     (lineaFicha ? `\n${lineaFicha}` : '') +
@@ -98,6 +110,15 @@ const obtenerContextoClinicoPacienteWeb = async (paciente) => {
     : [];
 
   const mapaCitas = new Map(todasCitas.map((c) => [c.id_citas, c]));
+  const citaRef = proximasCitas[0] || todasCitas[todasCitas.length - 1] || null;
+  const dispEsp = await obtenerHorariosDisponiblesEspecialista(
+    citaRef?.id_fonoaudiologo || null,
+    citaRef?.id_servicio || null
+  );
+  const listaHorariosDisponiblesTexto =
+    dispEsp.opciones && dispEsp.opciones.length > 0
+      ? dispEsp.opciones.map((op) => `• ${op.etiqueta} (Especialista: ${op.nombre_fono})`).join('\n')
+      : 'El fonoaudiólogo no tiene otros bloques horarios libres creados actualmente.';
 
   const listaProximasTexto = proximasCitas.length > 0
     ? proximasCitas.map((c, idx) => {
@@ -127,14 +148,20 @@ const obtenerContextoClinicoPacienteWeb = async (paciente) => {
     proximasCitas,
     evoluciones,
     listaProximasTexto,
-    listaObservacionesTexto
+    listaObservacionesTexto,
+    listaHorariosDisponiblesTexto
   };
 };
 
 const generarRespuestaRespaldoWeb = (textoUsuario, ctx) => {
   const t = (textoUsuario || '').toLowerCase();
+  const preguntaDisponibilidad = /disponibilidad|horarios?\s*(disponibles?|libres?)|horas?\s*(disponibles?|libres?)|reagendar|cambiar\s*(hora|cita)/.test(t);
   const preguntaCitas = /cita|sesi[oó]n|sesiones|hora|agenda|cu[aá]ndo|pr[oó]xim/.test(t);
   const preguntaObservaciones = /observaci[oó]n|observaciones|ficha|tarea|ejercicio|evoluci[oó]n|indicaci[oó]n|resumen|nota/.test(t);
+
+  if (preguntaDisponibilidad) {
+    return `*Horarios disponibles creados por el fonoaudiólogo:*\n\n${ctx.listaHorariosDisponiblesTexto}`;
+  }
 
   if (preguntaCitas && !preguntaObservaciones) {
     if (ctx.proximasCitas.length === 0) {
@@ -169,9 +196,11 @@ router.post('/', async (req, res) => {
     const todosPacientes = await prisma.pacientes.findMany();
     const { rutDetectado, paciente: pacientePorMensaje, preguntaAdicional } = buscarRutEnMensaje(textoUsuario, todosPacientes);
 
+    const pidioQueHaceElBot = esPreguntaQuePuedeHacerBotWeb(textoUsuario);
+
     // Si escribió un RUT que no existe en la base de datos
     if (rutDetectado && !pacientePorMensaje) {
-      const encabezado = construirEncabezadoPresentacionWeb();
+      const encabezado = pidioQueHaceElBot ? construirEncabezadoPresentacionWeb() : '';
       return res.status(200).json({
         respuesta:
           `${encabezado}` +
@@ -189,14 +218,24 @@ router.post('/', async (req, res) => {
       pacienteActivo = todosPacientes.find((p) => normalizarRut(p.rut) === rutNormPrevio) || null;
     }
 
+    if (pidioQueHaceElBot) {
+      return res.status(200).json({
+        respuesta: construirEncabezadoPresentacionWeb(
+          pacienteActivo?.nombre_completo || '',
+          pacienteActivo?.rut || ''
+        ).trim(),
+        subespecialidad: null,
+        rutActivo: pacienteActivo?.rut || null,
+        nombrePaciente: pacienteActivo?.nombre_completo || null
+      });
+    }
+
     const esConsultaPersonal = /cita|sesi[oó]n|sesiones|hora|agenda|cu[aá]ndo|pr[oó]xim|observaci[oó]n|observaciones|ficha|tarea|ejercicio|evoluci[oó]n|indicaci[oó]n|resumen|nota|mi rut|mis datos/i.test(textoUsuario);
 
     // Si no hay RUT verificado y pregunta por sus sesiones/observaciones (o saluda), pedimos el RUT primero
     if (!pacienteActivo && (esConsultaPersonal || /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|ayuda|menu|men[uú])$/i.test(textoUsuario))) {
-      const encabezado = construirEncabezadoPresentacionWeb();
       return res.status(200).json({
         respuesta:
-          `${encabezado}` +
           `🔒 *Validación de seguridad:*\n` +
           `Para brindarte información personal sobre tus próximas sesiones, observaciones clínicas o tareas asignadas, por favor *escribe tu RUT* (por ejemplo: *21.570.782-2*).\n\n` +
           `💡 _Si solo deseas orientación sobre qué especialista elegir según tus síntomas, cuéntame qué molestias presentas._`,
@@ -208,17 +247,19 @@ router.post('/', async (req, res) => {
     // Si hay un paciente con RUT verificado, respondemos con su contexto clínico real
     if (pacienteActivo) {
       const ctx = await obtenerContextoClinicoPacienteWeb(pacienteActivo);
-      const encabezado = construirEncabezadoPresentacionWeb(ctx.nombrePaciente, ctx.rutPaciente);
       const consultaEfectiva = preguntaAdicional || 'Muéstrame el resumen de mis próximas sesiones y mis últimas observaciones clínicas y tareas asignadas.';
 
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
         const promptConFicha = `Eres FonoBot, el asistente virtual de FonoTrack en la web.
 Estás atendiendo exclusivamente la ficha del paciente "${ctx.nombrePaciente}" (RUT: "${ctx.rutPaciente}").
-NOTA IMPORTANTE: El sistema YA agregó arriba tu saludo de presentación, así que NO repitas "Hola soy FonoBot" ni listes tus funciones generales; responde directo a la consulta usando únicamente los datos reales de este RUT.
+NOTA ESTRICTA: NO saludes diciendo "Hola soy FonoBot", NO listes tus funciones generales y NO cierres diciendo "¿En qué te puedo ayudar?"; responde directo a la consulta usando únicamente los datos reales de este RUT.
 
 [PRÓXIMAS SESIONES AGENDADAS]
 ${ctx.listaProximasTexto}
+
+[HORARIOS DISPONIBLES CREADOS POR EL FONOAUDIÓLOGO]
+${ctx.listaHorariosDisponiblesTexto}
 
 [HISTORIAL DE OBSERVACIONES CLÍNICAS Y TAREAS ASIGNADAS]
 ${ctx.listaObservacionesTexto}
@@ -235,10 +276,11 @@ ${ctx.listaObservacionesTexto}
 - Motricidad orofacial
 
 REGLAS:
-1. Sé claro, empático y conciso.
+1. Sé claro, empático y conciso. No incluyas saludos de presentación ni cierres preguntando "¿En qué te puedo ayudar?".
 2. Si consulta por próximas sesiones o citas, usa exactamente [PRÓXIMAS SESIONES AGENDADAS].
-3. Si consulta por observaciones clínicas, evoluciones o tareas para la casa, usa exactamente [HISTORIAL DE OBSERVACIONES CLÍNICAS Y TAREAS ASIGNADAS].
-4. Si describe síntomas para saber a qué especialista acudir, oriéntalo sin diagnosticar e incluye explícitamente el nombre exacto de una de las subespecialidades de la lista.
+3. Si consulta por disponibilidad u horarios disponibles para agendar/reagendar, usa únicamente [HORARIOS DISPONIBLES CREADOS POR EL FONOAUDIÓLOGO].
+4. Si consulta por observaciones clínicas, evoluciones o tareas para la casa, usa exactamente [HISTORIAL DE OBSERVACIONES CLÍNICAS Y TAREAS ASIGNADAS].
+5. Si describe síntomas para saber a qué especialista acudir, oriéntalo sin diagnosticar e incluye explícitamente el nombre exacto de una de las subespecialidades de la lista.
 
 Consulta del paciente: "${consultaEfectiva}"`;
 
@@ -249,7 +291,7 @@ Consulta del paciente: "${consultaEfectiva}"`;
         ) || null;
 
         return res.status(200).json({
-          respuesta: `${encabezado}${respuestaIA || generarRespuestaRespaldoWeb(consultaEfectiva, ctx)}`,
+          respuesta: respuestaIA || generarRespuestaRespaldoWeb(consultaEfectiva, ctx),
           subespecialidad: subespecialidadSugerida,
           rutActivo: ctx.rutPaciente,
           nombrePaciente: ctx.nombrePaciente
@@ -257,7 +299,7 @@ Consulta del paciente: "${consultaEfectiva}"`;
       } catch (errIA) {
         console.warn("Usando respuesta de respaldo en FonoBot Web:", errIA.message);
         return res.status(200).json({
-          respuesta: `${encabezado}${generarRespuestaRespaldoWeb(consultaEfectiva, ctx)}`,
+          respuesta: generarRespuestaRespaldoWeb(consultaEfectiva, ctx),
           subespecialidad: null,
           rutActivo: ctx.rutPaciente,
           nombrePaciente: ctx.nombrePaciente
@@ -266,7 +308,6 @@ Consulta del paciente: "${consultaEfectiva}"`;
     }
 
     // Caso general: consulta de síntomas sin RUT
-    const encabezado = construirEncabezadoPresentacionWeb();
     const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
 
     const promptContexto = `Eres FonoBot, el asistente de orientación clínica de la plataforma FonoTrack.
@@ -282,7 +323,7 @@ Consulta del paciente: "${consultaEfectiva}"`;
     - Motricidad orofacial
 
     REGLAS ESTRICTAS:
-    1. No repitas tu saludo de presentación (el sistema ya lo incluye arriba).
+    1. No incluyas saludo de presentación ni preguntes "¿En qué te puedo ayudar?".
     2. Bajo ninguna circunstancia entregues un diagnóstico médico.
     3. Sé empático, claro y breve (máximo 3 o 4 líneas).
     4. Termina indicando explícitamente el nombre exacto de la subespecialidad de la lista anterior que mejor se ajuste.
@@ -297,7 +338,7 @@ Consulta del paciente: "${consultaEfectiva}"`;
     ) || null;
 
     res.status(200).json({
-      respuesta: `${encabezado}${respuestaIA}\n\n🔒 _Recuerda: si también deseas consultar tus próximas sesiones u observaciones clínicas, escribe tu *RUT*._`,
+      respuesta: `${respuestaIA}\n\n🔒 _Recuerda: si también deseas consultar tus próximas sesiones u observaciones clínicas, escribe tu *RUT*._`,
       subespecialidad: subespecialidadSugerida,
       rutActivo: null
     });
