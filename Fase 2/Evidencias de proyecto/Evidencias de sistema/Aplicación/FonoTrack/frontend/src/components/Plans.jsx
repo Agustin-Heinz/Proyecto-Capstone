@@ -99,13 +99,13 @@ export default function Plans() {
 
   return (
     <div id="planes" className="plans-section">
-      <div className="wrap">
+      <div className="wrap" style={{ maxWidth: '1180px' }}>
         <h2>Todo en un único plan</h2>
         <div className="sub">Agenda gratis como paciente. Los planes son para profesionales.</div>
         
-        <div className="plans-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', alignItems: 'stretch' }} >
+        <div className="plans-grid">
           {planes.length === 0 ? (
-            <p>Cargando planes desde el servidor...</p>
+            <p style={{ gridColumn: '1 / -1' }}>Cargando planes desde el servidor...</p>
           ) : (
             planes.map((plan) => {
               const esAnual = plan.duracion_dias >= 360 || plan.nombre.toLowerCase().includes('anual');
@@ -120,33 +120,35 @@ export default function Plans() {
                     position: 'relative',
                     border: esAnual ? '2px solid #4f46e5' : '1px solid #e2e8f0',
                     borderRadius: '16px',
-                    padding: '28px',
+                    padding: '26px 24px',
                     backgroundColor: '#ffffff',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    display: 'flex',
+                    flexDirection: 'column'
                   }}
                 >
                   {esAnual && (
                     <span style={{
                       position: 'absolute',
                       top: '14px',
-                      right: '20px',
+                      right: '18px',
                       backgroundColor: '#1d70b8',
                       color: '#ffffff',
-                      padding: '4px 14px',
+                      padding: '4px 12px',
                       borderRadius: '999px',
-                      fontSize: '12px',
-                      fontWeight: '600'
+                      fontSize: '11.5px',
+                      fontWeight: '700'
                     }}>
                       Recomendado
                     </span>
                   )}
 
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', color: '#0f172a' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', color: '#0f172a', paddingRight: esAnual ? '105px' : '0' }}>
                     {plan.nombre}
                   </h3>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
-                    <div className="plan-price" style={{ fontSize: '28px', fontWeight: '800', color: '#4f46e5', margin: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '10px', flexWrap: 'wrap' }}>
+                    <div className="plan-price" style={{ fontSize: '26px', fontWeight: '800', color: '#4f46e5', margin: 0 }}>
                       ${Number(plan.precio).toLocaleString('es-CL')}{sufijoPeriodo}
                     </div>
 
@@ -159,11 +161,12 @@ export default function Plans() {
                           : '#1d70b8',
                         color: '#ffffff',
                         border: 'none',
-                        padding: '10px 22px',
+                        padding: '9px 18px',
                         borderRadius: '999px',
                         fontWeight: '700',
-                        fontSize: '14px',
-                        cursor: 'pointer'
+                        fontSize: '13.5px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       {procesandoId === plan.id_plan

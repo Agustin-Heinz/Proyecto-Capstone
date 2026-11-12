@@ -2,7 +2,7 @@ import React, { useState, useEffect, useId } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Calendar, Clock,
-   MapPin, FileText, X, RefreshCw, Trash2, ClipboardList, LayoutGrid, Stethoscope, ArrowLeft, BookOpen, FileDown, Star
+   MapPin, FileText, X, Menu, RefreshCw, Trash2, ClipboardList, LayoutGrid, Stethoscope, ArrowLeft, BookOpen, FileDown, Star
 } from 'lucide-react';
 import {
   exportarFichaClinicaPDF,
@@ -15,6 +15,7 @@ export default function PacientePerfil() {
 
   // Navegación principal de 3 vistas: 'inicio', 'citas', 'fichas'
   const [vistaActiva, setVistaActiva] = useState('inicio');
+  const [menuPacienteAbierto, setMenuPacienteAbierto] = useState(false);
   // Selector de pastillas en la vista Citas: 'agendadas', 'atendidas', 'anuladas'
   const [filtroCitas, setFiltroCitas] = useState('agendadas');
 
@@ -370,8 +371,29 @@ export default function PacientePerfil() {
     <div style={{ backgroundColor: '#f8fafc', minHeight: 'calc(100vh - 64px)', padding: 'clamp(20px, 4vw, 36px) clamp(14px, 3vw, 24px) 80px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       <div className="paciente-portal-grid">
         
+        {/* BARRA MÓVIL DEL PORTAL PACIENTE (BOTÓN HAMBURGUESA) */}
+        <div className="paciente-mobile-bar">
+          <div>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Menú Paciente
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+              {nombrePaciente}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMenuPacienteAbierto(!menuPacienteAbierto)}
+            aria-label={menuPacienteAbierto ? 'Cerrar menú paciente' : 'Abrir menú paciente'}
+            aria-expanded={menuPacienteAbierto}
+            style={{ backgroundColor: '#eff6ff', color: '#0c2749', border: '1px solid #bfdbfe', borderRadius: '8px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
+            {menuPacienteAbierto ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
         {/* COLUMNA LATERAL DE NAVEGACIÓN CON LAS 3 OPCIONES */}
-        <aside style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '22px 16px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+        <aside className={`paciente-sidebar ${menuPacienteAbierto ? 'open' : ''}`}>
           
       {/* Mini tarjeta del paciente */}
           <div style={{ padding: '8px 10px 18px', borderBottom: '1px solid #f1f5f9', marginBottom: '16px' }}>
@@ -386,7 +408,7 @@ export default function PacientePerfil() {
           {/* BOTONES DE NAVEGACIÓN: Inicio, Mis Citas, Mis Fichas */}
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
-              onClick={() => setVistaActiva('inicio')}
+              onClick={() => { setVistaActiva('inicio'); setMenuPacienteAbierto(false); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -411,7 +433,7 @@ export default function PacientePerfil() {
             </button>
 
             <button
-              onClick={() => setVistaActiva('citas')}
+              onClick={() => { setVistaActiva('citas'); setMenuPacienteAbierto(false); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -443,6 +465,7 @@ export default function PacientePerfil() {
               onClick={() => {
                 setVistaActiva('fichas');
                 setFichaSeleccionada(null);
+                setMenuPacienteAbierto(false);
               }}
               style={{
                 display: 'flex',

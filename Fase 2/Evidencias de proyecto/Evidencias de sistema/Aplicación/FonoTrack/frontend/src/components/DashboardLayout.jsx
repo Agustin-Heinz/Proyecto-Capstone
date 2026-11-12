@@ -129,19 +129,26 @@ export default function DashboardLayout() {
           to="/"
           style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: '#ffffff' }}
         >
-          <div style={{ backgroundColor: '#ffffff', color: '#1a365d', width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px' }}>
+          <div style={{ backgroundColor: '#ffffff', color: '#0c2749', width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px' }}>
             +
           </div>
           <span style={{ fontWeight: '800', fontSize: '18px', letterSpacing: '0.4px' }}>FONOTRACK</span>
         </Link>
         <button
           onClick={() => setMenuAbierto(!menuAbierto)}
-          aria-label="Abrir menú"
+          aria-label={menuAbierto ? 'Cerrar menú del panel' : 'Abrir menú del panel'}
+          aria-expanded={menuAbierto}
           style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#ffffff', borderRadius: '8px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
         >
           {menuAbierto ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
+
+      {/* Fondo oscuro en móvil al abrir el menú lateral */}
+      <div
+        className={`dashboard-backdrop ${menuAbierto ? 'open' : ''}`}
+        onClick={() => setMenuAbierto(false)}
+      />
 
       {/* Barra lateral */}
       <aside className={`dashboard-sidebar ${menuAbierto ? 'open' : ''}`}>

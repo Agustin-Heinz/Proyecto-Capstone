@@ -241,7 +241,7 @@ export default function Detail() {
                <button 
                  type="submit" 
                  disabled={enviando}
-                 style={{ alignSelf: 'flex-start', backgroundColor: '#1d4ed8', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: enviando ? 'not-allowed' : 'pointer' }}
+                 style={{ alignSelf: 'flex-start', backgroundColor: 'var(--navy)', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: enviando ? 'not-allowed' : 'pointer' }}
                >
                  {enviando ? 'Enviando...' : 'Publicar opinión'}
                </button>

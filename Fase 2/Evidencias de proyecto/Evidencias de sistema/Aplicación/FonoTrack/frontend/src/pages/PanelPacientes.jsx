@@ -848,7 +848,7 @@ export default function PanelPacientes() {
         </div>
 
         <form onSubmit={handleCrearNuevoPaciente} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="form-grid-2">
             <div>
               <label style={sidebarLabelStyle}>Nombre Completo *</label>
               <input
@@ -875,7 +875,7 @@ export default function PanelPacientes() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="form-grid-2">
             <div>
               <label style={sidebarLabelStyle}>Teléfono / WhatsApp</label>
               <input
@@ -899,7 +899,7 @@ export default function PanelPacientes() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="form-grid-2">
             <div>
               <label style={sidebarLabelStyle}>Fecha de Nacimiento</label>
               <input
@@ -925,7 +925,7 @@ export default function PanelPacientes() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="form-grid-2">
             <div>
               <label style={sidebarLabelStyle}>Dirección</label>
               <input

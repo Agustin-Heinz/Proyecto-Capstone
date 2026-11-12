@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, X, UserCircle2, Stethoscope, FileText, Calendar, MapPin, RefreshCw, CheckCircle2, Trash2 } from 'lucide-react';
+import { Search, X, Menu, UserCircle2, Stethoscope, FileText, Calendar, MapPin, RefreshCw, CheckCircle2, Trash2 } from 'lucide-react';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -10,6 +10,11 @@ export default function Header() {
   const nombre = localStorage.getItem('nombre');
   const perfilId = localStorage.getItem('perfilId');
   const [planActivo, setPlanActivo] = useState(() => localStorage.getItem('planActivo') === 'true');
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
+
+  useEffect(() => {
+    setMenuMovilAbierto(false);
+  }, [location.pathname, location.hash]);
 
   useEffect(() => {
     if (rol === 'fonoaudiologo' && perfilId) {
@@ -25,6 +30,7 @@ export default function Header() {
   }, [rol, perfilId, location.pathname]);
 
   const handleLogout = () => {
+    setMenuMovilAbierto(false);
     localStorage.clear();
     navigate('/login'); 
   };
@@ -103,7 +109,7 @@ export default function Header() {
       style={{ 
         backgroundColor: '#0c2749', 
         borderBottom: 'none', 
-        padding: '14px 0' 
+        padding: '14px 0 0 0' 
       }}
     >
       <div 
@@ -111,7 +117,7 @@ export default function Header() {
           style={{ 
             maxWidth: '1200px', 
             margin: '0 auto', 
-            padding: '0 28px', 
+            padding: '0 28px 14px 28px', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between' 
@@ -134,77 +140,194 @@ export default function Header() {
 
           <div className="header-spacer"></div>
           
+          {/* NAVEGACIÓN ESCRITORIO */}
+          <div className="header-desktop-nav">
+            {rol === 'paciente' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
+                  Hola, {nombre?.split(' ')[0]}
+                </span>
+                <Link to="/paciente-perfil" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
+                  Mi Perfil
+                </Link>
+                <button 
+                  onClick={handleLogout} 
+                  className="header-cta" 
+                  style={{ backgroundColor: '#1976d2', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '8px 18px', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  Salir
+                </button>
+              </div>
+            ) : rol === 'fonoaudiologo' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
+                   {nombre?.split(' ')[0]}
+                </span>
+                {planActivo ? (
+                  <Link to="/panel" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
+                    Mi Panel
+                  </Link>
+                ) : (
+                  <a
+                    href="/#planes"
+                    style={{
+                      textDecoration: 'none',
+                      backgroundColor: '#ffffff',
+                      color: '#0c2749',
+                      padding: '6px 12px',
+                      borderRadius: '999px',
+                      fontSize: '12px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    Contratar Plan (Desbloquear Panel)
+                  </a>
+                )}
+                <button 
+                  onClick={handleLogout} 
+                  className="header-cta" 
+                  style={{ backgroundColor: '#1976d2', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '8px 18px', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  Salir
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {/* BOTÓN PARA BUSCAR CITA */}
+                <button 
+                  onClick={() => setMostrarModalBusqueda(true)}
+                  style={{ backgroundColor: 'transparent', color: '#ffffff', border: '1px solid #cbd5e1', padding: '8px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Search size={16} /> Buscar mi cita
+                </button>
+
+                {/* BOTÓN INGRESAR */}
+                <Link 
+                  to="/login" 
+                  style={{ textDecoration: 'none', backgroundColor: '#1976d2', color: '#ffffff', padding: '8px 18px', borderRadius: '6px', fontSize: '14px', fontWeight: '700', display: 'inline-block' }}
+                >
+                  Ingresar
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* BOTÓN MENÚ HAMBURGUESA (MÓVIL Y TABLET) */}
+          <button
+            type="button"
+            className="header-hamburger-btn"
+            aria-label={menuMovilAbierto ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
+            aria-expanded={menuMovilAbierto}
+            onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}
+          >
+            {menuMovilAbierto ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+
+        {/* MENÚ DESPLEGABLE MÓVIL */}
+        <nav className={`header-mobile-menu ${menuMovilAbierto ? 'open' : ''}`} aria-label="Menú móvil">
+          <Link
+            to="/"
+            onClick={() => setMenuMovilAbierto(false)}
+            style={{ textDecoration: 'none', color: '#ffffff', fontSize: '15px', fontWeight: '600', padding: '8px 4px' }}
+          >
+            Inicio
+          </Link>
+          <Link
+            to="/directorio"
+            onClick={() => setMenuMovilAbierto(false)}
+            style={{ textDecoration: 'none', color: '#ffffff', fontSize: '15px', fontWeight: '600', padding: '8px 4px' }}
+          >
+            Directorio de Especialistas
+          </Link>
+          <a
+            href="/#planes"
+            onClick={() => setMenuMovilAbierto(false)}
+            style={{ textDecoration: 'none', color: '#ffffff', fontSize: '15px', fontWeight: '600', padding: '8px 4px' }}
+          >
+            Planes Profesionales
+          </a>
+
+          <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.15)', margin: '4px 0' }} />
+
           {rol === 'paciente' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
-                Hola, {nombre?.split(' ')[0]}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontWeight: '700', color: '#93c5fd', fontSize: '13px', padding: '2px 4px' }}>
+                Sesión activa: {nombre}
               </span>
-              <Link to="/paciente-perfil" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
-                Mi Perfil
+              <Link
+                to="/paciente-perfil"
+                onClick={() => setMenuMovilAbierto(false)}
+                style={{ textDecoration: 'none', backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'center' }}
+              >
+                Mi Perfil Clínico
               </Link>
-              <button 
-                onClick={handleLogout} 
-                className="header-cta" 
-                style={{ backgroundColor: '#1976d2', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '8px 18px', fontWeight: '600', cursor: 'pointer' }}
+              <button
+                onClick={handleLogout}
+                style={{ backgroundColor: '#1976d2', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '10px 18px', fontWeight: '700', fontSize: '14px', cursor: 'pointer', width: '100%' }}
               >
                 Salir
               </button>
             </div>
           ) : rol === 'fonoaudiologo' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>
-                 {nombre?.split(' ')[0]}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontWeight: '700', color: '#93c5fd', fontSize: '13px', padding: '2px 4px' }}>
+                Profesional: {nombre}
               </span>
               {planActivo ? (
-                <Link to="/panel" style={{ textDecoration: 'none', color: '#cbd5e1', fontSize: '14px', fontWeight: '600' }}>
-                  Mi Panel
+                <Link
+                  to="/panel"
+                  onClick={() => setMenuMovilAbierto(false)}
+                  style={{ textDecoration: 'none', backgroundColor: '#ffffff', color: '#0c2749', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'center' }}
+                >
+                  Ir a Mi Panel
                 </Link>
               ) : (
                 <a
                   href="/#planes"
+                  onClick={() => setMenuMovilAbierto(false)}
                   style={{
                     textDecoration: 'none',
                     backgroundColor: '#ffffff',
                     color: '#0c2749',
-                    padding: '6px 12px',
+                    padding: '10px 14px',
                     borderRadius: '999px',
-                    fontSize: '12px',
-                    fontWeight: '700'
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    textAlign: 'center'
                   }}
                 >
                   Contratar Plan (Desbloquear Panel)
                 </a>
               )}
-              <button 
-                onClick={handleLogout} 
-                className="header-cta" 
-                style={{ backgroundColor: '#1976d2', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '8px 18px', fontWeight: '600', cursor: 'pointer' }}
+              <button
+                onClick={handleLogout}
+                style={{ backgroundColor: '#1976d2', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '10px 18px', fontWeight: '700', fontSize: '14px', cursor: 'pointer', width: '100%' }}
               >
                 Salir
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              
-              {/* BOTÓN PARA BUSCAR CITA */}
-              <button 
-                onClick={() => setMostrarModalBusqueda(true)}
-                style={{ backgroundColor: 'transparent', color: '#ffffff', border: '1px solid #cbd5e1', padding: '8px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  setMenuMovilAbierto(false);
+                  setMostrarModalBusqueda(true);
+                }}
+                style={{ backgroundColor: 'transparent', color: '#ffffff', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}
               >
                 <Search size={16} /> Buscar mi cita
               </button>
-
-              {/* BOTÓN INGRESAR */}
-              <Link 
-                to="/login" 
-                style={{ textDecoration: 'none', backgroundColor: '#1976d2', color: '#ffffff', padding: '8px 18px', borderRadius: '6px', fontSize: '14px', fontWeight: '700', display: 'inline-block' }}
+              <Link
+                to="/login"
+                onClick={() => setMenuMovilAbierto(false)}
+                style={{ textDecoration: 'none', backgroundColor: '#1976d2', color: '#ffffff', padding: '10px 18px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'center', display: 'block' }}
               >
                 Ingresar
               </Link>
-              
             </div>
           )}
-        </div>
+        </nav>
       </header>
 
       {/* VENTANA VISUAL  */}
