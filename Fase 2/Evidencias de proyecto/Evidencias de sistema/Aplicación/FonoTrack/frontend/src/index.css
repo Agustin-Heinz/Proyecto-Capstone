@@ -230,7 +230,7 @@
  
   /* ================= BOOKING ================= */
   .booking-wrap{max-width:900px; margin:0 auto; padding:36px 28px 80px;}
-  .booking-banner{background:var(--navy); color:#fff; border-radius:16px; padding:30px 28px; margin-bottom:20px;}
+  .booking-banner{background:#0c2749; color:#fff; border-radius:16px; padding:30px 28px; margin-bottom:20px;}
   .booking-banner .eyebrow2{
     display:inline-flex; align-items:center; gap:8px; font-size:0.76rem; font-weight:700; letter-spacing:0.07em;
     text-transform:uppercase; opacity:0.85; margin-bottom:12px;

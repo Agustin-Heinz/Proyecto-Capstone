@@ -164,8 +164,8 @@ export default function Header() {
                   href="/#planes"
                   style={{
                     textDecoration: 'none',
-                    backgroundColor: '#f59e0b',
-                    color: '#0f172a',
+                    backgroundColor: '#ffffff',
+                    color: '#0c2749',
                     padding: '6px 12px',
                     borderRadius: '999px',
                     fontSize: '12px',

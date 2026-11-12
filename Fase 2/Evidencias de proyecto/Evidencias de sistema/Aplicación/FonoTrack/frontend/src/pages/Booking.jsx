@@ -5,15 +5,15 @@ import { Calendar } from 'lucide-react';
 export default function Booking() {
   const { profId, servId } = useParams();
   const navigate = useNavigate();
-  
-  
+
+
   const location = useLocation();
   const { reagendando, idCitaAntigua, estadoPagoAnterior } = location.state || {};
 
   // Estados para la base de datos real
   const [p, setP] = useState(null);
   const [s, setS] = useState(null);
-  const [disponibilidad, setDisponibilidad] = useState([]); 
+  const [disponibilidad, setDisponibilidad] = useState([]);
   const [cargandoInfo, setCargandoInfo] = useState(true);
 
   const [fecha, setFecha] = useState(null);
@@ -24,7 +24,7 @@ export default function Booking() {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [tiempo, setTiempo] = useState(60);
   const [pasoModal, setPasoModal] = useState(1);
-  
+
   // Estados para el guardado en MySQL
   const [procesandoReserva, setProcesandoReserva] = useState(false);
   const [idCitaGenerada, setIdCitaGenerada] = useState(null);
@@ -37,7 +37,7 @@ export default function Booking() {
         setTiempo((t) => t - 1);
       }, 1000);
     } else if (tiempo === 0) {
-      setMostrarModal(false); 
+      setMostrarModal(false);
     }
     return () => clearInterval(intervalo);
   }, [mostrarModal, tiempo]);
@@ -52,9 +52,9 @@ export default function Booking() {
       const data = await res.json();
       const listaLimpia = Array.isArray(data)
         ? data.map(item => {
-            const match = String(item).match(/(\d{2}:\d{2})/);
-            return match ? match[1] : String(item).trim();
-          }).filter(Boolean)
+          const match = String(item).match(/(\d{2}:\d{2})/);
+          return match ? match[1] : String(item).trim();
+        }).filter(Boolean)
         : [];
       setHorasOcupadas(listaLimpia);
       return listaLimpia;
@@ -83,8 +83,8 @@ export default function Booking() {
       // Si no es un paciente logueado, lo enviamos al formulario de contacto
       if (!esPaciente) {
         setProcesandoReserva(false);
-        navigate(`/contacto/${profId}/${servId}`, { 
-          state: { fecha, hora, reagendando, idCitaAntigua, estadoPagoAnterior } 
+        navigate(`/contacto/${profId}/${servId}`, {
+          state: { fecha, hora, reagendando, idCitaAntigua, estadoPagoAnterior }
         });
         return;
       }
@@ -128,9 +128,9 @@ export default function Booking() {
         }
 
         // Flujo normal o reagendamiento sin pago previo
-        setIdCitaGenerada(nuevaCita.id_citas); 
-        setHorasOcupadas((prev) => [...new Set([...prev, hora])]); 
-        setPasoModal(2); 
+        setIdCitaGenerada(nuevaCita.id_citas);
+        setHorasOcupadas((prev) => [...new Set([...prev, hora])]);
+        setPasoModal(2);
       } else {
         const errData = await respuesta.json().catch(() => ({}));
         if (respuesta.status === 409) {
@@ -142,7 +142,7 @@ export default function Booking() {
           alert(errData.mensaje || "Error al guardar la hora en la base de datos.");
         }
       }
-      
+
     } catch (error) {
       console.error("Error de conexión:", error);
     } finally {
@@ -157,8 +157,8 @@ export default function Booking() {
 
     if (esPaciente) {
       navigate(`/pago/${profId}/${servId}`, {
-        state: { 
-          fecha: fecha, 
+        state: {
+          fecha: fecha,
           hora: hora,
           contacto: { nombre: pacienteNombre },
           reservaId: idCitaGenerada
@@ -177,7 +177,7 @@ export default function Booking() {
       try {
         const resFonos = await fetch('http://localhost:3000/api/fonoaudiologos');
         const fonos = await resFonos.json();
-        
+
         const resServs = await fetch(`http://localhost:3000/api/servicios?id_fonoaudiologo=${profId}`);
         const servs = await resServs.json();
 
@@ -206,7 +206,7 @@ export default function Booking() {
         setCargandoInfo(false);
       }
     };
-    if(profId && servId) cargarDatos();
+    if (profId && servId) cargarDatos();
   }, [profId, servId]);
 
   // CARRUSEL HORARIO PARA EL APARTADO DE SELECCIÓN DE HORAS
@@ -216,10 +216,10 @@ export default function Booking() {
 
   const fechasUnicas = [...new Set(disponibilidad.map(d => {
     return d.dia_semana ? String(d.dia_semana).split('T')[0] : '';
-  }))].filter(Boolean).sort(); 
+  }))].filter(Boolean).sort();
 
   const listaFechas = fechasUnicas.map(fechaStr => {
-    const f = new Date(`${fechaStr}T12:00:00`); 
+    const f = new Date(`${fechaStr}T12:00:00`);
     return {
       key: fechaStr,
       dow: diasSemana[f.getDay()],
@@ -236,7 +236,7 @@ export default function Booking() {
   const avanzarFechas = () => {
     if (indiceInicio + diasVisibles < listaFechas.length) setIndiceInicio(indiceInicio + 1);
   };
-  
+
   const retrocederFechas = () => {
     if (indiceInicio > 0) setIndiceInicio(indiceInicio - 1);
   };
@@ -267,21 +267,21 @@ export default function Booking() {
   }, [fecha, profId]);
 
 
-  if (cargandoInfo) return <div style={{padding: '100px', textAlign: 'center'}}>Conectando con la clínica...</div>;
-  if (!p || !s) return <div style={{padding: '100px', textAlign: 'center'}}>Servicio no encontrado en la base de datos.</div>;
+  if (cargandoInfo) return <div style={{ padding: '100px', textAlign: 'center' }}>Conectando con la clínica...</div>;
+  if (!p || !s) return <div style={{ padding: '100px', textAlign: 'center' }}>Servicio no encontrado en la base de datos.</div>;
 
   return (
     <main>
       <div className="booking-wrap">
-        
-        <div className="booking-banner">
+
+        <div className="booking-banner" style={{ backgroundColor: '#0c2749' }}>
           <div className="eyebrow2" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Calendar size={16} /> Agenda de atención
-            </div>
+          </div>
           <h2>{s.nombre_servicio}</h2>
           <div className="note">Atención con {p.nombre_completo}</div>
         </div>
-                
+
         <div className="info-bar">
           <div className="cell"><div className="lbl">Modalidad</div><div className="val">Presencial</div></div>
           <div className="cell"><div className="lbl">Precio</div><div className="val">${s.precio} CLP</div></div>
@@ -289,7 +289,7 @@ export default function Booking() {
         </div>
 
         <div className="step-label">1. ELIGE UNA FECHA</div>
-        
+
         {listaFechas.length === 0 ? (
           <div style={{ padding: '20px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '14px' }}>
             El profesional aún no ha configurado horarios de atención para este servicio.
@@ -347,10 +347,10 @@ export default function Booking() {
                       style={{
                         opacity: estaOcupada ? 0.5 : 1,
                         cursor: estaOcupada ? 'not-allowed' : 'pointer',
-                        backgroundColor: estaOcupada ? '#e2e8f0' : estaSeleccionada ? '#0f2342' : '#ffffff',
+                        backgroundColor: estaOcupada ? '#e2e8f0' : estaSeleccionada ? '#0c2749' : '#ffffff',
                         textDecoration: estaOcupada ? 'line-through' : 'none',
                         padding: '10px 16px',
-                        border: estaSeleccionada ? '1px solid #0f2342' : '1px solid #cbd5e1',
+                        border: estaSeleccionada ? '1px solid #0c2749' : '1px solid #cbd5e1',
                         borderRadius: '8px',
                         fontWeight: '600',
                         color: estaOcupada ? '#64748b' : estaSeleccionada ? '#ffffff' : '#0f172a'
@@ -370,13 +370,14 @@ export default function Booking() {
 
         {/* Botón Continuar */}
         <div className="booking-continue-row">
-          <button 
-            className={`btn-primary ${!hora ? 'btn-disabled' : ''}`} 
+          <button
+            className={`btn-primary ${!hora ? 'btn-disabled' : ''}`}
+            style={{ backgroundColor: '#0c2749' }}
             disabled={!hora}
             onClick={() => {
-              setTiempo(60); 
+              setTiempo(60);
               setPasoModal(1);
-              setMostrarModal(true); 
+              setMostrarModal(true);
             }}
           >
             Tomar hora
@@ -393,27 +394,27 @@ export default function Booking() {
           <div style={{
             backgroundColor: '#fff', padding: '32px', borderRadius: '16px', width: '90%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
           }}>
-            
+
             {pasoModal === 1 ? (
               /*  CONFIRMACIÓN Y CRONÓMETRO  */
               <>
                 <h3 style={{ margin: '0 0 16px 0', color: '#1a365d', fontSize: '20px' }}>Confirma tu reserva</h3>
-                
+
                 <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
                   <p style={{ margin: '0 0 8px 0', color: '#475569' }}>
-                    Fonoaudiólogo/a: <strong style={{color: '#0f172a'}}>{p?.nombre_completo || p?.nombre}</strong>
+                    Fonoaudiólogo/a: <strong style={{ color: '#0f172a' }}>{p?.nombre_completo || p?.nombre}</strong>
                   </p>
                   <p style={{ margin: 0, color: '#475569' }}>
-                    Atención el: <strong style={{color: '#0f172a'}}>{fecha}</strong> a las <strong style={{color: '#0f172a'}}>{hora}</strong>
+                    Atención el: <strong style={{ color: '#0f172a' }}>{fecha}</strong> a las <strong style={{ color: '#0f172a' }}>{hora}</strong>
                   </p>
                 </div>
-                
+
                 <div style={{ width: '100%', height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
-                  <div style={{ 
-                    height: '100%', 
-                    width: `${(tiempo / 60) * 100}%`, 
-                    backgroundColor: tiempo > 15 ? '#6366f1' : '#ef4444', 
-                    transition: 'width 1s linear, background-color 0.3s' 
+                  <div style={{
+                    height: '100%',
+                    width: `${(tiempo / 60) * 100}%`,
+                    backgroundColor: tiempo > 15 ? '#6366f1' : '#ef4444',
+                    transition: 'width 1s linear, background-color 0.3s'
                   }}></div>
                 </div>
                 <p style={{ fontSize: '13px', color: tiempo > 15 ? '#64748b' : '#ef4444', textAlign: 'center', margin: '0 0 24px 0', fontWeight: '500' }}>
@@ -421,15 +422,15 @@ export default function Booking() {
                 </p>
 
                 <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
-                  <button 
-                    onClick={handleConfirmarYGuardar} 
+                  <button
+                    onClick={handleConfirmarYGuardar}
                     disabled={procesandoReserva}
                     style={{ width: '100%', padding: '14px', borderRadius: '8px', border: 'none', backgroundColor: procesandoReserva ? '#94a3b8' : '#4f46e5', color: 'white', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}
                   >
                     {procesandoReserva ? 'Guardando en agenda...' : 'Está todo correcto'}
                   </button>
-                  <button 
-                    onClick={() => setMostrarModal(false)} 
+                  <button
+                    onClick={() => setMostrarModal(false)}
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontWeight: '600', color: '#64748b', fontSize: '14px' }}
                   >
                     Cancelar
@@ -448,17 +449,17 @@ export default function Booking() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
-                  <button 
-                    onClick={confirmarReserva} 
+                  <button
+                    onClick={confirmarReserva}
                     style={{ width: '100%', padding: '14px', borderRadius: '8px', border: 'none', backgroundColor: '#4f46e5', color: 'white', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}
                   >
                     Sí, ir a pagar al tiro
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setMostrarModal(false);
                       navigate('/');
-                    }} 
+                    }}
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'transparent', cursor: 'pointer', fontWeight: '600', color: '#475569', fontSize: '14px' }}
                   >
                     No, pagaré en la consulta
