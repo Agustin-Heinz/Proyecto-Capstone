@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../config/prisma');
+const bcrypt = require('bcrypt');
 
 function calcularDvModulo11(cuerpoNum) {
   let suma = 0;
@@ -50,12 +51,16 @@ router.post('/registro', async (req, res) => {
       where: { email: emailLimpio }
     });
 
+
+
     // Si existe y NO es una cuenta temporal de invitado, avisamos claramente
     if (usuarioExistente && !String(usuarioExistente.contrasena).startsWith('invitado-')) {
       return res.status(400).json({
         mensaje: "Este correo electrónico ya se encuentra registrado. Por favor inicia sesión o usa otro correo."
       });
     }
+
+    const passwordEncriptada = await bcrypt.hash(password, 10);
 
     const resultado = await prisma.$transaction(async (tx) => {
       let nuevoUsuario;
@@ -65,7 +70,7 @@ router.post('/registro', async (req, res) => {
         nuevoUsuario = await tx.usuarios.update({
           where: { id_usuario: usuarioExistente.id_usuario },
           data: {
-            contrasena: password,
+            contrasena: passwordEncriptada,
             rol: rol || 'paciente'
           }
         });
@@ -73,7 +78,7 @@ router.post('/registro', async (req, res) => {
         nuevoUsuario = await tx.usuarios.create({
           data: {
             email: emailLimpio,
-            contrasena: password,
+            contrasena: passwordEncriptada,
             rol: rol || 'paciente'
           }
         });
@@ -130,7 +135,8 @@ router.post('/registro', async (req, res) => {
       return nuevoUsuario;
     });
 
-    res.status(201).json(resultado);
+    const { contrasena, ...usuarioSinClave } = resultado;
+    res.status(201).json(usuarioSinClave);
 
   } catch (error) {
     console.error("Error al registrar:", error);
@@ -144,7 +150,12 @@ router.post('/login', async (req, res) => {
 
     const usuario = await prisma.usuarios.findUnique({ where: { email: email } });
 
-    if (!usuario || usuario.contrasena !== password) {
+    if (!usuario) {
+      return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
+    }
+
+    const passwordValida = await bcrypt.compare(password, usuario.contrasena);
+    if (!passwordValida) {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
 
@@ -190,8 +201,9 @@ router.post('/login', async (req, res) => {
       nombre = perfil ? perfil.nombre_completo : "Paciente";
     }
 
+    const { constrasena, ...usuarioSeguro } = usuario;
     console.log("Inicio de sesión exitoso:", usuario.email);
-    res.status(200).json({ ...usuario, perfilId, nombre, planActivo });
+    res.status(200).json({ ...usuarioSeguro, perfilId, nombre, planActivo });
 
   } catch (error) {
     res.status(500).json({ mensaje: "Error al iniciar sesión", detalle: error.message });

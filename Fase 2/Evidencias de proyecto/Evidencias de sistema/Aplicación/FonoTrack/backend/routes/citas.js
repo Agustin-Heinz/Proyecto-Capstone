@@ -18,15 +18,12 @@ router.get('/rut/:rut', async (req, res) => {
       return res.status(404).json({ mensaje: "Este Rut no cuenta con datos de citas" });
     }
 
-    // Busqueda de cita registradas 
-    const ahora = new Date();
-    const inicioDeHoy = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()));
+    // Busqueda de cita agendada pendiente de atención
     const proximaCita = await prisma.citas.findFirst({
       where: {
         id_paciente: paciente.id_paciente,
-        fecha: { gte: inicioDeHoy },
         OR: [
-          { estado_asistencia: { not: 'Anulada' } },
+          { estado_asistencia: { notIn: ['Anulada', 'Asistió', 'Faltó'] } },
           { estado_asistencia: null }
         ]
       },
@@ -313,14 +310,18 @@ router.put('/:id', async (req, res) => {
 // GET CITAS
 router.get('/', async (req, res) => {
   try {
-    const { id_fonoaudiologo } = req.query;
+    const { id_fonoaudiologo, incluir_anuladas } = req.query;
     const condicion = {
       where: {
         ...(id_fonoaudiologo ? { id_fonoaudiologo: parseInt(id_fonoaudiologo) } : {}),
-        OR: [
-          { estado_asistencia: { not: 'Anulada' } },
-          { estado_asistencia: null }
-        ]
+        ...(incluir_anuladas === 'true'
+          ? {}
+          : {
+              OR: [
+                { estado_asistencia: { not: 'Anulada' } },
+                { estado_asistencia: null }
+              ]
+            })
       }
     };
 

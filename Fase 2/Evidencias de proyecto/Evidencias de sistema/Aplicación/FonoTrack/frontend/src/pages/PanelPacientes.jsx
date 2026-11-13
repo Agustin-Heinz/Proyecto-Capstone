@@ -65,7 +65,9 @@ export default function PanelPacientes() {
     let idUltimaCita = null;
 
     if (citasDelPaciente.length > 0) {
-      const ultimaCita = citasDelPaciente[citasDelPaciente.length - 1];
+      const citasOrdenadas = [...citasDelPaciente].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+      const citaPendiente = citasOrdenadas.find(c => !['Anulada', 'Asistió', 'Faltó'].includes(c.estado_asistencia || ''));
+      const ultimaCita = citaPendiente || citasOrdenadas[citasOrdenadas.length - 1];
       idUltimaCita = ultimaCita.id_citas;
 
       const fechaLimpia = String(ultimaCita.fecha).split('T')[0];
@@ -76,7 +78,8 @@ export default function PanelPacientes() {
         horaLimpia = ' - ' + String(ultimaCita.hora_inicio).substring(11, 16) + ' hrs';
       }
 
-      ultimaSesionTexto = `${day}/${month}/${year}${horaLimpia}`;
+      const etiquetaEstado = ultimaCita.estado_asistencia === 'Asistió' ? ' (Atendida)' : ' (Agendada)';
+      ultimaSesionTexto = `${day}/${month}/${year}${horaLimpia}${etiquetaEstado}`;
     }
 
     return {

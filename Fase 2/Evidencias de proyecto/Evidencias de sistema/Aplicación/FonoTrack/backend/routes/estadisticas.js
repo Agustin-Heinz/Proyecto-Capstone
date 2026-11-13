@@ -12,7 +12,10 @@ router.get('/', async (req, res) => {
     const fonoId = parseInt(id_fonoaudiologo);
     const filtroPrivado = {
       id_fonoaudiologo: fonoId,
-      estado_asistencia: { not: 'Anulada ' }
+      OR: [
+        { estado_asistencia: { not: 'Anulada' } },
+        { estado_asistencia: null }
+      ]
     };
 
     const todasLasCitas = await prisma.citas.findMany({ where: filtroPrivado });
@@ -60,9 +63,9 @@ router.get('/', async (req, res) => {
       if (!agrupadoPorTiempo.mensual[mes]) agrupadoPorTiempo.mensual[mes] = { periodo: mes, asistencias: 0, inasistencias: 0 };
       if (!agrupadoPorTiempo.anual[anio]) agrupadoPorTiempo.anual[anio] = { periodo: anio, asistencias: 0, inasistencias: 0 };
 
-      if (cita.estado_asistencia === 'Asistió' || cita.estado_asistencia === 'Pendiente') {
+      if (cita.estado_asistencia === 'Asistió') {
         agrupadoPorTiempo.semanal[dia].asistencias++; agrupadoPorTiempo.mensual[mes].asistencias++; agrupadoPorTiempo.anual[anio].asistencias++;
-      } else {
+      } else if (cita.estado_asistencia === 'Faltó') {
         agrupadoPorTiempo.semanal[dia].inasistencias++; agrupadoPorTiempo.mensual[mes].inasistencias++; agrupadoPorTiempo.anual[anio].inasistencias++;
       }
 

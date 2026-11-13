@@ -64,9 +64,12 @@ router.post('/', async (req, res) => {
       }
     });
 
-    // Primero, buscamos la cita para saber qué paciente y especialista corresponden
-    const cita = await prisma.citas.findUnique({
-      where: { id_citas: idCitaFinal }
+    // Al registrar la evolución de la sesión, marcamos la cita como "Asistió" (Atendida)
+    const cita = await prisma.citas.update({
+      where: { id_citas: idCitaFinal },
+      data: { estado_asistencia: 'Asistió' }
+    }).catch(async () => {
+      return prisma.citas.findUnique({ where: { id_citas: idCitaFinal } });
     });
 
     const idPacienteBusqueda = cita ? cita.id_paciente : (id_paciente ? parseInt(id_paciente) : null);

@@ -12,23 +12,22 @@ export default function PanelAgendaSemanal() {
   // LÓGICA DEL CALENDARIO DINÁMICO (Autocentrado y Navegación)
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
 
-  // Fecha y hora actual del reloj local
-  const ahora = new Date();
-  const hoyStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-
-  // Verifica si una cita es futura o si es de hoy pero su hora de término aún no ha pasado
+  // Verifica si una cita sigue agendada y pendiente de atención (no ha sido marcada como Asistió, Faltó o Anulada)
   const citaSigueVigente = (c) => {
-    const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
-    if (fechaCita > hoyStr) return true;
-    if (fechaCita < hoyStr) return false;
+    return !['Anulada', 'Asistió', 'Faltó'].includes(c.estado_asistencia || '');
+  };
 
-    const horaStr = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
-    const [horaC, minC] = horaStr.split(':').map(Number);
-    const duracion = Number(c.duracion_minutos) || 50;
-    const minutosTerminoCita = (horaC * 60 + minC) + duracion;
-
-    return minutosTerminoCita > minutosAhora;
+  const marcarAsistenciaReserva = async (idCita, nuevoEstado) => {
+    try {
+      setCitas(prev => prev.map(c => c.id_citas === idCita ? { ...c, estado_asistencia: nuevoEstado } : c));
+      await fetch(`http://localhost:3000/api/citas/${idCita}/estado`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado_asistencia: nuevoEstado })
+      });
+    } catch (error) {
+      console.error("Error al actualizar estado de asistencia:", error);
+    }
   };
 
   useEffect(() => {
@@ -305,10 +304,29 @@ export default function PanelAgendaSemanal() {
                       <strong>Servicio:</strong> {cita.nombre_servicio || 'Evaluación'}
                     </div>
                     
-                    <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', fontSize: '11px', marginBottom: '10px' }}>
                       <span style={{ backgroundColor: cita.estado_pago === 'Pagado' ? '#dcfce7' : '#fef08a', color: cita.estado_pago === 'Pagado' ? '#166534' : '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '700' }}>
                         {cita.estado_pago}
                       </span>
+                      <span style={{ backgroundColor: cita.estado_asistencia === 'Confirmada' ? '#dbeafe' : '#fef3c7', color: cita.estado_asistencia === 'Confirmada' ? '#1e40af' : '#92400e', padding: '4px 8px', borderRadius: '4px', fontWeight: '700' }}>
+                        {cita.estado_asistencia || 'Pendiente'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => marcarAsistenciaReserva(cita.id_citas, 'Asistió')}
+                        style={{ flex: 1, backgroundColor: '#1a365d', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '7px 8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Confirmar atención
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => marcarAsistenciaReserva(cita.id_citas, 'Faltó')}
+                        style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '7px 10px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Faltó
+                      </button>
                     </div>
                   </div>
                 );

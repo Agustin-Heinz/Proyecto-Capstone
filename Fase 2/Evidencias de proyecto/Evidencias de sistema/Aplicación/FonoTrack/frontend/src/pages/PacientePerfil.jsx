@@ -75,7 +75,7 @@ export default function PacientePerfil() {
       try {
         const [resPac, resCitas, resFichas, resFonos] = await Promise.all([
           fetch(`http://localhost:3000/api/pacientes/${idPaciente}`),
-          fetch('http://localhost:3000/api/citas'),
+          fetch('http://localhost:3000/api/citas?incluir_anuladas=true'),
           fetch(`http://localhost:3000/api/fichas/${idPaciente}`),
           fetch('http://localhost:3000/api/fonoaudiologos')
         ]);
@@ -184,37 +184,24 @@ export default function PacientePerfil() {
     );
   };
 
-  // Clasificación temporal exacta de cada cita (Evita falsos positivos de "ya atendidas")
+  // Clasificación real según el estado clínico de cada cita (Solo pasa a "Ya atendidas" cuando el fonoaudiólogo marca Asistió o registra su evolución)
   const clasificarCita = (c) => {
     const estadoGuardado = estadosLocales[c.id_citas];
-    if (estadoGuardado === 'Anulada' || c.estado_asistencia === 'Anulada') return 'anuladas';
-    if (c.estado_asistencia === 'Asistió') return 'atendidas';
+    if (estadoGuardado === 'Anulada' || c.estado_asistencia === 'Anulada' || c.estado_asistencia === 'Faltó') {
+      return 'anuladas';
+    }
 
-    if (!c.fecha) return 'agendadas'; // Por seguridad, si no hay fecha, se asume agendada
+    const tieneFichaClinica = fichas.some(f => Number(f.id_citas) === Number(c.id_citas));
+    if (c.estado_asistencia === 'Asistió' || tieneFichaClinica) {
+      return 'atendidas';
+    }
 
-    // Extraer la fecha limpia (YYYY-MM-DD)
-    const fechaCitaStr = String(c.fecha).split('T')[0];
-    
-    // Extraer la hora limpia (HH:MM)
-    const horaCitaStr = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
-    const [h, m] = horaCitaStr.split(':').map(Number);
-    const duracion = Number(c.duracion_minutos) || 50;
-
-    // Crear un objeto Date exacto para el FINAL de la cita en la zona local
-    const fechaFinCita = new Date(`${fechaCitaStr}T${horaCitaStr}:00`);
-    fechaFinCita.setMinutes(fechaFinCita.getMinutes() + duracion);
-
-    // Comparar el momento actual con el final de la cita
-    const ahora = new Date();
-    
-    // Si la fecha/hora actual ya pasó el final de la cita, está atendida. Si no, sigue agendada.
-    return ahora.getTime() > fechaFinCita.getTime() ? 'atendidas' : 'agendadas';
+    return 'agendadas';
   };
 
   const obtenerEstadoConfirmacion = (c) => {
-    if (estadosLocales[c.id_citas]) return estadosLocales[c.id_citas];
-    // Modificado para que exija confirmación del paciente en vez de confirmarla de golpe
     if (c.estado_asistencia === 'Confirmada' || c.estado_asistencia === 'Asistió') return 'Confirmado';
+    if (estadosLocales[c.id_citas]) return estadosLocales[c.id_citas];
     return 'Pendiente a confirmar';
   };
   const citasAgendadas = citas.filter(c => clasificarCita(c) === 'agendadas');
@@ -225,7 +212,7 @@ export default function PacientePerfil() {
     filtroCitas === 'agendadas' ? citasAgendadas :
     filtroCitas === 'atendidas' ? citasAtendidas : citasAnuladas;
 
-  const cantidadSinConfirmar = citasAgendadas.filter(c => obtenerEstadoConfirmacion(c) === 'Por confirmar').length;
+  const cantidadSinConfirmar = citasAgendadas.filter(c => obtenerEstadoConfirmacion(c) === 'Pendiente a confirmar').length;
 
   const formatearFecha = (fechaIso) => {
     if (!fechaIso) return 'Sin fecha';
@@ -351,7 +338,8 @@ export default function PacientePerfil() {
       'Confirmado': { bg: '#dcfce7', text: '#166534', border: '#bbf7d0', label: 'Confirmada' },
       'Pendiente a confirmar': { bg: '#fef9c3', text: '#854d0e', border: '#fde047', label: 'Pendiente a confirmar' },
       'Atendida': { bg: '#eff6ff', text: '#1e40af', border: '#bfdbfe', label: 'Realizada' },
-      'Anulada': { bg: '#fee2e2', text: '#991b1b', border: '#fecaca', label: 'Anulada' }
+      'Anulada': { bg: '#fee2e2', text: '#991b1b', border: '#fecaca', label: 'Anulada' },
+      'Faltó': { bg: '#fee2e2', text: '#991b1b', border: '#fecaca', label: 'Inasistencia' }
     }[estado] || { bg: '#f1f5f9', text: '#475569', border: '#e2e8f0', label: estado };
 
     return (
@@ -834,7 +822,7 @@ export default function PacientePerfil() {
                   {citasSegunPastilla.map(cita => {
                     const categoria = clasificarCita(cita);
                     const estadoConf = categoria === 'anuladas'
-                      ? 'Anulada'
+                      ? (cita.estado_asistencia === 'Faltó' ? 'Faltó' : 'Anulada')
                       : categoria === 'atendidas'
                       ? 'Atendida'
                       : obtenerEstadoConfirmacion(cita);
@@ -1164,7 +1152,7 @@ export default function PacientePerfil() {
                 </div>
               </div>
               {renderBadgeEstado(
-                clasificarCita(citaSeleccionada) === 'anuladas' ? 'Anulada' :
+                clasificarCita(citaSeleccionada) === 'anuladas' ? (citaSeleccionada.estado_asistencia === 'Faltó' ? 'Faltó' : 'Anulada') :
                 clasificarCita(citaSeleccionada) === 'atendidas' ? 'Atendida' :
                 obtenerEstadoConfirmacion(citaSeleccionada)
               )}

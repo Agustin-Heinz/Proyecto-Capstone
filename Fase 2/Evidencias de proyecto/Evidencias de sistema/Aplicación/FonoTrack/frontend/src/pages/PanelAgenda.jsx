@@ -42,39 +42,47 @@ export default function PanelAgenda() {
       });
   }, []);
 
-  // Obtener la fecha y hora actual en formato local
+  // Obtener la fecha actual en formato local
   const ahora = new Date();
   const anioActual = ahora.getFullYear();
   const mesActual = String(ahora.getMonth() + 1).padStart(2, '0');
   const diaActual = String(ahora.getDate()).padStart(2, '0');
   const hoyStr = `${anioActual}-${mesActual}-${diaActual}`;
-  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
 
-  // Función para saber si una cita de HOY aún no ha terminado
-  const citaSigueVigenteHoy = (c) => {
-    const horaStr = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
-    const [horaC, minC] = horaStr.split(':').map(Number);
-    const duracion = Number(c.duracion_minutos) || 50;
-    const minutosTerminoCita = (horaC * 60 + minC) + duracion;
-    return minutosTerminoCita > minutosAhora;
+  // Una cita sigue agendada/pendiente de atención mientras el fonoaudiólogo no la haya marcado como "Asistió", "Faltó" o "Anulada"
+  const citaPendienteDeAtencion = (c) => {
+    return !['Anulada', 'Asistió', 'Faltó'].includes(c.estado_asistencia || '');
   };
 
-  // Función de todas las citas del día de hoy sin importar la hora (da chance a marcar la asistencia posterior)
+  // Todas las citas programadas para el día de hoy
   const todasLasCitasDeHoy = citasHoy.filter(c => {
     const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
-    return fechaCita === hoyStr;
+    return fechaCita === hoyStr && c.estado_asistencia !== 'Anulada';
   });
 
-  // "Citas de hoy" vigentes (solo las de hoy que aún NO han terminado según el reloj)
-  const citasSoloHoyVigentes = todasLasCitasDeHoy.filter(c => citaSigueVigenteHoy(c));
+  // "Citas de hoy" pendientes de atención
+  const citasSoloHoyVigentes = todasLasCitasDeHoy.filter(c => citaPendienteDeAtencion(c));
 
-  // "Citas agendadas" vigentes (las de hoy que aún NO han terminado + todas las de días futuros)
-  const citasAgendadasVigentes = citasHoy.filter(c => {
-    const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
-    if (fechaCita > hoyStr) return true;
-    if (fechaCita < hoyStr) return false;
-    return citaSigueVigenteHoy(c);
-  });
+  // "Citas agendadas" vigentes (todas las citas agendadas que aún no han sido marcadas como atendidas o inasistencia)
+  const citasAgendadasVigentes = citasHoy.filter(c => citaPendienteDeAtencion(c));
+
+  // Lista para control de asistencia: citas de hoy + citas agendadas pendientes de marcar asistencia
+  const citasControlAsistencia = citasHoy
+    .filter(c => {
+      if (c.estado_asistencia === 'Anulada') return false;
+      const fechaCita = c.fecha ? String(c.fecha).split('T')[0] : '';
+      return fechaCita === hoyStr || citaPendienteDeAtencion(c);
+    })
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  const formatearEtiquetaFecha = (fechaIso) => {
+    if (!fechaIso) return 'Sin fecha';
+    const limpio = String(fechaIso).split('T')[0];
+    if (limpio === hoyStr) return 'Hoy';
+    const [, m, d] = limpio.split('-');
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${parseInt(d, 10)} ${meses[parseInt(m, 10) - 1]}`;
+  };
 
   // Ingresos acumulados del mes actual
   const ingresosMes = citasHoy
@@ -150,7 +158,7 @@ export default function PanelAgenda() {
         />
       </div>
 
-      {/* ÁREA DE ACCIÓN RÁPIDA (DURA HASTA LAS 00:00) */}
+      {/* ÁREA DE ACCIÓN RÁPIDA */}
       <div style={{ backgroundColor: '#f1f5f9', padding: 'clamp(16px, 3vw, 28px)', borderRadius: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
           <div>
@@ -158,33 +166,34 @@ export default function PanelAgenda() {
               Acción Rápida
             </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: '800' }}>
-              Asistencia de citas de hoy
+              Control de asistencia de citas
             </h2>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <span style={{ backgroundColor: '#dcfce7', color: '#166534', fontSize: '12px', fontWeight: 'bold', padding: '4px 10px', borderRadius: '12px' }}>
-              {todasLasCitasDeHoy.filter(c => c.estado_asistencia === 'Asistió').length} A
+              {citasHoy.filter(c => c.estado_asistencia === 'Asistió').length} A
             </span>
             <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', fontSize: '12px', fontWeight: 'bold', padding: '4px 10px', borderRadius: '12px' }}>
-              {todasLasCitasDeHoy.filter(c => c.estado_asistencia === 'Faltó').length} F
+              {citasHoy.filter(c => c.estado_asistencia === 'Faltó').length} F
             </span>
           </div>
         </div>
 
         {cargando ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Cargando citas de hoy...</div>
-        ) : todasLasCitasDeHoy.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Cargando citas agendadas...</div>
+        ) : citasControlAsistencia.length === 0 ? (
           <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '12px', color: '#64748b', textAlign: 'center' }}>
-            No hay citas agendadas para hoy.
+            No hay citas agendadas pendientes de atención.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {todasLasCitasDeHoy.map(c => {
+            {citasControlAsistencia.map(c => {
               const horaLimpia = c.hora_inicio ? String(c.hora_inicio).substring(11, 16) : '00:00';
+              const etiquetaFecha = formatearEtiquetaFecha(c.fecha);
               const estado = c.estado_asistencia || 'Pendiente';
 
-              const badgeBg = estado === 'Asistió' ? '#dcfce7' : estado === 'Faltó' ? '#fee2e2' : '#fef3c7';
-              const badgeColor = estado === 'Asistió' ? '#166534' : estado === 'Faltó' ? '#991b1b' : '#92400e';
+              const badgeBg = estado === 'Asistió' ? '#dcfce7' : estado === 'Faltó' ? '#fee2e2' : estado === 'Confirmada' ? '#dbeafe' : '#fef3c7';
+              const badgeColor = estado === 'Asistió' ? '#166534' : estado === 'Faltó' ? '#991b1b' : estado === 'Confirmada' ? '#1e40af' : '#92400e';
               
               const esAsistio = estado === 'Asistió';
               const esFalto = estado === 'Faltó';
@@ -193,8 +202,9 @@ export default function PanelAgenda() {
                 <div key={c.id_citas} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', backgroundColor: '#ffffff', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{ backgroundColor: '#eff6ff', color: '#1e40af', fontWeight: '800', fontSize: '14px', padding: '8px 14px', borderRadius: '8px', textAlign: 'center' }}>
-                      {horaLimpia}
+                    <div style={{ backgroundColor: '#eff6ff', color: '#1e40af', fontWeight: '800', fontSize: '13px', padding: '8px 12px', borderRadius: '8px', textAlign: 'center', minWidth: '64px' }}>
+                      <div style={{ fontSize: '11px', opacity: 0.85, textTransform: 'uppercase' }}>{etiquetaFecha}</div>
+                      <div>{horaLimpia}</div>
                     </div>
                     <div>
                       <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>
