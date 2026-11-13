@@ -92,8 +92,15 @@ export default function DashboardLayout() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f7fb', padding: '24px' }}>
         <div style={{ backgroundColor: '#ffffff', maxWidth: '480px', width: '100%', padding: '36px 30px', borderRadius: '18px', boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-          <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', margin: '0 auto 18px' }}>
-            🔒
+          <div className="lock-badge-circle" role="img" aria-label="Acceso bloqueado">
+            <svg className="lock-svg-anim" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {/* Arco del candado (se desliza hacia abajo para cerrarse) */}
+              <path className="lock-shackle-anim" d="M10.5 14V10.5a5.5 5.5 0 0 1 11 0V14" />
+              {/* Cuerpo del candado */}
+              <rect x="7" y="14" width="18" height="13" rx="3" />
+              {/* Ojo de la cerradura */}
+              <circle cx="16" cy="20.5" r="1.4" fill="#ffffff" stroke="none" />
+            </svg>
           </div>
           <h2 style={{ margin: '0 0 10px 0', color: '#0f172a', fontSize: '22px', fontWeight: '800' }}>
             Panel Profesional Bloqueado

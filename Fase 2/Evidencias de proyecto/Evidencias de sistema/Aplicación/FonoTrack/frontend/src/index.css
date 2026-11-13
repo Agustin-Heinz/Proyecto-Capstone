@@ -163,8 +163,22 @@
   .filters-bar h3{font-size:1.15rem; font-weight:700; margin-bottom:16px;}
   .filters-row{display:flex; gap:12px; flex-wrap:wrap;}
   .filters-row select{
-    border:1px solid var(--line); border-radius:9px; padding:11px 14px; font-size:0.88rem; font-weight:600;
-    background:#fff; color:var(--ink); min-width:180px;
+    appearance:none;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    border:1px solid var(--line);
+    border-radius:9px;
+    padding:11px 42px 11px 16px;
+    font-size:0.88rem;
+    font-weight:600;
+    background-color:#fff;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230c2749' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 16px center;
+    background-size:16px 16px;
+    color:var(--ink);
+    min-width:190px;
+    cursor:pointer;
   }
   .directory-results{padding:36px 0 70px;}
   .directory-results .count{color:var(--ink-soft); font-size:0.86rem; margin-bottom:18px; font-family:'Inter';}
@@ -783,4 +797,59 @@
     outline: 2px solid #2563eb;
     outline-offset: 3px;
     border-radius: 6px;
+  }
+
+  /* ================= ANIMACIÓN CANDADO MINIMALISTA ================= */
+  .lock-badge-circle {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background-color: #0c2749;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    box-shadow: 0 8px 20px rgba(12, 39, 73, 0.22);
+  }
+
+  .lock-svg-anim {
+    overflow: visible;
+    animation: lockBodyClick 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  .lock-shackle-anim {
+    transform-origin: 16px 11px;
+    animation: lockShackleClose 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  @keyframes lockShackleClose {
+    0%, 15% {
+      transform: translateY(-4.5px);
+    }
+    38%, 82% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-4.5px);
+    }
+  }
+
+  @keyframes lockBodyClick {
+    0%, 34% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(0.94) translateY(1px);
+    }
+    50%, 100% {
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lock-svg-anim,
+    .lock-shackle-anim {
+      animation: none;
+    }
   }
