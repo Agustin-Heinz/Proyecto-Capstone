@@ -7,19 +7,35 @@ const prisma = require('../config/prisma');
 router.get('/', async (req, res) => {
   try {
     const { id_fonoaudiologo } = req.query;
-    if (!id_fonoaudiologo) return res.status(400).json({ mensaje: "Se requiere el ID del profesional." });
+    const fonoId = parseInt(id_fonoaudiologo, 10);
 
-    const fonoId = parseInt(id_fonoaudiologo);
+    if (!id_fonoaudiologo || id_fonoaudiologo === 'undefined' || id_fonoaudiologo === 'null' || isNaN(fonoId)) {
+      return res.status(400).json({ mensaje: "Se requiere un ID de profesional válido." });
+    }
+
     const filtroPrivado = {
       id_fonoaudiologo: fonoId,
-      OR: [
-        { estado_asistencia: { not: 'Anulada' } },
-        { estado_asistencia: null }
+      AND: [
+        {
+          OR: [
+            { estado_asistencia: { not: 'Anulada' } },
+            { estado_asistencia: null }
+          ]
+        },
+        {
+          OR: [
+            { estado_pago: { notIn: ['Cancelado', 'En proceso'] } },
+            { estado_pago: null }
+          ]
+        }
       ]
     };
 
     const todasLasCitas = await prisma.citas.findMany({ where: filtroPrivado });
-    const todosLosServicios = await prisma.servicios.findMany();
+    const todosLosServicios = await prisma.servicios.findMany({
+      where: { id_fonoaudiologo: fonoId }
+    });
+    const catalogoTodosServicios = await prisma.servicios.findMany();
 
     const ingresos = await prisma.citas.aggregate({
       _sum: { precio: true },
@@ -27,19 +43,49 @@ router.get('/', async (req, res) => {
     });
     const totalDinero = ingresos._sum.precio || 0;
 
-    const totalCitas = todasLasCitas.length;
+    // Asistencia real calculada sobre citas cerradas (Asistió vs Faltó), sin castigar por citas futuras pendientes
     const asistencias = todasLasCitas.filter(c => c.estado_asistencia === 'Asistió').length;
-    const porcentajeAsistencia = totalCitas > 0 ? Math.round((asistencias / totalCitas) * 100) : 0;
+    const inasistencias = todasLasCitas.filter(c => c.estado_asistencia === 'Faltó').length;
+    const totalCitasEvaluadas = asistencias + inasistencias;
+    const porcentajeAsistencia = totalCitasEvaluadas > 0
+      ? Math.round((asistencias / totalCitasEvaluadas) * 100)
+      : 0;
 
     const mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const diasNombres = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const agrupadoPorTiempo = { semanal: {}, mensual: {}, anual: {} };
+    const diasNombresUTC = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const ordenDiasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
+    // Pre-inicializar semana (Lun a Dom) y mes (Ene a Dic) en orden cronológico
+    const agrupadoPorTiempo = {
+      semanal: {},
+      mensual: {},
+      anual: {}
+    };
+
+    ordenDiasSemana.forEach(dia => {
+      agrupadoPorTiempo.semanal[dia] = { periodo: dia, asistencias: 0, inasistencias: 0 };
+    });
+    mesesNombres.forEach(mes => {
+      agrupadoPorTiempo.mensual[mes] = { periodo: mes, asistencias: 0, inasistencias: 0 };
+    });
+
+    // Fechas de referencia en UTC para evitar desfases de zona horaria (UTC-3 / UTC-4)
     const ahora = new Date();
-    const hace7Dias = new Date();
-    hace7Dias.setDate(ahora.getDate() - 7);
-    const mesActual = ahora.getMonth();
     const anioActual = ahora.getFullYear();
+    const mesActual = ahora.getMonth();
+    const hoyUTC = Date.UTC(anioActual, mesActual, ahora.getDate());
+
+    // Ventana semanal: últimos 7 días (incluyendo hoy) y hasta el cierre de la semana actual (Domingo)
+    const hace7DiasUTC = Date.UTC(anioActual, mesActual, ahora.getDate() - 6);
+    const diaSemanaHoy = ahora.getDay(); // 0 = Dom, 1 = Lun, ...
+    const diasHastaDomingo = diaSemanaHoy === 0 ? 0 : 7 - diaSemanaHoy;
+    const finSemanaActualUTC = Date.UTC(anioActual, mesActual, ahora.getDate() + diasHastaDomingo, 23, 59, 59, 999);
+    const inicioSemanaActualUTC = Date.UTC(
+      anioActual,
+      mesActual,
+      ahora.getDate() - (diaSemanaHoy === 0 ? 6 : diaSemanaHoy - 1)
+    );
+    const inicioVentanaSemanalUTC = Math.min(hace7DiasUTC, inicioSemanaActualUTC);
 
     const servSemanal = {};
     const servMensual = {};
@@ -54,38 +100,80 @@ router.get('/', async (req, res) => {
     todasLasCitas.forEach(cita => {
       if (!cita.fecha) return;
       const f = new Date(cita.fecha);
+      if (isNaN(f.getTime())) return;
 
-      const dia = diasNombres[f.getDay()];
-      const mes = mesesNombres[f.getMonth()];
-      const anio = f.getFullYear().toString();
+      // Extraer componentes en UTC porque @db.Date se almacena a las 00:00:00 UTC
+      const anioNum = f.getUTCFullYear();
+      const mesNum = f.getUTCMonth();
+      const diaNum = f.getUTCDate();
+      const diaSemanaNum = f.getUTCDay();
+      const fechaCitaUTC = Date.UTC(anioNum, mesNum, diaNum);
 
-      if (!agrupadoPorTiempo.semanal[dia]) agrupadoPorTiempo.semanal[dia] = { periodo: dia, asistencias: 0, inasistencias: 0 };
-      if (!agrupadoPorTiempo.mensual[mes]) agrupadoPorTiempo.mensual[mes] = { periodo: mes, asistencias: 0, inasistencias: 0 };
-      if (!agrupadoPorTiempo.anual[anio]) agrupadoPorTiempo.anual[anio] = { periodo: anio, asistencias: 0, inasistencias: 0 };
+      const dia = diasNombresUTC[diaSemanaNum];
+      const mes = mesesNombres[mesNum];
+      const anio = anioNum.toString();
+
+      const enVentanaSemanal = fechaCitaUTC >= inicioVentanaSemanalUTC && fechaCitaUTC <= finSemanaActualUTC;
+      const enMesActual = anioNum === anioActual && mesNum === mesActual;
+      const enAnioActual = anioNum === anioActual;
+
+      if (!agrupadoPorTiempo.anual[anio]) {
+        agrupadoPorTiempo.anual[anio] = { periodo: anio, asistencias: 0, inasistencias: 0 };
+      }
 
       if (cita.estado_asistencia === 'Asistió') {
-        agrupadoPorTiempo.semanal[dia].asistencias++; agrupadoPorTiempo.mensual[mes].asistencias++; agrupadoPorTiempo.anual[anio].asistencias++;
+        if (enVentanaSemanal) agrupadoPorTiempo.semanal[dia].asistencias++;
+        if (enAnioActual) agrupadoPorTiempo.mensual[mes].asistencias++;
+        agrupadoPorTiempo.anual[anio].asistencias++;
       } else if (cita.estado_asistencia === 'Faltó') {
-        agrupadoPorTiempo.semanal[dia].inasistencias++; agrupadoPorTiempo.mensual[mes].inasistencias++; agrupadoPorTiempo.anual[anio].inasistencias++;
+        if (enVentanaSemanal) agrupadoPorTiempo.semanal[dia].inasistencias++;
+        if (enAnioActual) agrupadoPorTiempo.mensual[mes].inasistencias++;
+        agrupadoPorTiempo.anual[anio].inasistencias++;
       }
 
       const servId = cita.id_servicio;
-      const precio = cita.precio || 0;
+      const precio = Number(cita.precio) || 0;
 
-      if (f >= hace7Dias) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
-      if (f.getMonth() === mesActual && f.getFullYear() === anioActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
-      if (f.getFullYear() === anioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
+      if (enVentanaSemanal) sumarServicio(servSemanal, servId, precio, cita.estado_pago);
+      if (enMesActual) sumarServicio(servMensual, servId, precio, cita.estado_pago);
+      if (enAnioActual) sumarServicio(servAnual, servId, precio, cita.estado_pago);
     });
 
     const formatearTop = (conteo) => {
-      return Object.keys(conteo).map(id => {
-        const info = todosLosServicios.find(s => s.id_servicios === parseInt(id));
+      const ids = Object.keys(conteo);
+      const totalCitasPeriodo = ids.reduce((acc, id) => acc + conteo[id].cantidad, 0);
+
+      const listaCompleta = ids.map(id => {
+        const idNum = parseInt(id, 10);
+        const info = todosLosServicios.find(s => s.id_servicios === idNum)
+          || catalogoTodosServicios.find(s => s.id_servicios === idNum);
+        const cantidad = conteo[id].cantidad;
         return {
           nombre: info ? info.nombre_servicio : `Servicio ID ${id}`,
-          cantidad: conteo[id].cantidad,
-          ingresos: conteo[id].ingresos
+          cantidad,
+          ingresos: conteo[id].ingresos,
+          porcentaje: totalCitasPeriodo > 0 ? Math.round((cantidad / totalCitasPeriodo) * 100) : 0,
+          totalPeriodo: totalCitasPeriodo
         };
-      }).sort((a, b) => b.cantidad - a.cantidad).slice(0, 4);
+      }).sort((a, b) => b.cantidad - a.cantidad);
+
+      if (listaCompleta.length <= 4) return listaCompleta;
+
+      const top3 = listaCompleta.slice(0, 3);
+      const resto = listaCompleta.slice(3);
+      const cantidadOtros = resto.reduce((acc, item) => acc + item.cantidad, 0);
+      const ingresosOtros = resto.reduce((acc, item) => acc + item.ingresos, 0);
+
+      return [
+        ...top3,
+        {
+          nombre: 'Otros servicios',
+          cantidad: cantidadOtros,
+          ingresos: ingresosOtros,
+          porcentaje: totalCitasPeriodo > 0 ? Math.round((cantidadOtros / totalCitasPeriodo) * 100) : 0,
+          totalPeriodo: totalCitasPeriodo
+        }
+      ];
     };
 
     const serviciosProcesados = {
@@ -94,19 +182,24 @@ router.get('/', async (req, res) => {
       anual: formatearTop(servAnual)
     };
 
-    const servicioTop = serviciosProcesados.anual.length > 0 ? serviciosProcesados.anual[0] : { nombre: 'Sin datos', cantidad: 0 };
-    const porcentajeTop = totalCitas > 0 ? Math.round((servicioTop.cantidad / totalCitas) * 100) : 0;
+    const servicioTop = serviciosProcesados.anual.length > 0
+      ? serviciosProcesados.anual[0]
+      : { nombre: 'Sin datos', cantidad: 0, porcentaje: 0 };
+
+    const aniosOrdenados = Object.keys(agrupadoPorTiempo.anual)
+      .sort((a, b) => Number(a) - Number(b))
+      .map(anio => agrupadoPorTiempo.anual[anio]);
 
     res.status(200).json({
       asistenciaPromedio: `${porcentajeAsistencia}%`,
       servicioTopNombre: servicioTop.nombre,
-      servicioTopPorcentaje: `${porcentajeTop}%`,
+      servicioTopPorcentaje: `${servicioTop.porcentaje}%`,
       ingresosProyectados: `$${(totalDinero / 1000000).toFixed(1)} M`,
       ingresos_totales: totalDinero,
       datosPorTiempo: {
-        semanal: Object.values(agrupadoPorTiempo.semanal),
-        mensual: Object.values(agrupadoPorTiempo.mensual),
-        anual: Object.values(agrupadoPorTiempo.anual)
+        semanal: ordenDiasSemana.map(dia => agrupadoPorTiempo.semanal[dia]),
+        mensual: mesesNombres.map(mes => agrupadoPorTiempo.mensual[mes]),
+        anual: aniosOrdenados
       },
       distribucionServicios: serviciosProcesados
     });

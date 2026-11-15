@@ -1173,7 +1173,9 @@ export default function PacientePerfil() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}><Clock size={16} color="#1e40af" /> Duración / Pago</span>
-                <strong style={{ color: '#0f172a' }}>{citaSeleccionada.duracion_minutos || 50} min ({citaSeleccionada.estado_pago || 'Confirmado'})</strong>
+                <strong style={{ color: '#0f172a' }}>
+                  {citaSeleccionada.duracion_minutos || 50} min ({citaSeleccionada.estado_pago === 'Pagado' ? 'Pago realizado' : citaSeleccionada.estado_pago === 'Cancelado' ? 'Pago anulado' : 'Pago en consulta'})
+                </strong>
               </div>
             </div>
 
@@ -1339,7 +1341,7 @@ export default function PacientePerfil() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '2px' }}>
                   <Link
-                    to={`/detalle/${citaSeleccionada.id_fonoaudiologo}`}
+                    to={citaSeleccionada.id_fonoaudiologo ? `/profesional/${citaSeleccionada.id_fonoaudiologo}` : '/directorio'}
                     style={{ fontSize: '12.5px', fontWeight: '700', color: '#1e40af', textDecoration: 'none' }}
                   >
                     Ver perfil público del especialista →

@@ -14,7 +14,7 @@
     --navy:#123F8D;
     --navy-deep:#0B3B78;
     --gold:#F5B400;
-    --footer:#262626;
+    --footer:#0c2749;
     --radius:14px;
     --shadow:0 1px 2px rgba(15,25,40,0.05), 0 10px 30px rgba(15,25,40,0.07);
   }
@@ -125,11 +125,11 @@
   .plan-card li::before{content:"✓"; position:absolute; left:0; color:#2E9E5B; font-weight:700;}
   .plan-card h4{font-size:0.74rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin:16px 0 4px;}
  
-  footer{background:var(--footer); color:#eee; padding:52px 0 30px;}
+  footer{background:linear-gradient(180deg, #0c2749 0%, #081b33 100%); color:#e2e8f0; padding:52px 0 34px; border-top:1px solid rgba(255,255,255,0.08);}
   .foot-grid{display:flex; justify-content:space-between; gap:30px; flex-wrap:wrap;}
-  footer .logo2{font-family:'Lora'; font-size:1.6rem; font-weight:600; color:#fff;}
-  footer h3{font-size:1.5rem; color:#fff; margin-bottom:14px;}
-  footer p{color:#bbb; font-size:0.9rem; margin:4px 0;}
+  footer .logo2{font-family:'Inter', system-ui, -apple-system, sans-serif; font-size:1.6rem; font-weight:800; color:#ffffff; letter-spacing:-0.4px;}
+  footer h3{font-family:'Inter', system-ui, -apple-system, sans-serif; font-size:1.25rem; font-weight:700; color:#ffffff; margin-bottom:12px;}
+  footer p{color:#cbd5e1; font-size:0.92rem; margin:5px 0;}
  
   /* ================= ONBOARDING ================= */
   .screen-narrow{max-width:760px; margin:0 auto; padding:70px 28px;}
@@ -849,7 +849,51 @@
 
   @media (prefers-reduced-motion: reduce) {
     .lock-svg-anim,
-    .lock-shackle-anim {
+    .lock-shackle-anim,
+    .success-check-circle,
+    .success-check-path {
       animation: none;
+    }
+  }
+
+  /* ================= ANIMACIÓN CHECK POSITIVO ================= */
+  .success-check-circle {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background-color: #dcfce7;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+    box-shadow: 0 8px 20px rgba(22, 163, 74, 0.16);
+    animation: successCirclePop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .success-check-path {
+    stroke-dasharray: 28;
+    stroke-dashoffset: 28;
+    animation: successCheckDraw 0.45s 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  @keyframes successCirclePop {
+    0% {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.08);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes successCheckDraw {
+    to {
+      stroke-dashoffset: 0;
     }
   }

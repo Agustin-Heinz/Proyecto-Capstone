@@ -4,6 +4,23 @@ import { CalendarFold, UserRoundGroup } from 'lucide-react';
 export default function PanelAgendaSemanal() {
   const [citas, setCitas] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [avisosOcultos, setAvisosOcultos] = useState(() => {
+    try {
+      const perfilId = localStorage.getItem('perfilId') || 'default';
+      return JSON.parse(localStorage.getItem(`avisosAnulacionOcultos_${perfilId}`)) || [];
+    } catch {
+      return [];
+    }
+  });
+
+  const ocultarAvisoAnulacion = (idCita) => {
+    const perfilId = localStorage.getItem('perfilId') || 'default';
+    setAvisosOcultos(prev => {
+      const nuevos = [...new Set([...prev, idCita])];
+      localStorage.setItem(`avisosAnulacionOcultos_${perfilId}`, JSON.stringify(nuevos));
+      return nuevos;
+    });
+  };
 
   // Eje de horas (Definimos un rango horario de la consulta)
   const horaInicioCalendario = 8; // 08:00 AM
@@ -37,16 +54,17 @@ export default function PanelAgendaSemanal() {
       return;
     }
 
-    fetch(`http://localhost:3000/api/citas?id_fonoaudiologo=${perfilId}`)
+    fetch(`http://localhost:3000/api/citas?id_fonoaudiologo=${perfilId}&incluir_anuladas=true`)
       .then(respuesta => respuesta.json())
       .then(datosBackend => {
         const listaSegura = Array.isArray(datosBackend) ? datosBackend : [];
         const citasOrdenadas = listaSegura.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         setCitas(citasOrdenadas);
         
-        // Buscamos la primera cita registrada
+        // Buscamos la primera cita activa registrada
         const hoyLocalStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
-        const fechasUnicas = [...new Set(citasOrdenadas.map(c => String(c.fecha).split('T')[0]))].sort();
+        const citasActivasOrdenadas = citasOrdenadas.filter(c => c.estado_asistencia !== 'Anulada');
+        const fechasUnicas = [...new Set(citasActivasOrdenadas.map(c => String(c.fecha).split('T')[0]))].sort();
         const fechaFutura = fechasUnicas.find(f => f >= hoyLocalStr);
 
         if (fechaFutura) {
@@ -119,6 +137,10 @@ export default function PanelAgendaSemanal() {
 
   // CÁLCULOS Y NUMERACIÓN DE RESERVAS (Descontando citas cuya hora ya terminó)
   const citasVigentes = citas.filter(c => citaSigueVigente(c));
+  const citasAnuladasPendientesAviso = citas.filter(
+    c => c.estado_asistencia === 'Anulada' && !avisosOcultos.includes(c.id_citas)
+  );
+  const listaControlReservas = [...citasAnuladasPendientesAviso, ...citasVigentes];
 
   const fechasEnVista = diasMostrados.map(d => d.fecha);
   const citasEnVista = citasVigentes.filter(c => {
@@ -132,12 +154,12 @@ export default function PanelAgendaSemanal() {
   const reservasPorPagina = 3;
   
   const avanzarReservas = () => {
-    if (indiceReserva + reservasPorPagina < citasVigentes.length) setIndiceReserva(indiceReserva + reservasPorPagina);
+    if (indiceReserva + reservasPorPagina < listaControlReservas.length) setIndiceReserva(indiceReserva + reservasPorPagina);
   };
   const retrocederReservas = () => {
     if (indiceReserva > 0) setIndiceReserva(indiceReserva - reservasPorPagina);
   };
-  const reservasVisibles = citasVigentes.slice(indiceReserva, indiceReserva + reservasPorPagina);
+  const reservasVisibles = listaControlReservas.slice(indiceReserva, indiceReserva + reservasPorPagina);
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
@@ -216,7 +238,7 @@ export default function PanelAgendaSemanal() {
                   ))}
 
                   {/* calculo matematico de los bloques */}
-                  {citas.filter(c => String(c.fecha).split('T')[0] === dia.fecha).map(cita => {
+                  {citas.filter(c => String(c.fecha).split('T')[0] === dia.fecha && c.estado_asistencia !== 'Anulada').map(cita => {
                     const horaCitaStr = cita.hora_inicio ? String(cita.hora_inicio).substring(11, 16) : '00:00';
                     const [horaC, minC] = horaCitaStr.split(':').map(Number);
                     
@@ -268,17 +290,17 @@ export default function PanelAgendaSemanal() {
               <h2 style={{ margin: 0, fontSize: '24px', color: '#1a365d', letterSpacing: '-0.5px' }}>Reservas</h2>
             </div>
             
-            {citasVigentes.length > reservasPorPagina && (
+            {listaControlReservas.length > reservasPorPagina && (
               <div style={{ display: 'flex', gap: '4px' }}>
                 <button onClick={retrocederReservas} disabled={indiceReserva === 0} style={{ ...navBtnPequeno, opacity: indiceReserva === 0 ? 0.3 : 1 }}>▲</button>
-                <button onClick={avanzarReservas} disabled={indiceReserva + reservasPorPagina >= citasVigentes.length} style={{ ...navBtnPequeno, opacity: indiceReserva + reservasPorPagina >= citasVigentes.length ? 0.3 : 1 }}>▼</button>
+                <button onClick={avanzarReservas} disabled={indiceReserva + reservasPorPagina >= listaControlReservas.length} style={{ ...navBtnPequeno, opacity: indiceReserva + reservasPorPagina >= listaControlReservas.length ? 0.3 : 1 }}>▼</button>
               </div>
             )}
           </div>
           
           {cargando ? (
             <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Buscando citas...</div>
-          ) : citasVigentes.length === 0 ? (
+          ) : listaControlReservas.length === 0 ? (
             <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', color: '#64748b', fontSize: '15px' }}>
               Aún no hay citas registradas.
             </div>
@@ -287,12 +309,32 @@ export default function PanelAgendaSemanal() {
               {reservasVisibles.map(cita => {
                 const fechaLimpia = cita.fecha ? String(cita.fecha).split('T')[0] : 'Sin fecha';
                 const horaLimpia = cita.hora_inicio ? String(cita.hora_inicio).substring(11, 16) : '00:00';
+                const esAnulada = cita.estado_asistencia === 'Anulada';
+                const esPagado = cita.estado_pago === 'Pagado';
+                const esConfirmada = cita.estado_asistencia === 'Confirmada';
 
                 return (
-                  <div key={cita.id_citas} style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                  <div
+                    key={cita.id_citas}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: esAnulada ? '1px solid #fecaca' : '1px solid #e2e8f0',
+                      borderLeft: esAnulada ? '4px solid #dc2626' : '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                    }}
+                  >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontWeight: '700', color: '#1a365d', fontSize: '14px' }}>{fechaLimpia}</span>
-                      <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+                      <span style={{
+                        backgroundColor: esAnulada ? '#fee2e2' : '#eff6ff',
+                        color: esAnulada ? '#991b1b' : '#1e40af',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 'bold'
+                      }}>
                         {horaLimpia}
                       </span>
                     </div>
@@ -304,30 +346,118 @@ export default function PanelAgendaSemanal() {
                       <strong>Servicio:</strong> {cita.nombre_servicio || 'Evaluación'}
                     </div>
                     
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', fontSize: '11px', marginBottom: '10px' }}>
-                      <span style={{ backgroundColor: cita.estado_pago === 'Pagado' ? '#dcfce7' : '#fef08a', color: cita.estado_pago === 'Pagado' ? '#166534' : '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: '700' }}>
-                        {cita.estado_pago}
-                      </span>
-                      <span style={{ backgroundColor: cita.estado_asistencia === 'Confirmada' ? '#dbeafe' : '#fef3c7', color: cita.estado_asistencia === 'Confirmada' ? '#1e40af' : '#92400e', padding: '4px 8px', borderRadius: '4px', fontWeight: '700' }}>
-                        {cita.estado_asistencia || 'Pendiente'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={() => marcarAsistenciaReserva(cita.id_citas, 'Asistió')}
-                        style={{ flex: 1, backgroundColor: '#1a365d', color: '#ffffff', border: 'none', borderRadius: '6px', padding: '7px 8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Confirmar atención
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => marcarAsistenciaReserva(cita.id_citas, 'Faltó')}
-                        style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '7px 10px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Faltó
-                      </button>
-                    </div>
+                    {esAnulada ? (
+                      <>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', fontSize: '11px', marginBottom: '10px' }}>
+                          <span style={{
+                            backgroundColor: '#fee2e2',
+                            color: '#991b1b',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontWeight: '700'
+                          }}>
+                            Cita anulada
+                          </span>
+                        </div>
+                        <div style={{
+                          backgroundColor: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          borderRadius: '8px',
+                          padding: '9px 10px',
+                          color: '#991b1b',
+                          fontSize: '11.5px',
+                          fontWeight: '600',
+                          lineHeight: '1.45',
+                          marginBottom: '10px'
+                        }}>
+                          El paciente ha anulado esta reserva. El horario quedó liberado en tu agenda.
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => ocultarAvisoAnulacion(cita.id_citas)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1a365d',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px 10px',
+                            fontSize: '11.5px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Entendido
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', fontSize: '11px', marginBottom: '12px' }}>
+                          <span style={{
+                            backgroundColor: esPagado ? '#dcfce7' : '#fef08a',
+                            color: esPagado ? '#166534' : '#854d0e',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontWeight: '700'
+                          }}>
+                            {esPagado ? 'Pago realizado' : 'Pago en consulta'}
+                          </span>
+                          <span style={{
+                            backgroundColor: esConfirmada ? '#dbeafe' : '#fef3c7',
+                            color: esConfirmada ? '#1e40af' : '#92400e',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontWeight: '700'
+                          }}>
+                            {esConfirmada ? 'Asistencia confirmada' : 'Pendiente confirmar asistencia'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => marcarAsistenciaReserva(cita.id_citas, 'Asistió')}
+                            style={{
+                              width: '100%',
+                              height: '34px',
+                              backgroundColor: '#1a365d',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '7px 10px',
+                              fontSize: '11.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            Confirmar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => marcarAsistenciaReserva(cita.id_citas, 'Faltó')}
+                            style={{
+                              width: '100%',
+                              height: '34px',
+                              backgroundColor: '#1a365d',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '7px 10px',
+                              fontSize: '11.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            Faltó
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}

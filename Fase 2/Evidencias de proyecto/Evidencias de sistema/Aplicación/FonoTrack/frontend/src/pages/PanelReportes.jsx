@@ -4,10 +4,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function PanelReportes() {
   const [filtroTiempoAsistencia, setFiltroTiempoAsistencia] = useState('mensual');
   const [filtroTiempoServicios, setFiltroTiempoServicios] = useState('mensual');
+  const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState('');
   
   const [metricas, setMetricas] = useState({
     asistenciaPromedio: "0%",
-    servicioTopNombre: "Cargando...",
+    servicioTopNombre: "Sin datos",
     servicioTopPorcentaje: "0%",
     ingresosProyectados: "$0 M",
     ingresos_totales: 0,
@@ -27,10 +29,14 @@ export default function PanelReportes() {
   useEffect(() => {
     const cargarMétricasBI = async () => {
       try {
+        setCargando(true);
+        setErrorCarga('');
         const idProfesionalLogueado = localStorage.getItem('perfilId');
 
-        if (!idProfesionalLogueado) {
+        if (!idProfesionalLogueado || idProfesionalLogueado === 'undefined' || idProfesionalLogueado === 'null') {
           console.warn("🔒 Acceso denegado: No se detectó una sesión activa.");
+          setErrorCarga('No se detectó una sesión profesional activa.');
+          setCargando(false);
           return; 
         }
 
@@ -39,29 +45,51 @@ export default function PanelReportes() {
         
         if (respuesta.ok) {
           const datosReales = await respuesta.json();
-          setMetricas(datosReales);
+          setMetricas(prev => ({
+            ...prev,
+            ...datosReales,
+            datosPorTiempo: {
+              semanal: Array.isArray(datosReales?.datosPorTiempo?.semanal) ? datosReales.datosPorTiempo.semanal : [],
+              mensual: Array.isArray(datosReales?.datosPorTiempo?.mensual) ? datosReales.datosPorTiempo.mensual : [],
+              anual: Array.isArray(datosReales?.datosPorTiempo?.anual) ? datosReales.datosPorTiempo.anual : []
+            },
+            distribucionServicios: {
+              semanal: Array.isArray(datosReales?.distribucionServicios?.semanal) ? datosReales.distribucionServicios.semanal : [],
+              mensual: Array.isArray(datosReales?.distribucionServicios?.mensual) ? datosReales.distribucionServicios.mensual : [],
+              anual: Array.isArray(datosReales?.distribucionServicios?.anual) ? datosReales.distribucionServicios.anual : []
+            }
+          }));
         } else {
           console.error("No se pudieron obtener las estadísticas de este perfil.");
+          setErrorCarga('No se pudieron cargar las estadísticas en este momento.');
         }
       } catch (error) {
         console.error("Error al cargar BI:", error);
+        setErrorCarga('Error de conexión con el servidor de estadísticas.');
+      } finally {
+        setCargando(false);
       }
     };
     
     cargarMétricasBI();
   }, []);
 
-  const datosGraficoBarras = metricas.datosPorTiempo[filtroTiempoAsistencia] || [];
+  const datosGraficoBarras = metricas?.datosPorTiempo?.[filtroTiempoAsistencia] || [];
+  const hayDatosBarras = datosGraficoBarras.some(d => (d.asistencias || 0) > 0 || (d.inasistencias || 0) > 0);
   
   // Extraemos la lista de servicios del periodo exacto que seleccionó el usuario
-  const topServicios = metricas.distribucionServicios[filtroTiempoServicios] || [];
-  const totalTopServicios = topServicios.reduce((suma, item) => suma + item.cantidad, 0);
+  const topServicios = metricas?.distribucionServicios?.[filtroTiempoServicios] || [];
+  const totalTopServicios = topServicios.length > 0 && topServicios[0].totalPeriodo
+    ? topServicios[0].totalPeriodo
+    : topServicios.reduce((suma, item) => suma + (item.cantidad || 0), 0);
 
   // Calculamos al "Ganador" dinámicamente según el filtro seleccionado
   const servicioGanador = topServicios.length > 0 ? topServicios[0] : null;
-  const nombreServicioTop = servicioGanador ? servicioGanador.nombre : "Sin datos";
-  const porcentajeServicioTop = servicioGanador && totalTopServicios > 0 
-    ? Math.round((servicioGanador.cantidad / totalTopServicios) * 100) 
+  const nombreServicioTop = cargando ? "Cargando..." : (servicioGanador ? servicioGanador.nombre : "Sin datos");
+  const porcentajeServicioTop = servicioGanador
+    ? (typeof servicioGanador.porcentaje === 'number'
+        ? servicioGanador.porcentaje
+        : (totalTopServicios > 0 ? Math.round((servicioGanador.cantidad / totalTopServicios) * 100) : 0))
     : 0;
 
   return (
@@ -75,11 +103,17 @@ export default function PanelReportes() {
         </div>
       </div>
 
+      {errorCarga && (
+        <div style={{ backgroundColor: '#fef2f2', color: '#b91c1c', padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', fontSize: '14px', fontWeight: '600', border: '1px solid #fecaca' }}>
+          {errorCarga}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '20px' }}>
         <div style={cardStyle}>
           <div style={{ color: '#64748b', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Asistencia real</div>
           <div style={{ color: '#0f172a', fontSize: '36px', fontWeight: '800', letterSpacing: '-1px' }}>{metricas.asistenciaPromedio}</div>
-          <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '600', marginTop: '4px' }}>Basado en citas totales</div>
+          <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '600', marginTop: '4px' }}>Basado en citas evaluadas</div>
         </div>
         
         {/* Dashboards dinamicos */}
@@ -117,18 +151,38 @@ export default function PanelReportes() {
               <button onClick={() => setFiltroTiempoAsistencia('anual')} style={botonFiltroStyle(filtroTiempoAsistencia === 'anual')}>Año</button>
             </div>
           </div>
-          <div style={{ width: '100%', height: 280 }}>
-            <ResponsiveContainer>
-              <BarChart data={datosGraficoBarras} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="periodo" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13 }} />
-                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '13px', fontWeight: 500 }} />
-                <Bar dataKey="asistencias" name="Asistencias" fill="#1a365d" radius={[4, 4, 0, 0]} barSize={20} />
-                <Bar dataKey="inasistencias" name="Inasistencias" fill="#bfdbfe" radius={[4, 4, 0, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div style={{ width: '100%', height: 280, position: 'relative' }}>
+            {datosGraficoBarras.length === 0 ? (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                No hay registros de asistencia en este periodo.
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer>
+                  <BarChart data={datosGraficoBarras} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="periodo" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13 }} dy={10} />
+                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13 }} />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '13px', fontWeight: 500 }} />
+                    <Bar dataKey="asistencias" name="Asistencias" fill="#1a365d" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                    <Bar dataKey="inasistencias" name="Inasistencias" fill="#bfdbfe" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                  </BarChart>
+                </ResponsiveContainer>
+                {!hayDatosBarras && (
+                  <div style={{ position: 'absolute', inset: '0 0 40px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <span style={{ backgroundColor: 'rgba(248, 250, 252, 0.9)', color: '#64748b', fontSize: '13px', padding: '6px 14px', borderRadius: '999px', border: '1px solid #e2e8f0' }}>
+                      Sin asistencias ni inasistencias marcadas en este periodo
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', fontSize: '12px', color: '#64748b' }}>
+            {filtroTiempoAsistencia === 'semanal' && 'Mostrando semana en curso y próximos 7 días.'}
+            {filtroTiempoAsistencia === 'mensual' && 'Mostrando resumen mensual del año en curso (Ene - Dic).'}
+            {filtroTiempoAsistencia === 'anual' && 'Mostrando historial completo agrupado por año.'}
           </div>
         </div>
 
@@ -151,12 +205,30 @@ export default function PanelReportes() {
             <div style={{ width: '220px', height: '220px' }}>
               <ResponsiveContainer>
                 <PieChart>
-                  <Pie data={topServicios} dataKey="cantidad" nameKey="nombre" cx="50%" cy="50%" innerRadius={60} outerRadius={90} stroke="none">
-                    {topServicios.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={coloresAnillo[index % coloresAnillo.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value, name) => [`${value} citas`, name]} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  {topServicios.length === 0 ? (
+                    <Pie
+                      data={[{ nombre: 'Sin datos', cantidad: 1 }]}
+                      dataKey="cantidad"
+                      nameKey="nombre"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      stroke="none"
+                      isAnimationActive={false}
+                    >
+                      <Cell fill="#e2e8f0" />
+                    </Pie>
+                  ) : (
+                    <>
+                      <Pie data={topServicios} dataKey="cantidad" nameKey="nombre" cx="50%" cy="50%" innerRadius={60} outerRadius={90} stroke="none">
+                        {topServicios.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={coloresAnillo[index % coloresAnillo.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value, name) => [`${value} citas`, name]} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    </>
+                  )}
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -166,9 +238,9 @@ export default function PanelReportes() {
                 <span style={{ color: '#94a3b8', fontSize: '14px' }}>No hay servicios registrados en este periodo.</span>
               ) : (
                 topServicios.map((servicio, index) => {
-                  const porcentaje = totalTopServicios > 0 
-                    ? Math.round((servicio.cantidad / totalTopServicios) * 100) 
-                    : 0;
+                  const porcentaje = typeof servicio.porcentaje === 'number'
+                    ? servicio.porcentaje
+                    : (totalTopServicios > 0 ? Math.round((servicio.cantidad / totalTopServicios) * 100) : 0);
 
                   return (
                     <LeyendaItem 
@@ -181,6 +253,12 @@ export default function PanelReportes() {
                 })
               )}
             </div>
+          </div>
+
+          <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', fontSize: '12px', color: '#64748b' }}>
+            {filtroTiempoServicios === 'semanal' && 'Incluye citas agendadas dentro de la semana actual y próximos 7 días.'}
+            {filtroTiempoServicios === 'mensual' && 'Incluye todas las citas del mes actual.'}
+            {filtroTiempoServicios === 'anual' && 'Incluye todas las citas del año en curso.'}
           </div>
         </div>
 

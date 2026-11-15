@@ -14,6 +14,25 @@ export default function Header() {
 
   useEffect(() => {
     setMenuMovilAbierto(false);
+
+    // Si el usuario salió de la pantalla de pago sin completar la transacción, anulamos la reserva temporal
+    if (
+      !location.pathname.startsWith('/pago/') &&
+      !location.pathname.startsWith('/confirmacion/')
+    ) {
+      const citaPendienteId = localStorage.getItem('citaPendientePagoId');
+      if (citaPendienteId) {
+        localStorage.removeItem('citaPendientePagoId');
+        localStorage.removeItem('respaldoCitaPago');
+        sessionStorage.removeItem('pagoWebpayEnCurso');
+        fetch('http://localhost:3000/api/pagos/anular', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_cita: citaPendienteId }),
+          keepalive: true
+        }).catch(() => {});
+      }
+    }
   }, [location.pathname, location.hash]);
 
   useEffect(() => {

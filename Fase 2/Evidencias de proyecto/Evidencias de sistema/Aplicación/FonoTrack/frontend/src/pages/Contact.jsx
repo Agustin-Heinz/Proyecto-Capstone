@@ -6,12 +6,32 @@ export default function Contact() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { fecha, hora } = location.state || {};
+  const { fecha, hora, reagendando, idCitaAntigua } = location.state || {};
 
   // Estados para los datos reales de la base de datos
-  const [p, setP] = useState(null);
-  const [s, setS] = useState(null);
-  const [cargandoInfo, setCargandoInfo] = useState(true);
+  const [p, setP] = useState(location.state?.p || null);
+  const [s, setS] = useState(location.state?.s || null);
+  const [cargandoInfo, setCargandoInfo] = useState(!(location.state?.p && location.state?.s));
+  const [avisoPagoInterrumpido, setAvisoPagoInterrumpido] = useState(false);
+
+  useEffect(() => {
+    const citaPendienteId = localStorage.getItem('citaPendientePagoId');
+    const avisoGuardado = sessionStorage.getItem('avisoPagoAnulado');
+    if (citaPendienteId || avisoGuardado) {
+      localStorage.removeItem('citaPendientePagoId');
+      localStorage.removeItem('respaldoCitaPago');
+      sessionStorage.removeItem('pagoWebpayEnCurso');
+      sessionStorage.removeItem('avisoPagoAnulado');
+      setAvisoPagoInterrumpido(true);
+      if (citaPendienteId) {
+        fetch('http://localhost:3000/api/pagos/anular', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_cita: citaPendienteId })
+        }).catch(() => {});
+      }
+    }
+  }, []);
 
   // Memoria para capturar lo que escribe el paciente
   const [datosPaciente, setDatosPaciente] = useState({
@@ -91,36 +111,31 @@ export default function Contact() {
 
       const nuevoPaciente = await respuestaPaciente.json();
       
-      // Se genera la cita conectando paciente, profesional y servicio
+      // Preparamos los datos de la cita sin guardarla aún en MySQL (solo se guardará cuando el pago sea confirmado)
       const paqueteCita = {
         id_paciente: nuevoPaciente.id_paciente,
         id_fonoaudiologo: parseInt(profId),
         id_servicio: parseInt(servId),
         fecha: fecha,
         hora_inicio: hora, 
-        duracion_minutos: 50, // Estándar de la plataforma
+        duracion_minutos: s?.duracion_minutos || 50,
         precio: s.precio,
         email: datosPaciente.email,
         telefono: datosPaciente.telefono
       };
 
-      const respuestaCita = await fetch('http://localhost:3000/api/citas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(paqueteCita)
-      });
-
-      if (!respuestaCita.ok) {
-        const errorCita = await respuestaCita.json().catch(() => ({}));
-        if (respuestaCita.status === 409) {
-          alert(errorCita.mensaje || "Este bloque horario ya fue ocupado por otro paciente.");
-          navigate(`/reserva/${profId}/${servId}`);
-          return;
-        }
-        throw new Error(errorCita.mensaje || "Error al crear la cita");
-      }
-
-      const nuevaCita = await respuestaCita.json();
+      localStorage.setItem('respaldoCitaPago', JSON.stringify({
+        fecha,
+        hora,
+        contacto: datosPaciente,
+        paqueteCita,
+        profId: p?.id_fonoaudiologo || profId,
+        servId: s?.id_servicios || servId,
+        p,
+        s,
+        reagendando,
+        idCitaAntigua
+      }));
 
       // Redireccionamos al pago enviando TODOS los datos
       navigate(`/pago/${profId}/${servId}`, { 
@@ -128,10 +143,12 @@ export default function Contact() {
           fecha, 
           hora, 
           contacto: datosPaciente, 
+          paqueteCita,
           p, 
           s, 
           pacienteId: nuevoPaciente.id_paciente,
-          reservaId: nuevaCita.id_citas
+          reagendando,
+          idCitaAntigua
         } 
       });
 
@@ -145,6 +162,20 @@ export default function Contact() {
     <main>
       <div className="contact-wrap">
         <div className="contact-panel">
+          {avisoPagoInterrumpido && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 14px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              color: '#991b1b',
+              fontSize: '13.5px',
+              fontWeight: '600'
+            }}>
+              El proceso de pago fue interrumpido y se ha anulado. Tu hora no fue agendada.
+            </div>
+          )}
           <h2>Formulario de contacto</h2>
           <form onSubmit={handleSubmit}>
             
@@ -208,7 +239,7 @@ export default function Contact() {
           </div>
           <div className="summary-row"><div className="lbl">Modalidad</div><div className="val">Presencial</div></div>
           <div className="summary-row"><div className="lbl">Precio</div><div className="val">${s.precio} CLP</div></div>
-          <div className="summary-row"><div className="lbl">Duración</div><div className="val">50 min</div></div>
+          <div className="summary-row"><div className="lbl">Duración</div><div className="val">{s.duracion_minutos || 50} min</div></div>
         </div>
       </div>
     </main>

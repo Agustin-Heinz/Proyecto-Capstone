@@ -22,9 +22,19 @@ router.get('/rut/:rut', async (req, res) => {
     const proximaCita = await prisma.citas.findFirst({
       where: {
         id_paciente: paciente.id_paciente,
-        OR: [
-          { estado_asistencia: { notIn: ['Anulada', 'Asistió', 'Faltó'] } },
-          { estado_asistencia: null }
+        AND: [
+          {
+            OR: [
+              { estado_asistencia: { notIn: ['Anulada', 'Asistió', 'Faltó'] } },
+              { estado_asistencia: null }
+            ]
+          },
+          {
+            OR: [
+              { estado_pago: { notIn: ['Cancelado', 'En proceso'] } },
+              { estado_pago: null }
+            ]
+          }
         ]
       },
       orderBy: [
@@ -67,6 +77,86 @@ router.get('/rut/:rut', async (req, res) => {
   }
 });
 
+// Función auxiliar para enviar correo y WhatsApp de confirmación cuando la cita queda efectivamente agendada
+async function enviarNotificacionesCita(cita, emailOpcional, telefonoOpcional) {
+  try {
+    const [pacienteInfo, fonoaudiologoInfo, servicioInfo] = await Promise.all([
+      prisma.pacientes.findUnique({ where: { id_paciente: cita.id_paciente || 1 } }),
+      prisma.fonoaudiologos.findUnique({ where: { id_fonoaudiologo: Number(cita.id_fonoaudiologo) } }),
+      prisma.servicios.findUnique({ where: { id_servicios: Number(cita.id_servicio) } })
+    ]);
+
+    let usuarioInfo = null;
+    if (pacienteInfo && pacienteInfo.id_usuario) {
+      usuarioInfo = await prisma.usuarios.findUnique({
+        where: { id_usuario: pacienteInfo.id_usuario }
+      });
+    }
+
+    const soloFecha = cita.fecha instanceof Date
+      ? cita.fecha.toISOString().split('T')[0]
+      : String(cita.fecha).split('T')[0];
+
+    let horaLimpia = "00:00";
+    if (cita.hora_inicio) {
+      const iso = cita.hora_inicio instanceof Date ? cita.hora_inicio.toISOString() : String(cita.hora_inicio);
+      const match = iso.match(/(\d{2}:\d{2})/);
+      if (match) horaLimpia = match[1];
+    }
+
+    const destinatarioEmail = emailOpcional || (usuarioInfo && usuarioInfo.email);
+
+    if (destinatarioEmail) {
+      const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
+      const remitente = process.env.EMAIL_USER || 'diegosepulveda6721@gmail.com';
+      const opcionesCorreo = {
+        from: `"FonoTrack Clínico" <${remitente}>`,
+        to: destinatarioEmail,
+        subject: "Confirmación de Cita Médica - FonoTrack",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #E2E6EF; border-radius: 14px;">
+            <h2 style="color: #4F46E5;">¡Hola ${nombrePaciente}!</h2>
+            <p>Tu hora ha sido confirmada exitosamente en FonoTrack.</p>
+            <ul>
+              <li><strong>Fecha:</strong> ${soloFecha}</li>
+              <li><strong>Hora:</strong> ${horaLimpia}</li>
+            </ul>
+            <p>¡Te esperamos!</p>
+          </div>
+        `
+      };
+
+      try {
+        await transporter.sendMail(opcionesCorreo);
+        console.log("Correo de confirmación enviado exitosamente a:", destinatarioEmail);
+      } catch (errorCorreo) {
+        console.error("Error enviando el correo:", errorCorreo);
+      }
+    }
+
+    const telefonoDestino = telefonoOpcional || (pacienteInfo && pacienteInfo.telefono);
+    if (telefonoDestino) {
+      const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
+      const nombreEspecialista = fonoaudiologoInfo?.nombre_completo || "Especialista FonoTrack";
+      const nombreServicio = servicioInfo?.nombre_servicio || "Atención Fonoaudiológica";
+
+      const mensajeWhatsApp =
+        `¡Hola *${nombrePaciente}*!\n\n` +
+        `Tu cita en *FonoTrack* ha sido agendada exitosamente. Aquí tienes el recordatorio de tu atención:\n\n` +
+        `- *Fecha:* ${soloFecha}\n` +
+        `- *Hora:* ${horaLimpia} hrs\n` +
+        `- *Especialista:* ${nombreEspecialista}\n` +
+        `- *Servicio:* ${nombreServicio}\n\n` +
+        `Responde con *1* para CONFIRMAR tu asistencia, con *2* para ANULAR o con *3* para REAGENDAR tu cita.\n` +
+        `¡Te esperamos!`;
+
+      await enviarMensajeWhatsApp(telefonoDestino, mensajeWhatsApp);
+    }
+  } catch (errNotif) {
+    console.error("Error enviando notificaciones de cita:", errNotif);
+  }
+}
+
 // GET CITAS OCUPADAS
 router.get('/ocupadas', async (req, res) => {
   try {
@@ -90,7 +180,7 @@ router.get('/ocupadas', async (req, res) => {
           },
           {
             OR: [
-              { estado_pago: { not: 'Cancelado' } },
+              { estado_pago: { notIn: ['Cancelado', 'En proceso'] } },
               { estado_pago: null }
             ]
           }
@@ -120,7 +210,19 @@ router.get('/ocupadas', async (req, res) => {
 // POST CITAS
 router.post('/', async (req, res) => {
   try {
-    const { id_paciente, id_fonoaudiologo, id_servicio, fecha, hora_inicio, duracion_minutos, precio, email, telefono } = req.body;
+    const {
+      id_paciente,
+      id_fonoaudiologo,
+      id_servicio,
+      fecha,
+      hora_inicio,
+      duracion_minutos,
+      precio,
+      email,
+      telefono,
+      estado_pago,
+      pendiente_pago_online
+    } = req.body;
 
     const soloFecha = String(fecha).split('T')[0];
     let horaLimpia = "00:00";
@@ -131,6 +233,15 @@ router.post('/', async (req, res) => {
     const fechaHoraInicio = new Date(`${soloFecha}T${horaLimpia}:00.000Z`);
     const inicioDia = new Date(`${soloFecha}T00:00:00.000Z`);
     const finDia = new Date(`${soloFecha}T23:59:59.999Z`);
+
+    // Limpiar intentos previos de pago online interrumpidos ("En proceso") en este mismo bloque
+    await prisma.citas.deleteMany({
+      where: {
+        id_fonoaudiologo: Number(id_fonoaudiologo),
+        fecha: { gte: inicioDia, lte: finDia },
+        estado_pago: 'En proceso'
+      }
+    });
 
     // Validación anti-superposición: verificar si el bloque ya está agendado en la BD
     const citasDelDia = await prisma.citas.findMany({
@@ -146,7 +257,7 @@ router.post('/', async (req, res) => {
           },
           {
             OR: [
-              { estado_pago: { not: 'Cancelado' } },
+              { estado_pago: { notIn: ['Cancelado', 'En proceso'] } },
               { estado_pago: null }
             ]
           }
@@ -180,6 +291,12 @@ router.post('/', async (req, res) => {
       }
     }
 
+    const estadoPagoInicial = estado_pago === 'Pagado'
+      ? 'Pagado'
+      : pendiente_pago_online
+      ? 'En proceso'
+      : 'Pendiente';
+
     const nuevaCita = await prisma.citas.create({
       data: {
         id_paciente: idPacienteFinal || 1,
@@ -189,75 +306,14 @@ router.post('/', async (req, res) => {
         hora_inicio: fechaHoraInicio,
         duracion_minutos: Number(duracion_minutos),
         precio: Number(precio),
-        estado_pago: "Pagado",
+        estado_pago: estadoPagoInicial,
         estado_asistencia: "Pendiente"
       }
     });
 
-    const [pacienteInfo, fonoaudiologoInfo, servicioInfo] = await Promise.all([
-      prisma.pacientes.findUnique({ where: { id_paciente: idPacienteFinal || 1 } }),
-      prisma.fonoaudiologos.findUnique({ where: { id_fonoaudiologo: Number(id_fonoaudiologo) } }),
-      prisma.servicios.findUnique({ where: { id_servicios: Number(id_servicio) } })
-    ]);
-
-    let usuarioInfo = null;
-    if (pacienteInfo && pacienteInfo.id_usuario) {
-      usuarioInfo = await prisma.usuarios.findUnique({
-        where: { id_usuario: pacienteInfo.id_usuario }
-      });
-    }
-
-    const destinatarioEmail = email || (usuarioInfo && usuarioInfo.email);
-
-    // 2. Armamos y enviamos el correo electrónico
-    if (destinatarioEmail) {
-      const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
-      const remitente = process.env.EMAIL_USER || 'diegosepulveda6721@gmail.com';
-      const opcionesCorreo = {
-        from: `"FonoTrack Clínico" <${remitente}>`,
-        to: destinatarioEmail,
-        subject: "Confirmación de Cita Médica - FonoTrack",
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #E2E6EF; border-radius: 14px;">
-            <h2 style="color: #4F46E5;">¡Hola ${nombrePaciente}!</h2>
-            <p>Tu hora ha sido confirmada exitosamente en FonoTrack.</p>
-            <ul>
-              <li><strong>Fecha:</strong> ${String(fecha).split('T')[0]}</li>
-              <li><strong>Hora:</strong> ${hora_inicio || '00:00'}</li>
-            </ul>
-            <p>¡Te esperamos!</p>
-          </div>
-        `
-      };
-
-      try {
-        await transporter.sendMail(opcionesCorreo);
-        console.log("Correo de confirmación enviado exitosamente a:", destinatarioEmail);
-      } catch (errorCorreo) {
-        console.error("Error enviando el correo:", errorCorreo);
-      }
-    } else {
-      console.warn("No se encontró correo para enviar la confirmación de la cita.");
-    }
-
-    // 3. Enviamos el recordatorio por WhatsApp usando whatsapp-web.js
-    const telefonoDestino = telefono || (pacienteInfo && pacienteInfo.telefono);
-    if (telefonoDestino) {
-      const nombrePaciente = pacienteInfo?.nombre_completo || "Paciente";
-      const nombreEspecialista = fonoaudiologoInfo?.nombre_completo || "Especialista FonoTrack";
-      const nombreServicio = servicioInfo?.nombre_servicio || "Atención Fonoaudiológica";
-
-      const mensajeWhatsApp =
-        `¡Hola *${nombrePaciente}*!\n\n` +
-        `Tu cita en *FonoTrack* ha sido agendada exitosamente. Aquí tienes el recordatorio de tu atención:\n\n` +
-        `- *Fecha:* ${soloFecha}\n` +
-        `- *Hora:* ${horaLimpia} hrs\n` +
-        `- *Especialista:* ${nombreEspecialista}\n` +
-        `- *Servicio:* ${nombreServicio}\n\n` +
-        `Responde con *1* para CONFIRMAR tu asistencia, con *2* para ANULAR o con *3* para REAGENDAR tu cita.\n` +
-        `¡Te esperamos!`;
-
-      await enviarMensajeWhatsApp(telefonoDestino, mensajeWhatsApp);
+    // Solo enviamos confirmación inmediata si NO está esperando el pago online en la pasarela
+    if (!pendiente_pago_online) {
+      await enviarNotificacionesCita(nuevaCita, email, telefono);
     }
 
     res.status(201).json(nuevaCita);
@@ -314,14 +370,24 @@ router.get('/', async (req, res) => {
     const condicion = {
       where: {
         ...(id_fonoaudiologo ? { id_fonoaudiologo: parseInt(id_fonoaudiologo) } : {}),
-        ...(incluir_anuladas === 'true'
-          ? {}
-          : {
-              OR: [
-                { estado_asistencia: { not: 'Anulada' } },
-                { estado_asistencia: null }
-              ]
-            })
+        AND: [
+          {
+            OR: [
+              { estado_pago: { not: 'En proceso' } },
+              { estado_pago: null }
+            ]
+          },
+          ...(incluir_anuladas === 'true'
+            ? []
+            : [
+                {
+                  OR: [
+                    { estado_asistencia: { not: 'Anulada' } },
+                    { estado_asistencia: null }
+                  ]
+                }
+              ])
+        ]
       }
     };
 
@@ -353,9 +419,27 @@ router.put('/:id/pago', async (req, res) => {
       where: { id_citas: idCita },
       data: { estado_pago: 'Pagado' }
     });
+    await enviarNotificacionesCita(citaActualizada);
     res.status(200).json(citaActualizada);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al actualizar pago", detalle: error.message });
+  }
+});
+
+// DELETE CITAS: Eliminar intento de reserva cuyo pago fue interrumpido
+router.delete('/:id', async (req, res) => {
+  try {
+    const idCita = parseInt(req.params.id, 10);
+    if (!idCita || isNaN(idCita)) {
+      return res.status(400).json({ mensaje: "ID de cita inválido" });
+    }
+    const citaExistente = await prisma.citas.findUnique({ where: { id_citas: idCita } });
+    if (citaExistente && citaExistente.estado_pago !== 'Pagado') {
+      await prisma.citas.delete({ where: { id_citas: idCita } });
+    }
+    res.status(200).json({ exito: true, mensaje: "Reserva en proceso anulada" });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al anular reserva interrumpida", detalle: error.message });
   }
 });
 

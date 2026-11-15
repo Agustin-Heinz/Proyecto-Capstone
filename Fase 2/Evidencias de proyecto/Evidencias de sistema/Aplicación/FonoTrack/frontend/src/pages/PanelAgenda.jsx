@@ -104,14 +104,14 @@ export default function PanelAgenda() {
     try {
       // 1. Actualización visual instantánea (UX fluida)
       setCitasHoy(prev => prev.map(c => c.id_citas === id ? { ...c, estado_asistencia: estado } : c));
-      
+
       // 2. Disparamos la decisión real a la base de datos
       await fetch(`http://localhost:3000/api/citas/${id}/estado`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado_asistencia: estado })
       });
-      
+
     } catch (error) {
       console.error("Error al registrar la asistencia en BD:", error);
     }
@@ -119,7 +119,7 @@ export default function PanelAgenda() {
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: 'clamp(16px, 3vw, 30px) clamp(12px, 3vw, 40px)', backgroundColor: '#f8fafc', minHeight: '100vh', boxSizing: 'border-box' }}>
-      
+
       {/* CABECERA */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '30px' }}>
         <div>
@@ -127,7 +127,7 @@ export default function PanelAgenda() {
             Panel de Control
           </div>
           <h1 style={{ margin: 0, fontSize: 'clamp(22px, 3vw, 26px)', color: '#0f172a', fontWeight: '800' }}>
-            Buenos días, Flga. {nombreProfesional}
+            Buenos días, {nombreProfesional}
           </h1>
           <p style={{ color: '#64748b', marginTop: '6px', fontSize: '14px' }}>Aquí tienes el resumen operativo de tu jornada.</p>
         </div>
@@ -138,23 +138,23 @@ export default function PanelAgenda() {
 
       {/* MÉTRICAS SUPERIORES */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '35px' }}>
-        <MetricCard 
-          titulo="Citas de hoy" 
-          valor={cargando ? "..." : citasSoloHoyVigentes.length} 
-          color="#eff6ff" 
-          icono={<CalendarSearch size={22} color="#1e40af" />} 
+        <MetricCard
+          titulo="Citas de hoy"
+          valor={cargando ? "..." : citasSoloHoyVigentes.length}
+          color="#eff6ff"
+          icono={<CalendarSearch size={22} color="#1e40af" />}
         />
-        <MetricCard 
-          titulo="Citas agendadas" 
-          valor={cargando ? "..." : citasAgendadasVigentes.length} 
-          color="#eff6ff" 
-          icono={<CalendarFold size={22} color="#1e40af" />} 
+        <MetricCard
+          titulo="Citas agendadas"
+          valor={cargando ? "..." : citasAgendadasVigentes.length}
+          color="#eff6ff"
+          icono={<CalendarFold size={22} color="#1e40af" />}
         />
-        <MetricCard 
-          titulo="Ingresos acumulados del mes" 
-          valor={cargando ? "..." : `$${ingresosMes.toLocaleString('es-CL')}`} 
-          color="#eff6ff" 
-          icono={<DollarSign size={22} color="#1e40af" />} 
+        <MetricCard
+          titulo="Ingresos acumulados del mes"
+          valor={cargando ? "..." : `$${ingresosMes.toLocaleString('es-CL')}`}
+          color="#eff6ff"
+          icono={<DollarSign size={22} color="#1e40af" />}
         />
       </div>
 
@@ -194,13 +194,13 @@ export default function PanelAgenda() {
 
               const badgeBg = estado === 'Asistió' ? '#dcfce7' : estado === 'Faltó' ? '#fee2e2' : estado === 'Confirmada' ? '#dbeafe' : '#fef3c7';
               const badgeColor = estado === 'Asistió' ? '#166534' : estado === 'Faltó' ? '#991b1b' : estado === 'Confirmada' ? '#1e40af' : '#92400e';
-              
+
               const esAsistio = estado === 'Asistió';
               const esFalto = estado === 'Faltó';
 
               return (
                 <div key={c.id_citas} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', backgroundColor: '#ffffff', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
-                  
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div style={{ backgroundColor: '#eff6ff', color: '#1e40af', fontWeight: '800', fontSize: '13px', padding: '8px 12px', borderRadius: '8px', textAlign: 'center', minWidth: '64px' }}>
                       <div style={{ fontSize: '11px', opacity: 0.85, textTransform: 'uppercase' }}>{etiquetaFecha}</div>
@@ -220,36 +220,36 @@ export default function PanelAgenda() {
                     <span style={{ backgroundColor: badgeBg, color: badgeColor, padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' }}>
                       {estado}
                     </span>
-                    
+
                     {/* BOTÓN CONFIRMAR: Se vuelve gris y dice "Confirmada" si ya lo marcaste */}
-                    <button 
+                    <button
                       onClick={() => !esAsistio && marcarAsistencia(c.id_citas, 'Asistió')}
-                      style={{ 
-                        backgroundColor: esAsistio ? '#f1f5f9' : '#1a365d', 
-                        color: esAsistio ? '#94a3b8' : 'white', 
-                        border: 'none', 
-                        padding: '10px 18px', 
-                        borderRadius: '8px', 
-                        fontWeight: '600', 
-                        fontSize: '13px', 
+                      style={{
+                        backgroundColor: esAsistio ? '#f1f5f9' : '#1a365d',
+                        color: esAsistio ? '#94a3b8' : 'white',
+                        border: 'none',
+                        padding: '10px 18px',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '13px',
                         cursor: esAsistio ? 'default' : 'pointer',
                         transition: 'all 0.2s'
                       }}
                     >
                       {esAsistio ? 'Asistencia confirmada' : 'Confirmar asistencia'}
                     </button>
-                    
+
                     {/* BOTÓN INASISTENCIA: Se vuelve rojo suave si lo marcas */}
-                    <button 
+                    <button
                       onClick={() => !esFalto && marcarAsistencia(c.id_citas, 'Faltó')}
-                      style={{ 
-                        backgroundColor: esFalto ? '#fef2f2' : 'transparent', 
-                        color: esFalto ? '#dc2626' : '#1a365d', 
-                        border: esFalto ? '1px solid #fecaca' : '1px solid #cbd5e1', 
-                        padding: '10px 18px', 
-                        borderRadius: '8px', 
-                        fontWeight: '600', 
-                        fontSize: '13px', 
+                      style={{
+                        backgroundColor: esFalto ? '#fef2f2' : 'transparent',
+                        color: esFalto ? '#dc2626' : '#1a365d',
+                        border: esFalto ? '1px solid #fecaca' : '1px solid #cbd5e1',
+                        padding: '10px 18px',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        fontSize: '13px',
                         cursor: esFalto ? 'default' : 'pointer',
                         transition: 'all 0.2s'
                       }}

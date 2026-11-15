@@ -35,6 +35,12 @@ export default function Plans() {
         if (el) el.scrollIntoView({ behavior: 'smooth' });
       }, 150);
     }
+
+    const handlePageShow = () => {
+      setProcesandoId(null);
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
   }, []);
 
   const navigate = useNavigate();
@@ -98,10 +104,70 @@ export default function Plans() {
   };
 
   return (
-    <div id="planes" className="plans-section">
+    <div
+      id="planes"
+      className="plans-section"
+      style={{
+        background: 'linear-gradient(180deg, #9fc3ff 0%, #cfe2ff 50%, #e8f1ff 100%)',
+        padding: '60px 20px 80px',
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
+      }}
+    >
       <div className="wrap" style={{ maxWidth: '1180px' }}>
-        <h2>Todo en un único plan</h2>
-        <div className="sub">Agenda gratis como paciente. Los planes son para profesionales.</div>
+        <div style={{ marginBottom: '40px', textAlign: 'center' }}>
+          <span
+            style={{
+              display: 'inline-block',
+              backgroundColor: 'rgba(255, 255, 255, 0.72)',
+              color: '#1273d4',
+              border: '1px solid rgba(18, 115, 212, 0.22)',
+              padding: '6px 16px',
+              borderRadius: '999px',
+              fontSize: '12px',
+              fontWeight: '800',
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase',
+              marginBottom: '14px',
+              boxShadow: '0 2px 8px rgba(15, 35, 66, 0.05)'
+            }}
+          >
+            Planes Profesionales
+          </span>
+          <h2
+            style={{
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+              fontSize: 'clamp(30px, 4vw, 44px)',
+              fontWeight: '800',
+              color: '#0f2342',
+              margin: '0 0 12px 0',
+              letterSpacing: '-0.8px',
+              lineHeight: '1.15'
+            }}
+          >
+            Todo en un{' '}
+            <span
+              style={{
+                background: 'linear-gradient(135deg, #1273d4 0%, #0c4a8a 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              único plan
+            </span>
+          </h2>
+          <div
+            style={{
+              width: '56px',
+              height: '4px',
+              borderRadius: '999px',
+              backgroundColor: '#1273d4',
+              margin: '0 auto 14px auto'
+            }}
+          />
+          <div className="sub" style={{ color: '#334155', fontSize: '15.5px', fontWeight: '500', margin: 0 }}>
+            Agenda gratis como paciente. Los planes son para profesionales.
+          </div>
+        </div>
         
         <div className="plans-grid">
           {planes.length === 0 ? (

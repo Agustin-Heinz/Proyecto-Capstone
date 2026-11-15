@@ -88,10 +88,12 @@ router.post('/confirmar', async (req, res) => {
     if (buyOrder.startsWith('CITA-')) {
       const idCita = parseInt(buyOrder.split('-')[1]);
 
-      await prisma.citas.update({
-        where: { id_citas: idCita },
-        data: { estado_pago: 'Pagado' }
-      });
+      if (idCita && !isNaN(idCita) && idCita > 0) {
+        await prisma.citas.updateMany({
+          where: { id_citas: idCita },
+          data: { estado_pago: 'Pagado' }
+        });
+      }
 
       return res.status(200).json({
         exito: true,
@@ -209,6 +211,36 @@ router.get('/estado/:id_fonoaudiologo', async (req, res) => {
   } catch (error) {
     console.error("Error al consultar estado de suscripción:", error);
     return res.status(500).json({ planActivo: false, error: error.message });
+  }
+});
+
+// Anular pago y eliminar reserva temporal cuando el usuario interrumpe el flujo antes o durante Webpay
+router.post('/anular', async (req, res) => {
+  try {
+    const { id_cita } = req.body || {};
+    const idCitaNum = parseInt(id_cita, 10);
+
+    if (!idCitaNum || isNaN(idCitaNum)) {
+      return res.status(200).json({ exito: true, mensaje: "Sin cita temporal asociada" });
+    }
+
+    const citaExistente = await prisma.citas.findUnique({
+      where: { id_citas: idCitaNum }
+    });
+
+    if (citaExistente && citaExistente.estado_pago !== 'Pagado') {
+      await prisma.citas.delete({
+        where: { id_citas: idCitaNum }
+      });
+    }
+
+    return res.status(200).json({
+      exito: true,
+      mensaje: "El pago fue interrumpido y la reserva temporal ha sido anulada."
+    });
+  } catch (error) {
+    console.error("Error al anular pago interrumpido:", error);
+    return res.status(500).json({ mensaje: "Error al anular el pago", detalle: error.message });
   }
 });
 

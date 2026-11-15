@@ -28,7 +28,7 @@ export default function PanelPerfil() {
   const [catalogoServicios, setCatalogoServicios] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [disponibilidad, setDisponibilidad] = useState([]);
-  const [nuevoServicio, setNuevoServicio] = useState({ id_catalogo: '', nombre: '', precio: '', duracion: 50 });
+  const [nuevoServicio, setNuevoServicio] = useState({ id_catalogo: '', nombre: '', precio: '', duracion: '' });
   const [servicioEditando, setServicioEditando] = useState(null);
 
   // CARGAR TODOS LOS DATOS 
@@ -96,7 +96,7 @@ export default function PanelPerfil() {
         id_catalogo: s.id_catalogo || '',
         nombre: s.nombre_servicio,
         precio: s.precio,
-        duracion: 50
+        duracion: s.duracion_minutos || 50
       }));
       setServicios(servFormateados);
 
@@ -273,6 +273,7 @@ export default function PanelPerfil() {
     const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2;
 
     try {
+      const duracionFinal = parseInt(nuevoServicio.duracion) || 50;
       let respuesta;
       if (servicioEditando) {
         respuesta = await fetch(`http://localhost:3000/api/servicios/${servicioEditando.id}`, {
@@ -281,7 +282,8 @@ export default function PanelPerfil() {
           body: JSON.stringify({
             id_catalogo: nuevoServicio.id_catalogo,
             nombre: nuevoServicio.nombre,
-            precio: nuevoServicio.precio
+            precio: nuevoServicio.precio,
+            duracion_minutos: duracionFinal
           })
         });
       } else {
@@ -292,7 +294,8 @@ export default function PanelPerfil() {
             id_fonoaudiologo: idFonoaudiologo,
             id_catalogo: nuevoServicio.id_catalogo,
             nombre: nuevoServicio.nombre,
-            precio: nuevoServicio.precio
+            precio: nuevoServicio.precio,
+            duracion_minutos: duracionFinal
           })
         });
       }
@@ -300,7 +303,7 @@ export default function PanelPerfil() {
       if (respuesta.ok) {
         alert(servicioEditando ? "Servicio actualizado" : "Servicio creado con éxito");
         setServicioEditando(null);
-        setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 });
+        setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: '' });
         cargarDatos();
       } else {
         alert(`Error al guardar el servicio en el servidor.`);
@@ -329,7 +332,8 @@ export default function PanelPerfil() {
         alert("Servicio y sus horarios eliminados");
         cargarDatos();
       } else {
-        alert("MySQL bloqueó la eliminación. (Probablemente este servicio ya tiene pacientes agendados históricamente).");
+        const errData = await respuesta.json().catch(() => ({}));
+        alert(errData.mensaje || "No se pudo eliminar el servicio porque ya tiene pacientes agendados históricamente.");
       }
     } catch (error) {
       alert("Error de conexión.");
@@ -616,13 +620,13 @@ export default function PanelPerfil() {
               </div>
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>Duración (min)</label>
-                <input type="number" required style={inputStyle} value={nuevoServicio.duracion} onChange={e => setNuevoServicio({ ...nuevoServicio, duracion: e.target.value })} />
+                <input type="number" min="10" max="240" style={inputStyle} placeholder="50" value={nuevoServicio.duracion} onChange={e => setNuevoServicio({ ...nuevoServicio, duracion: e.target.value })} />
               </div>
               <button type="submit" style={btnStyle}>
                 {servicioEditando ? 'Guardar Cambios' : '+ Añadir Catálogo'}
               </button>
               {servicioEditando && (
-                <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: 50 }); }} style={{ ...btnStyle, backgroundColor: '#64748b' }}>Cancelar</button>
+                <button type="button" onClick={() => { setServicioEditando(null); setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: '' }); }} style={{ ...btnStyle, backgroundColor: '#64748b' }}>Cancelar</button>
               )}
             </form>
           </div>
@@ -654,22 +658,36 @@ export default function PanelPerfil() {
   );
 }
 
+// Calcula la hora de término sumando los minutos de duración del servicio
+function calcularHoraFin(inicioStr, duracionMin) {
+  if (!inicioStr || !inicioStr.includes(':')) return '';
+  const [h, m] = inicioStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return '';
+  const totalMin = (h * 60) + m + (Number(duracionMin) || 50);
+  const hh = String(Math.floor(totalMin / 60) % 24).padStart(2, '0');
+  const mm = String(totalMin % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
 // Tarjeta Independiente para cada Servicio (Plegable y Desplegable)
 function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteServicio, onGuardarHorario, onEliminarHorario }) {
-  const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00', fin: '13:00' });
+  const [horarioForm, setHorarioForm] = useState({ dia: '', inicio: '09:00' });
   const [idEditando, setIdEditando] = useState(null);
   const [desplegado, setDesplegado] = useState(true);
 
+  const horaFinCalculada = calcularHoraFin(horarioForm.inicio, servicio.duracion);
+
   const onSubmitHorario = (e) => {
     e.preventDefault();
-    onGuardarHorario(servicio.id, horarioForm, idEditando);
-    setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' });
+    const finCalculado = calcularHoraFin(horarioForm.inicio, servicio.duracion);
+    onGuardarHorario(servicio.id, { ...horarioForm, fin: finCalculado }, idEditando);
+    setHorarioForm({ dia: '', inicio: '09:00' });
     setIdEditando(null);
   };
 
   const iniciarEdicion = (d) => {
     setIdEditando(d.id);
-    setHorarioForm({ dia: d.dia, inicio: d.inicio, fin: d.fin });
+    setHorarioForm({ dia: d.dia, inicio: d.inicio });
     setDesplegado(true);
   };
 
@@ -757,30 +775,41 @@ function TarjetaServicio({ servicio, disponibilidad, onEditServicio, onDeleteSer
           )}
 
           {/* Formulario Interno para añadir horas solo a este servicio */}
-          <form onSubmit={onSubmitHorario} style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', flexWrap: 'wrap', backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '16px', borderRadius: '8px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
-            <div style={{ flex: 1, minWidth: '140px' }}>
-              <label style={labelStyle}>Fecha</label>
-              <input
-                type="date"
-                required
-                style={inputStyle}
-                value={horarioForm.dia}
-                onChange={e => setHorarioForm({ ...horarioForm, dia: e.target.value })}
-              />
+          <form onSubmit={onSubmitHorario} style={{ backgroundColor: idEditando ? '#fef3c7' : '#ffffff', padding: '18px', borderRadius: '12px', border: '1px dashed #cbd5e1', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 180px' }}>
+                <label style={labelStyle}>Día</label>
+                <input
+                  type="date"
+                  required
+                  style={{ ...inputStyle, height: '44px' }}
+                  value={horarioForm.dia}
+                  onChange={e => setHorarioForm({ ...horarioForm, dia: e.target.value })}
+                />
+              </div>
+              <div style={{ flex: '1 1 150px' }}>
+                <label style={labelStyle}>Hora de inicio</label>
+                <input
+                  type="time"
+                  required
+                  style={{ ...inputStyle, height: '44px' }}
+                  value={horarioForm.inicio}
+                  onChange={e => setHorarioForm({ ...horarioForm, inicio: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                <button type="submit" style={{ ...btnStyle, backgroundColor: '#2563eb' }}>
+                  {idEditando ? 'Guardar' : '+ Añadir Horario'}
+                </button>
+                {idEditando && (
+                  <button type="button" onClick={() => { setIdEditando(null); setHorarioForm({ dia: '', inicio: '09:00' }); }} style={{ ...btnStyle, backgroundColor: '#64748b' }}>Cancelar</button>
+                )}
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: '120px' }}>
-              <label style={labelStyle}>Inicio</label>
-              <input type="time" required style={inputStyle} value={horarioForm.inicio} onChange={e => setHorarioForm({ ...horarioForm, inicio: e.target.value })} />
-            </div>
-            <div style={{ flex: 1, minWidth: '120px' }}>
-              <label style={labelStyle}>Fin</label>
-              <input type="time" required style={inputStyle} value={horarioForm.fin} onChange={e => setHorarioForm({ ...horarioForm, fin: e.target.value })} />
-            </div>
-            <button type="submit" style={{ ...btnStyle, backgroundColor: '#2563eb' }}>
-              {idEditando ? 'Guardar' : '+ Añadir Horario'}
-            </button>
-            {idEditando && (
-              <button type="button" onClick={() => { setIdEditando(null); setHorarioForm({ dia: '', inicio: '09:00', fin: '13:00' }); }} style={{ ...btnStyle, backgroundColor: '#64748b' }}>Cancelar</button>
+            {horaFinCalculada && (
+              <div style={{ marginTop: '10px', fontSize: '12.5px', color: '#475569', fontWeight: '500' }}>
+                Término calculado automáticamente: <strong style={{ color: '#1e40af' }}>{horaFinCalculada} hrs</strong> ({servicio.duracion} min)
+              </div>
             )}
           </form>
         </div>

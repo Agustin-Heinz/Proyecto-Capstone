@@ -147,7 +147,7 @@ export default function Detail() {
                       </h4>
                       <div className="servicio-meta">
                         <span>Modalidad: <strong>Presencial</strong></span>
-                        <span>Duración: <strong>50 min</strong></span>
+                        <span>Duración: <strong>{s.duracion_minutos || 50} min</strong></span>
                       </div>
                     </div>
                     <div className="servicio-actions">

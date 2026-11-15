@@ -5,21 +5,22 @@ export default function Audience() {
   // Guardamos si está seleccionado 'profesional' o 'paciente'
   const [audience, setAudience] = useState('profesional');
 
-  // Tarjetas  según las imágenes de referencia
+  const esProfesional = audience === 'profesional';
+  const cardIconColor = esProfesional ? '#ffffff' : '#1273d4';
+
+  // Tarjetas según perfil (colores invertidos: azul en profesional, blanco en paciente)
   const features = {
     profesional: [
-      { ico: <CalendarCheck size={22} color="#1273d4" />, text: 'Agenda automática y recordatorios para tus pacientes' },
-      { ico: <Folder size={22} color="#1273d4" />, text: 'Fichas clínicas organizadas y accesibles' },
-      { ico: <BarChart2 size={22} color="#1273d4" />, text: 'Reportes de progreso y estadísticas' }
+      { ico: <CalendarCheck size={22} color={cardIconColor} />, text: 'Agenda automática y recordatorios para tus pacientes' },
+      { ico: <Folder size={22} color={cardIconColor} />, text: 'Fichas clínicas organizadas y accesibles' },
+      { ico: <BarChart2 size={22} color={cardIconColor} />, text: 'Reportes de progreso y estadísticas' }
     ],
     paciente: [
-      { ico: <MapPin size={22} color="#1273d4" />, text: 'Busca y compara fonoaudiólogos cerca de ti' },
-      { ico: <Star size={22} color="#1273d4" />, text: 'Revisa valoraciones y experiencias de otros pacientes' },
-      { ico: <CalendarCheck size={22} color="#1273d4" />, text: 'Agenda tu hora en segundos, sin llamada' }
+      { ico: <MapPin size={22} color={cardIconColor} />, text: 'Busca y compara fonoaudiólogos cerca de ti' },
+      { ico: <Star size={22} color={cardIconColor} />, text: 'Revisa valoraciones y experiencias de otros pacientes' },
+      { ico: <CalendarCheck size={22} color={cardIconColor} />, text: 'Agenda tu hora en segundos, sin llamada' }
     ]
   };
-
-  const esProfesional = audience === 'profesional';
 
  return (
     <section 
@@ -88,7 +89,7 @@ export default function Audience() {
           }}
         >
           {/* Encabezado dentro del contenedor */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginBottom: '24px' }}>
             {esProfesional ? (
               <div 
                 style={{ 
@@ -109,13 +110,13 @@ export default function Audience() {
                   width: '42px', 
                   height: '42px', 
                   borderRadius: '12px', 
-                  backgroundColor: 'transparent', 
+                  backgroundColor: '#ffffff', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center' 
                 }}
               >
-                <UserCircle size={28} color="#ffffff" />
+                <UserCircle size={24} color="#1273d4" />
               </div>
             )}
 
@@ -143,13 +144,14 @@ export default function Audience() {
               <div 
                 key={index} 
                 style={{ 
-                  backgroundColor: '#ffffff', 
+                  backgroundColor: esProfesional ? '#1273d4' : '#ffffff', 
                   borderRadius: '18px', 
                   padding: '20px 22px', 
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '16px',
-                  boxShadow: '0 4px 14px rgba(15, 35, 66, 0.05)'
+                  boxShadow: esProfesional ? '0 6px 18px rgba(18, 115, 212, 0.22)' : '0 4px 14px rgba(15, 35, 66, 0.05)',
+                  transition: 'background-color 0.3s ease'
                 }}
               >
                 <div 
@@ -158,10 +160,11 @@ export default function Audience() {
                     height: '46px', 
                     minWidth: '46px',
                     borderRadius: '12px', 
-                    backgroundColor: '#e0f2fe', 
+                    backgroundColor: esProfesional ? 'rgba(255, 255, 255, 0.18)' : '#e0f2fe', 
                     display: 'flex', 
                     alignItems: 'center', 
-                    justifyContent: 'center' 
+                    justifyContent: 'center',
+                    transition: 'background-color 0.3s ease'
                   }}
                 >
                   {f.ico}
@@ -171,8 +174,9 @@ export default function Audience() {
                     margin: 0, 
                     fontSize: '14px', 
                     fontWeight: '500', 
-                    color: '#1e293b', 
-                    lineHeight: '1.4' 
+                    color: esProfesional ? '#ffffff' : '#1e293b', 
+                    lineHeight: '1.4',
+                    transition: 'color 0.3s ease'
                   }}
                 >
                   {f.text}

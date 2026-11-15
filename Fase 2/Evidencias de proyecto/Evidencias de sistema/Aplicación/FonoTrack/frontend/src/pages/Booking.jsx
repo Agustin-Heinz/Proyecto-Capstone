@@ -28,19 +28,50 @@ export default function Booking() {
   // Estados para el guardado en MySQL
   const [procesandoReserva, setProcesandoReserva] = useState(false);
   const [idCitaGenerada, setIdCitaGenerada] = useState(null);
+  const [avisoPagoInterrumpido, setAvisoPagoInterrumpido] = useState(false);
+
+  // Si el usuario retrocedió desde la pantalla de pago, anulamos cualquier reserva en proceso
+  useEffect(() => {
+    const citaPendienteId = localStorage.getItem('citaPendientePagoId');
+    const avisoGuardado = sessionStorage.getItem('avisoPagoAnulado');
+
+    if (citaPendienteId || avisoGuardado) {
+      localStorage.removeItem('citaPendientePagoId');
+      localStorage.removeItem('respaldoCitaPago');
+      sessionStorage.removeItem('pagoWebpayEnCurso');
+      sessionStorage.removeItem('avisoPagoAnulado');
+      setAvisoPagoInterrumpido(true);
+      setMostrarModal(false);
+      setPasoModal(1);
+
+      if (citaPendienteId) {
+        fetch('http://localhost:3000/api/pagos/anular', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_cita: citaPendienteId })
+        })
+          .then(() => {
+            if (fecha) consultarHorasOcupadas(fecha);
+          })
+          .catch(() => {});
+      } else if (fecha) {
+        consultarHorasOcupadas(fecha);
+      }
+    }
+  }, [fecha]);
 
   // Lógica para el cronómetro
   useEffect(() => {
     let intervalo;
-    if (mostrarModal && tiempo > 0) {
+    if (mostrarModal && pasoModal === 1 && tiempo > 0) {
       intervalo = setInterval(() => {
         setTiempo((t) => t - 1);
       }, 1000);
-    } else if (tiempo === 0) {
+    } else if (tiempo === 0 && pasoModal === 1) {
       setMostrarModal(false);
     }
     return () => clearInterval(intervalo);
-  }, [mostrarModal, tiempo]);
+  }, [mostrarModal, pasoModal, tiempo]);
 
   const consultarHorasOcupadas = async (fechaConsulta) => {
     if (!fechaConsulta || !profId) return [];
@@ -64,6 +95,41 @@ export default function Booking() {
     }
   };
 
+  const crearCitaEnServidor = async ({ pendientePagoOnline, estadoPagoForzado }) => {
+    const perfilId = localStorage.getItem('perfilId');
+    const respuesta = await fetch('http://localhost:3000/api/citas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_paciente: parseInt(perfilId),
+        id_fonoaudiologo: parseInt(profId),
+        id_servicio: parseInt(servId),
+        fecha: fecha,
+        hora_inicio: hora,
+        duracion_minutos: s?.duracion_minutos || 50,
+        precio: s?.precio || 0,
+        email: localStorage.getItem('email') || undefined,
+        pendiente_pago_online: Boolean(pendientePagoOnline),
+        ...(estadoPagoForzado && { estado_pago: estadoPagoForzado })
+      })
+    });
+
+    if (!respuesta.ok) {
+      const errData = await respuesta.json().catch(() => ({}));
+      if (respuesta.status === 409) {
+        alert(errData.mensaje || "Este bloque horario ya se encuentra ocupado por otro paciente.");
+        await consultarHorasOcupadas(fecha);
+        setHora(null);
+        setMostrarModal(false);
+      } else {
+        alert(errData.mensaje || "Error al guardar la hora en la base de datos.");
+      }
+      return null;
+    }
+
+    return await respuesta.json();
+  };
+
   const handleConfirmarYGuardar = async () => {
     setProcesandoReserva(true);
 
@@ -84,65 +150,33 @@ export default function Booking() {
       if (!esPaciente) {
         setProcesandoReserva(false);
         navigate(`/contacto/${profId}/${servId}`, {
-          state: { fecha, hora, reagendando, idCitaAntigua, estadoPagoAnterior }
+          state: { fecha, hora, reagendando, idCitaAntigua, estadoPagoAnterior, p, s }
         });
         return;
       }
 
-      const perfilId = localStorage.getItem('perfilId');
+      // Si es un reagendamiento que ya estaba pagado, heredamos el pago y cerramos de inmediato
+      if (reagendando && idCitaAntigua && estadoPagoAnterior === 'Pagado') {
+        const nuevaCita = await crearCitaEnServidor({
+          pendientePagoOnline: false,
+          estadoPagoForzado: 'Pagado'
+        });
+        if (!nuevaCita) return;
 
-      const respuesta = await fetch('http://localhost:3000/api/citas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id_paciente: parseInt(perfilId),
-          id_fonoaudiologo: parseInt(profId),
-          id_servicio: parseInt(servId),
-          fecha: fecha,
-          hora_inicio: hora,
-          duracion_minutos: 50,
-          precio: s?.precio || 0,
-          email: localStorage.getItem('email') || undefined,
-          // Si es un reagendamiento que ya estaba pagado, heredamos el pago
-          ...(reagendando && estadoPagoAnterior === 'Pagado' && { estado_pago: 'Pagado' })
-        })
-      });
+        await fetch(`http://localhost:3000/api/citas/${idCitaAntigua}/estado`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado_asistencia: 'Anulada' })
+        });
 
-      if (respuesta.ok) {
-        const nuevaCita = await respuesta.json();
-
-        if (reagendando && idCitaAntigua) {
-          await fetch(`http://localhost:3000/api/citas/${idCitaAntigua}/estado`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estado_asistencia: 'Anulada' })
-          });
-
-          // Si ya pagó antes, lo devolvemos al inicio con éxito total (sin pasar por el modal de pago)
-          if (estadoPagoAnterior === 'Pagado') {
-            alert(" Hora reagendada con éxito.");
-            setMostrarModal(false);
-            navigate('/');
-            return;
-          }
-        }
-
-        // Flujo normal o reagendamiento sin pago previo
-        setIdCitaGenerada(nuevaCita.id_citas);
-        setHorasOcupadas((prev) => [...new Set([...prev, hora])]);
-        setPasoModal(2);
-      } else {
-        const errData = await respuesta.json().catch(() => ({}));
-        if (respuesta.status === 409) {
-          alert(errData.mensaje || "Este bloque horario ya se encuentra ocupado por otro paciente.");
-          await consultarHorasOcupadas(fecha);
-          setHora(null);
-          setMostrarModal(false);
-        } else {
-          alert(errData.mensaje || "Error al guardar la hora en la base de datos.");
-        }
+        alert("Hora reagendada con éxito.");
+        setMostrarModal(false);
+        navigate('/');
+        return;
       }
 
+      // Pasamos al Paso 2 para que elija si paga ahora online o paga en la consulta
+      setPasoModal(2);
     } catch (error) {
       console.error("Error de conexión:", error);
     } finally {
@@ -150,24 +184,79 @@ export default function Booking() {
     }
   };
 
-  // Función de navegación inteligente hacia el pago (Paso 2)
+  // Opción 1 (Paso 2): Ir al pago online (NO crea la cita en BD todavía; solo se crea al confirmar el pago)
   const confirmarReserva = () => {
     const esPaciente = localStorage.getItem('rol') === 'paciente';
     const pacienteNombre = localStorage.getItem('nombre');
+    const perfilId = localStorage.getItem('perfilId');
 
-    if (esPaciente) {
-      navigate(`/pago/${profId}/${servId}`, {
-        state: {
-          fecha: fecha,
-          hora: hora,
-          contacto: { nombre: pacienteNombre },
-          reservaId: idCitaGenerada
-        }
-      });
-    } else {
+    if (!esPaciente) {
       navigate(`/contacto/${profId}/${servId}`, {
-        state: { fecha: fecha, hora: hora }
+        state: { fecha, hora, p, s }
       });
+      return;
+    }
+
+    const paqueteCita = {
+      id_paciente: parseInt(perfilId),
+      id_fonoaudiologo: parseInt(profId),
+      id_servicio: parseInt(servId),
+      fecha: fecha,
+      hora_inicio: hora,
+      duracion_minutos: s?.duracion_minutos || 50,
+      precio: s?.precio || 0,
+      email: localStorage.getItem('email') || undefined
+    };
+
+    localStorage.setItem('respaldoCitaPago', JSON.stringify({
+      fecha,
+      hora,
+      contacto: { nombre: pacienteNombre },
+      paqueteCita,
+      profId: p?.id_fonoaudiologo || profId,
+      servId: s?.id_servicios || servId,
+      p,
+      s,
+      reagendando,
+      idCitaAntigua
+    }));
+
+    navigate(`/pago/${profId}/${servId}`, {
+      state: {
+        fecha: fecha,
+        hora: hora,
+        contacto: { nombre: pacienteNombre },
+        paqueteCita,
+        p,
+        s,
+        reagendando,
+        idCitaAntigua
+      }
+    });
+  };
+
+  // Opción 2 (Paso 2): Pagar en la consulta (guarda la cita con estado_pago = 'Pendiente')
+  const confirmarPagoEnConsulta = async () => {
+    setProcesandoReserva(true);
+    try {
+      const nuevaCita = await crearCitaEnServidor({ pendientePagoOnline: false });
+      if (!nuevaCita) return;
+
+      if (reagendando && idCitaAntigua) {
+        await fetch(`http://localhost:3000/api/citas/${idCitaAntigua}/estado`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado_asistencia: 'Anulada' })
+        });
+      }
+
+      setHorasOcupadas((prev) => [...new Set([...prev, hora])]);
+      setMostrarModal(false);
+      navigate('/');
+    } catch (error) {
+      console.error("Error guardando cita para pago en consulta:", error);
+    } finally {
+      setProcesandoReserva(false);
     }
   };
 
@@ -285,8 +374,34 @@ export default function Booking() {
         <div className="info-bar">
           <div className="cell"><div className="lbl">Modalidad</div><div className="val">Presencial</div></div>
           <div className="cell"><div className="lbl">Precio</div><div className="val">${s.precio} CLP</div></div>
-          <div className="cell"><div className="lbl">Duración</div><div className="val">50 min</div></div>
+          <div className="cell"><div className="lbl">Duración</div><div className="val">{s.duracion_minutos || 50} min</div></div>
         </div>
+
+        {avisoPagoInterrumpido && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '14px 18px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '10px',
+            color: '#991b1b',
+            fontSize: '14px',
+            fontWeight: '600',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <span>El proceso de pago fue interrumpido, por lo que el pago se ha anulado y la hora no fue agendada.</span>
+            <button
+              type="button"
+              onClick={() => setAvisoPagoInterrumpido(false)}
+              style={{ background: 'transparent', border: 'none', color: '#991b1b', fontWeight: '800', cursor: 'pointer', fontSize: '15px' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         <div className="step-label">1. ELIGE UNA FECHA</div>
 
@@ -441,7 +556,11 @@ export default function Booking() {
               /* ÉXITO Y OPCIÓN DE PAGO  */
               <>
                 <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                  <div style={{ fontSize: '48px', marginBottom: '10px' }}>✅</div>
+                  <div className="success-check-circle" role="img" aria-label="Hora tomada correctamente">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path className="success-check-path" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
                   <h3 style={{ margin: '0 0 10px 0', color: '#166534', fontSize: '22px' }}>¡Hora tomada correctamente!</h3>
                   <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.5' }}>
                     Tu reserva ha sido pre-aprobada. ¿Deseas realizar el pago ahora mismo para dejarla confirmada?
@@ -451,15 +570,14 @@ export default function Booking() {
                 <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
                   <button
                     onClick={confirmarReserva}
-                    style={{ width: '100%', padding: '14px', borderRadius: '8px', border: 'none', backgroundColor: '#4f46e5', color: 'white', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}
+                    disabled={procesandoReserva}
+                    style={{ width: '100%', padding: '14px', borderRadius: '8px', border: 'none', backgroundColor: procesandoReserva ? '#94a3b8' : '#4f46e5', color: 'white', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}
                   >
-                    Sí, ir a pagar al tiro
+                    {procesandoReserva ? 'Conectando...' : 'Sí, ir al pago'}
                   </button>
                   <button
-                    onClick={() => {
-                      setMostrarModal(false);
-                      navigate('/');
-                    }}
+                    onClick={confirmarPagoEnConsulta}
+                    disabled={procesandoReserva}
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'transparent', cursor: 'pointer', fontWeight: '600', color: '#475569', fontSize: '14px' }}
                   >
                     No, pagaré en la consulta

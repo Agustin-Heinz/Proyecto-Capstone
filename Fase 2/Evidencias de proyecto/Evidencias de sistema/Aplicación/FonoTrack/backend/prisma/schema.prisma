@@ -126,8 +126,10 @@ model servicios {
   id_catalogo      Int?
   nombre_servicio  String @db.VarChar(100)
   precio           Int
+  duracion_minutos Int    @default(50)
 
   @@index([id_fonoaudiologo], map: "id_fonoaudiologo")
+  @@index([id_catalogo], map: "fk_servicios_catalogo")
 }
 
 model ubicacion {
