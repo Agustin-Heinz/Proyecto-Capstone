@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function renderizarTextoFonoBot(texto) {
@@ -20,6 +20,8 @@ export default function FloatingChat() {
   const [nombrePacienteActivo, setNombrePacienteActivo] = useState('');
   const inputChatId = useId();
   const navigate = useNavigate();
+  const contenedorMensajesRef = useRef(null);
+  const finConversacionRef = useRef(null);
 
   const [conversacion, setConversacion] = useState([
     {
@@ -118,6 +120,38 @@ export default function FloatingChat() {
     navigate(`/directorio?${params.toString()}`);
   };
 
+  // Posicionar instantáneamente al final al abrir la ventana del chat (con soporte para scroll-initial-target y fallback JS)
+  useEffect(() => {
+    if (!abierto) return;
+    const bajarAlFinalInstantaneo = () => {
+      if (
+        typeof CSS === 'undefined' ||
+        !CSS.supports('scroll-initial-target', 'nearest')
+      ) {
+        finConversacionRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+      }
+      if (contenedorMensajesRef.current) {
+        contenedorMensajesRef.current.scrollTop = contenedorMensajesRef.current.scrollHeight;
+      }
+    };
+    bajarAlFinalInstantaneo();
+    const idFrame = requestAnimationFrame(bajarAlFinalInstantaneo);
+    return () => cancelAnimationFrame(idFrame);
+  }, [abierto]);
+
+  // Bajar automáticamente al final cada vez que se envía o recibe un mensaje
+  useEffect(() => {
+    if (!abierto) return;
+    const idFrame = requestAnimationFrame(() => {
+      if (finConversacionRef.current) {
+        finConversacionRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      } else if (contenedorMensajesRef.current) {
+        contenedorMensajesRef.current.scrollTop = contenedorMensajesRef.current.scrollHeight;
+      }
+    });
+    return () => cancelAnimationFrame(idFrame);
+  }, [conversacion, cargando, abierto]);
+
   return (
     <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999 }}>
 
@@ -164,6 +198,7 @@ export default function FloatingChat() {
           </div>
 
           <div
+            ref={contenedorMensajesRef}
             role="log"
             aria-live="polite"
             style={{ flex: 1, padding: '16px', overflowY: 'auto', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '12px' }}
@@ -231,6 +266,7 @@ export default function FloatingChat() {
               </div>
             ))}
             {cargando && <div role="status" style={{ color: '#64748b', fontSize: '13px' }}>Consultando con FonoBot...</div>}
+            <div ref={finConversacionRef} className="fonobot-scroll-target" aria-hidden="true" />
           </div>
 
           {/* Botones rápidos */}

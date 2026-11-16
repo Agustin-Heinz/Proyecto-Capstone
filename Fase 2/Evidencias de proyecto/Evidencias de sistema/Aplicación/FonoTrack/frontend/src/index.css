@@ -897,3 +897,8 @@
       stroke-dashoffset: 0;
     }
   }
+
+  /* Ancla inferior inicial del contenedor de chat (scroll-target-on-load) */
+  .fonobot-scroll-target {
+    scroll-initial-target: nearest;
+  }
