@@ -136,9 +136,6 @@ export default function DashboardLayout() {
           to="/"
           style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: '#ffffff' }}
         >
-          <div style={{ backgroundColor: '#ffffff', color: '#0c2749', width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px' }}>
-            +
-          </div>
           <span style={{ fontWeight: '800', fontSize: '18px', letterSpacing: '0.4px' }}>FONOTRACK</span>
         </Link>
         <button
@@ -166,9 +163,6 @@ export default function DashboardLayout() {
           title="Volver a la página principal"
           style={{ padding: '35px 25px', display: 'flex', alignItems: 'center', gap: '15px', textDecoration: 'none', color: '#ffffff' }}
         >
-          <div style={{ backgroundColor: '#ffffff', color: '#1a365d', width: '42px', height: '42px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '24px' }}>
-            +
-          </div>
           <div style={{ lineHeight: '1.1' }}>
             <div style={{ fontWeight: '800', fontSize: '20px', letterSpacing: '0.5px' }}>FONO<br/>TRACK</div>
             <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '4px' }}>Panel profesional</div>

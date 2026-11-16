@@ -25,8 +25,21 @@ export default function Register() {
     return `${cuerpoConPuntos}-${dv}`;
   };
 
+  const validarRequisitosPassword = (clave) => {
+    if (!clave || String(clave).length < 8) return false;
+    const tieneMayuscula = /[A-ZÁÉÍÓÚÑ]/.test(clave);
+    const tieneMinuscula = /[a-záéíóúñ]/.test(clave);
+    const tieneEspecial = /[^A-Za-z0-9\s]/.test(clave);
+    return tieneMayuscula && tieneMinuscula && tieneEspecial;
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
+
+    if (!validarRequisitosPassword(formData.password)) {
+      alert("La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula y al menos un carácter especial.");
+      return;
+    }
     
     try {
       const respuesta = await fetch('http://localhost:3000/api/registro', {
@@ -131,7 +144,7 @@ export default function Register() {
           
           <div className="cf-group">
             <label>Contraseña</label>
-            <input type="password" placeholder="Mínimo 8 caracteres" onChange={e => setFormData({ ...formData, password: e.target.value })} required />
+            <input type="password" placeholder="Mín. 8 caracteres, mayúscula, minúscula y carácter especial" onChange={e => setFormData({ ...formData, password: e.target.value })} required />
           </div>
           
           <button className="cf-submit" type="submit" style={{ width: '100%', marginTop: '10px' }}>

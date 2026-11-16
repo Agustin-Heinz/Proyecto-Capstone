@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Pencil, Trash, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Pencil, Trash, Trash2, ChevronDown } from 'lucide-react';
 
 export default function PanelPerfil() {
 
@@ -23,6 +23,7 @@ export default function PanelPerfil() {
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [mensajePerfil, setMensajePerfil] = useState({ texto: '', tipo: '' });
   const [fotoArchivo, setFotoArchivo] = useState(null);
+  const fileInputRef = useRef(null);
 
   // ESTADOS PARA LA PESTAÑA DE MIS SERVICIOS
   const [catalogoServicios, setCatalogoServicios] = useState([]);
@@ -165,6 +166,8 @@ export default function PanelPerfil() {
         formData.append('foto_archivo', fotoArchivo);
       } else if (perfil.foto_perfil) {
         formData.append('foto_perfil', perfil.foto_perfil);
+      } else {
+        formData.append('eliminar_foto', 'true');
       }
 
       const respuesta = await fetch(`http://localhost:3000/api/fonoaudiologos/${idFonoaudiologo}`, {
@@ -173,6 +176,8 @@ export default function PanelPerfil() {
       });
 
       if (respuesta.ok) {
+        setFotoArchivo(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         setMensajePerfil({ texto: '¡Perfil actualizado correctamente!', tipo: 'exito' });
         cargarDatos();
       } else {
@@ -183,6 +188,40 @@ export default function PanelPerfil() {
       setMensajePerfil({ texto: 'Error al guardar los cambios.', tipo: 'error' });
     } finally {
       setGuardandoPerfil(false);
+    }
+  };
+
+  const eliminarFotoPerfil = async () => {
+    if (!perfil.foto_perfil && !fotoArchivo) {
+      setMensajePerfil({ texto: 'No hay ninguna foto seleccionada o guardada para eliminar.', tipo: 'error' });
+      return;
+    }
+
+    const perfilIdStr = localStorage.getItem('perfilId');
+    const idFonoaudiologo = perfilIdStr ? parseInt(perfilIdStr) : 2;
+
+    setFotoArchivo(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    if (perfil.foto_perfil) {
+      try {
+        const respuesta = await fetch(`http://localhost:3000/api/fonoaudiologos/${idFonoaudiologo}/foto`, {
+          method: 'DELETE'
+        });
+        if (respuesta.ok) {
+          setPerfil(prev => ({ ...prev, foto_perfil: '' }));
+          setMensajePerfil({ texto: 'Foto de perfil eliminada correctamente.', tipo: 'exito' });
+        } else {
+          setMensajePerfil({ texto: 'No se pudo eliminar la foto en el servidor.', tipo: 'error' });
+        }
+      } catch (error) {
+        console.error('Error al eliminar foto:', error);
+        setMensajePerfil({ texto: 'Error de conexión al eliminar la foto.', tipo: 'error' });
+      }
+    } else {
+      setMensajePerfil({ texto: 'Archivo de foto descartado.', tipo: 'exito' });
     }
   };
 
@@ -552,11 +591,34 @@ export default function PanelPerfil() {
                   <img src={perfil.foto_perfil} alt="Actual" style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
                 )}
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/png, image/jpeg, image/jpg"
                   onChange={e => setFotoArchivo(e.target.files[0])}
                   style={{ ...inputStyle, padding: '9px 14px', cursor: 'pointer', flex: 1, minWidth: '200px' }}
                 />
+                <button
+                  type="button"
+                  onClick={eliminarFotoPerfil}
+                  title="Eliminar foto de perfil"
+                  aria-label="Eliminar foto de perfil"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '8px',
+                    border: '1px solid #fecaca',
+                    backgroundColor: '#fef2f2',
+                    color: '#dc2626',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Trash2 size={20} />
+                </button>
               </div>
             </div>
 

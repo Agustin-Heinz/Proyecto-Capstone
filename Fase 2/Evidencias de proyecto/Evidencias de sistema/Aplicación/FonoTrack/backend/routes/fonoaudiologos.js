@@ -119,15 +119,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// ACTUALIZADO: Ahora también recibe y guarda publico_objetivo ('Infantil', 'Adultos' o 'Ambos') y rut
+// ACTUALIZADO: Ahora también recibe y guarda publico_objetivo ('Infantil', 'Adultos' o 'Ambos'), rut y permite eliminar foto
 router.put('/:id', upload.single('foto_archivo'), async (req, res) => {
   try {
     const idFono = parseInt(req.params.id);
-    const { nombre_completo, rut, subespecialidad, publico_objetivo, acerca_de_mi, id_ubicacion, foto_perfil, telefono } = req.body;
+    const { nombre_completo, rut, subespecialidad, publico_objetivo, acerca_de_mi, id_ubicacion, foto_perfil, telefono, eliminar_foto } = req.body;
 
     let rutaImagen = foto_perfil;
     if (req.file) {
       rutaImagen = `http://localhost:3000/uploads/${req.file.filename}`;
+    } else if (eliminar_foto === 'true' || foto_perfil === '') {
+      rutaImagen = null;
     }
 
     const datosActualizar = {
@@ -156,6 +158,21 @@ router.put('/:id', upload.single('foto_archivo'), async (req, res) => {
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
     res.status(500).json({ mensaje: "Error al actualizar", detalle: error.message });
+  }
+});
+
+// ELIMINAR FOTO DE PERFIL DEL FONOAUDIÓLOGO
+router.delete('/:id/foto', async (req, res) => {
+  try {
+    const idFono = parseInt(req.params.id);
+    const perfilActualizado = await prisma.fonoaudiologos.update({
+      where: { id_fonoaudiologo: idFono },
+      data: { foto_perfil: null }
+    });
+    res.status(200).json(perfilActualizado);
+  } catch (error) {
+    console.error("Error al eliminar foto de perfil:", error);
+    res.status(500).json({ mensaje: "Error al eliminar la foto de perfil", detalle: error.message });
   }
 });
 

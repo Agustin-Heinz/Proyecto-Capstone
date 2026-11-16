@@ -133,7 +133,7 @@ export default function Login() {
       if (respuesta.ok) {
         setMensajeEstado({
           tipo: 'exito',
-          texto: 'Código verificado correctamente. Ingresa tu nueva contraseña.'
+          texto: 'Código verificado correctamente. Tu nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y al menos un carácter especial.'
         });
         setModo('cambiar');
       } else {
@@ -153,14 +153,22 @@ export default function Login() {
     }
   };
 
+  const validarRequisitosPassword = (clave) => {
+    if (!clave || String(clave).length < 8) return false;
+    const tieneMayuscula = /[A-ZÁÉÍÓÚÑ]/.test(clave);
+    const tieneMinuscula = /[a-záéíóúñ]/.test(clave);
+    const tieneEspecial = /[^A-Za-z0-9\s]/.test(clave);
+    return tieneMayuscula && tieneMinuscula && tieneEspecial;
+  };
+
   // Paso 3: Guardar nueva contraseña en la base de datos
   const handleCambiarPassword = async (e) => {
     e.preventDefault();
 
-    if (nuevaPassword.length < 6) {
+    if (!validarRequisitosPassword(nuevaPassword)) {
       setMensajeEstado({
         tipo: 'error',
-        texto: 'La nueva contraseña debe tener al menos 6 caracteres.'
+        texto: 'La nueva contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula y al menos un carácter especial.'
       });
       return;
     }
@@ -253,7 +261,7 @@ export default function Login() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'var(--indigo)',
+                  color: '#a5b4fc',
                   fontSize: '14px',
                   fontWeight: '600',
                   cursor: 'pointer',
@@ -265,8 +273,8 @@ export default function Login() {
               </button>
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--line)', fontSize: '14px', color: 'var(--ink-soft)' }}>
-              ¿No tienes cuenta? <Link to="/registro" style={{ color: 'var(--indigo)', fontWeight: '600', textDecoration: 'none' }}>Regístrate aquí</Link>
+            <div style={{ textAlign: 'center', marginTop: '18px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.2)', fontSize: '14px', color: '#e2e8f0' }}>
+              ¿No tienes cuenta? <Link to="/registro" style={{ color: '#a5b4fc', fontWeight: '700', textDecoration: 'none' }}>Regístrate aquí</Link>
             </div>
           </>
         )}
@@ -275,7 +283,7 @@ export default function Login() {
         {modo === 'solicitar' && (
           <>
             <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Recuperar Contraseña</h2>
-            <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--ink-soft)', marginBottom: '22px', lineHeight: '1.5' }}>
+            <p style={{ textAlign: 'center', fontSize: '14.5px', color: '#e2e8f0', marginBottom: '22px', lineHeight: '1.55' }}>
               Ingresa el correo asociado a tu cuenta y te enviaremos un código de verificación para restablecer tu clave.
             </p>
 
@@ -285,6 +293,7 @@ export default function Login() {
                 borderRadius: '10px',
                 marginBottom: '16px',
                 fontSize: '13.5px',
+                fontWeight: '600',
                 backgroundColor: mensajeEstado.tipo === 'error' ? '#FEE2E2' : '#EEF2FE',
                 color: mensajeEstado.tipo === 'error' ? '#B91C1C' : '#4F46E5',
                 border: `1px solid ${mensajeEstado.tipo === 'error' ? '#FECACA' : '#C7D2FE'}`
@@ -321,7 +330,7 @@ export default function Login() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'var(--ink-soft)',
+                  color: '#cbd5e1',
                   fontSize: '14px',
                   fontWeight: '600',
                   cursor: 'pointer'
@@ -337,8 +346,8 @@ export default function Login() {
         {modo === 'verificar' && (
           <>
             <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Ingresa tu Código</h2>
-            <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--ink-soft)', marginBottom: '18px', lineHeight: '1.5' }}>
-              Enviamos un código de 6 dígitos a <strong>{emailRecuperacion}</strong>. Revisa tu bandeja de entrada (o spam) e ingrésalo a continuación:
+            <p style={{ textAlign: 'center', fontSize: '14.5px', color: '#e2e8f0', marginBottom: '18px', lineHeight: '1.55' }}>
+              Enviamos un código de 6 dígitos a <strong style={{ color: '#ffffff' }}>{emailRecuperacion}</strong>. Revisa tu bandeja de entrada (o spam) e ingrésalo a continuación:
             </p>
 
             {mensajeEstado.texto && (
@@ -347,6 +356,7 @@ export default function Login() {
                 borderRadius: '10px',
                 marginBottom: '16px',
                 fontSize: '13.5px',
+                fontWeight: '600',
                 backgroundColor: mensajeEstado.tipo === 'error' ? '#FEE2E2' : '#EEF2FE',
                 color: mensajeEstado.tipo === 'error' ? '#B91C1C' : '#4F46E5',
                 border: `1px solid ${mensajeEstado.tipo === 'error' ? '#FECACA' : '#C7D2FE'}`
@@ -392,7 +402,7 @@ export default function Login() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'var(--indigo)',
+                  color: '#a5b4fc',
                   fontWeight: '600',
                   cursor: 'pointer',
                   padding: 0
@@ -407,7 +417,7 @@ export default function Login() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'var(--ink-soft)',
+                  color: '#cbd5e1',
                   fontWeight: '600',
                   cursor: 'pointer',
                   padding: 0
@@ -422,10 +432,25 @@ export default function Login() {
         {/* PASO 3: CAMBIAR CONTRASEÑA */}
         {modo === 'cambiar' && (
           <>
-            <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Nueva Contraseña</h2>
-            <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--ink-soft)', marginBottom: '18px', lineHeight: '1.5' }}>
-              Código validado para <strong>{emailRecuperacion}</strong>. Crea tu nueva contraseña a continuación:
-            </p>
+            <h2 style={{ textAlign: 'center', marginBottom: '12px' }}>Nueva Contraseña</h2>
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.14)',
+              border: '1px solid rgba(255, 255, 255, 0.35)',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              marginBottom: '18px',
+              textAlign: 'center',
+              color: '#ffffff',
+              fontSize: '14px',
+              lineHeight: '1.5'
+            }}>
+              <div style={{ fontWeight: '700', marginBottom: '4px', color: '#fef08a' }}>
+                Código validado para {emailRecuperacion}
+              </div>
+              <div>
+                Crea tu nueva contraseña cumpliendo estos requisitos: <strong>mínimo 8 caracteres, una mayúscula, una minúscula y al menos un carácter especial</strong>.
+              </div>
+            </div>
 
             {mensajeEstado.texto && (
               <div style={{
@@ -433,6 +458,7 @@ export default function Login() {
                 borderRadius: '10px',
                 marginBottom: '16px',
                 fontSize: '13.5px',
+                fontWeight: '600',
                 backgroundColor: mensajeEstado.tipo === 'error' ? '#FEE2E2' : '#DCFCE7',
                 color: mensajeEstado.tipo === 'error' ? '#B91C1C' : '#15803D',
                 border: `1px solid ${mensajeEstado.tipo === 'error' ? '#FECACA' : '#BBF7D0'}`
@@ -446,7 +472,7 @@ export default function Login() {
                 <label>Nueva contraseña</label>
                 <input
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mín. 8 caracteres, mayúscula, minúscula y carácter especial"
                   value={nuevaPassword}
                   onChange={e => setNuevaPassword(e.target.value)}
                   required
@@ -481,7 +507,7 @@ export default function Login() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: 'var(--ink-soft)',
+                  color: '#cbd5e1',
                   fontSize: '14px',
                   fontWeight: '600',
                   cursor: 'pointer'

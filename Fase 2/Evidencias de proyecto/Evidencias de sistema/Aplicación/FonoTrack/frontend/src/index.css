@@ -430,6 +430,9 @@
 
   .dashboard-sidebar {
     width: 260px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
     background-color: #0c2749;
     color: #ffffff;
     display: flex;
@@ -557,6 +560,7 @@
       top: 62px;
       left: 0;
       bottom: 0;
+      height: auto;
       width: min(280px, 82vw);
       z-index: 59;
       display: none;

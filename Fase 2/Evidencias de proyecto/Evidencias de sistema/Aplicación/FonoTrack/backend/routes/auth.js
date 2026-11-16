@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../config/prisma');
-const bcrypt = require('bcrypt');
 const transporter = require('../config/mailer');
 
 // Almacén en memoria para códigos de recuperación de contraseña (válidos por 15 minutos)
@@ -38,6 +37,17 @@ function generarRutChilenoDesdeSemilla(semilla) {
   return formatearRutChileno(`${cuerpo}${dv}`);
 }
 
+function validarRequisitosPassword(password) {
+  if (!password || String(password).length < 8) return false;
+  const tieneMayuscula = /[A-ZÁÉÍÓÚÑ]/.test(password);
+  const tieneMinuscula = /[a-záéíóúñ]/.test(password);
+  const tieneEspecial = /[^A-Za-z0-9\s]/.test(password);
+  return tieneMayuscula && tieneMinuscula && tieneEspecial;
+}
+
+const MENSAJE_REQUISITOS_PASSWORD =
+  "La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula y al menos un carácter especial.";
+
 // AUTENTICACIÓN: Registro y Login
 
 router.post('/registro', async (req, res) => {
@@ -49,6 +59,12 @@ router.post('/registro', async (req, res) => {
     const fechaNacValida = (fechaRaw && !isNaN(new Date(fechaRaw).getTime()))
       ? new Date(fechaRaw)
       : null;
+
+    if (!validarRequisitosPassword(password)) {
+      return res.status(400).json({
+        mensaje: MENSAJE_REQUISITOS_PASSWORD
+      });
+    }
 
     // Verificar si el correo ya existe en usuarios
     const usuarioExistente = await prisma.usuarios.findUnique({
@@ -64,8 +80,6 @@ router.post('/registro', async (req, res) => {
       });
     }
 
-    const passwordEncriptada = await bcrypt.hash(password, 10);
-
     const resultado = await prisma.$transaction(async (tx) => {
       let nuevoUsuario;
 
@@ -74,7 +88,7 @@ router.post('/registro', async (req, res) => {
         nuevoUsuario = await tx.usuarios.update({
           where: { id_usuario: usuarioExistente.id_usuario },
           data: {
-            contrasena: passwordEncriptada,
+            contrasena: password,
             rol: rol || 'paciente'
           }
         });
@@ -82,7 +96,7 @@ router.post('/registro', async (req, res) => {
         nuevoUsuario = await tx.usuarios.create({
           data: {
             email: emailLimpio,
-            contrasena: passwordEncriptada,
+            contrasena: password,
             rol: rol || 'paciente'
           }
         });
@@ -159,7 +173,27 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
 
-    const passwordValida = await bcrypt.compare(password, usuario.contrasena);
+    let passwordValida = password === usuario.contrasena;
+
+    // Si en MySQL había quedado una contraseña antigua encriptada con bcrypt ($2b$...),
+    // la validamos y la reemplazamos automáticamente en MySQL por texto plano.
+    if (!passwordValida && String(usuario.contrasena || '').startsWith('$2')) {
+      try {
+        const bcrypt = require('bcrypt');
+        const coincideHashAntiguo = await bcrypt.compare(password, usuario.contrasena);
+        if (coincideHashAntiguo) {
+          passwordValida = true;
+          await prisma.usuarios.update({
+            where: { id_usuario: usuario.id_usuario },
+            data: { contrasena: password }
+          });
+          usuario.contrasena = password;
+        }
+      } catch (e) {
+        // Ignorar si bcrypt no está disponible
+      }
+    }
+
     if (!passwordValida) {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
@@ -339,9 +373,9 @@ router.post('/recuperar-password/cambiar', async (req, res) => {
     const emailKey = email ? email.trim().toLowerCase() : '';
     const codigoLimpio = codigo ? String(codigo).trim() : '';
 
-    if (!nuevaPassword || String(nuevaPassword).length < 6) {
+    if (!validarRequisitosPassword(nuevaPassword)) {
       return res.status(400).json({
-        mensaje: "La nueva contraseña debe tener al menos 6 caracteres."
+        mensaje: MENSAJE_REQUISITOS_PASSWORD
       });
     }
 
@@ -366,11 +400,9 @@ router.post('/recuperar-password/cambiar', async (req, res) => {
       });
     }
 
-    const passwordEncriptada = await bcrypt.hash(nuevaPassword, 10);
-
     await prisma.usuarios.update({
       where: { email: datosCodigo.emailReal },
-      data: { contrasena: passwordEncriptada }
+      data: { contrasena: nuevaPassword }
     });
 
     codigosRecuperacion.delete(emailKey);
