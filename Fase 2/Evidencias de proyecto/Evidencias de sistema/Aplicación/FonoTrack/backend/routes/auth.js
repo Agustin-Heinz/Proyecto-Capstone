@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../config/prisma');
 const bcrypt = require('bcrypt');
+const transporter = require('../config/mailer');
+
+// Almacén en memoria para códigos de recuperación de contraseña (válidos por 15 minutos)
+const codigosRecuperacion = new Map();
 
 function calcularDvModulo11(cuerpoNum) {
   let suma = 0;
@@ -147,8 +151,9 @@ router.post('/registro', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const emailLimpio = email ? email.trim() : '';
 
-    const usuario = await prisma.usuarios.findUnique({ where: { email: email } });
+    const usuario = await prisma.usuarios.findUnique({ where: { email: emailLimpio } });
 
     if (!usuario) {
       return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
@@ -201,12 +206,185 @@ router.post('/login', async (req, res) => {
       nombre = perfil ? perfil.nombre_completo : "Paciente";
     }
 
-    const { constrasena, ...usuarioSeguro } = usuario;
+    const { contrasena, ...usuarioSeguro } = usuario;
     console.log("Inicio de sesión exitoso:", usuario.email);
     res.status(200).json({ ...usuarioSeguro, perfilId, nombre, planActivo });
 
   } catch (error) {
     res.status(500).json({ mensaje: "Error al iniciar sesión", detalle: error.message });
+  }
+});
+
+// RECUPERACIÓN DE CONTRASEÑA: Paso 1 - Solicitar código por correo
+router.post('/recuperar-password/solicitar', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const emailLimpio = email ? email.trim() : '';
+
+    if (!emailLimpio) {
+      return res.status(400).json({ mensaje: "Por favor ingresa tu correo electrónico." });
+    }
+
+    const usuario = await prisma.usuarios.findUnique({
+      where: { email: emailLimpio }
+    });
+
+    if (!usuario) {
+      return res.status(404).json({
+        mensaje: "No encontramos ninguna cuenta registrada con ese correo electrónico."
+      });
+    }
+
+    let nombreUsuario = "Usuario";
+    if (usuario.rol === 'fonoaudiologo') {
+      const fono = await prisma.fonoaudiologos.findFirst({ where: { id_usuario: usuario.id_usuario } });
+      if (fono?.nombre_completo) nombreUsuario = fono.nombre_completo;
+    } else if (usuario.rol === 'paciente') {
+      const pac = await prisma.pacientes.findFirst({ where: { id_usuario: usuario.id_usuario } });
+      if (pac?.nombre_completo) nombreUsuario = pac.nombre_completo;
+    }
+
+    const codigo = String(Math.floor(100000 + Math.random() * 900000));
+    const expira = Date.now() + 15 * 60 * 1000; // 15 minutos
+
+    codigosRecuperacion.set(emailLimpio.toLowerCase(), {
+      codigo,
+      emailReal: usuario.email,
+      expira,
+      verificado: false
+    });
+
+    const remitente = process.env.EMAIL_USER || 'diegosepulveda6721@gmail.com';
+    const opcionesCorreo = {
+      from: `"FonoTrack Clínico" <${remitente}>`,
+      to: usuario.email,
+      subject: "Código de recuperación de contraseña - FonoTrack",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #E2E6EF; border-radius: 14px; background-color: #FFFFFF;">
+          <h2 style="color: #4F46E5; margin-top: 0;">Recuperación de Contraseña</h2>
+          <p style="color: #14181F; font-size: 15px;">¡Hola <strong>${nombreUsuario}</strong>!</p>
+          <p style="color: #5B6472; font-size: 14px; line-height: 1.5;">
+            Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en <strong>FonoTrack</strong>.
+            Ingresa el siguiente código de verificación en la página donde estás esperando:
+          </p>
+          <div style="margin: 24px 0; padding: 18px; background-color: #EEF2FE; border-radius: 12px; text-align: center;">
+            <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #4F46E5;">${codigo}</span>
+          </div>
+          <p style="color: #5B6472; font-size: 13px;">
+            Este código es válido por <strong>15 minutos</strong>. Si no solicitaste este cambio, puedes ignorar este mensaje con tranquilidad.
+          </p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(opcionesCorreo);
+    console.log(`Código de recuperación enviado a ${usuario.email}`);
+
+    res.status(200).json({
+      mensaje: "Hemos enviado un código de 6 dígitos a tu correo electrónico."
+    });
+  } catch (error) {
+    console.error("Error al enviar código de recuperación:", error);
+    res.status(500).json({
+      mensaje: "No se pudo enviar el correo de recuperación. Inténtalo nuevamente.",
+      detalle: error.message
+    });
+  }
+});
+
+// RECUPERACIÓN DE CONTRASEÑA: Paso 2 - Verificar el código ingresado
+router.post('/recuperar-password/verificar', async (req, res) => {
+  try {
+    const { email, codigo } = req.body;
+    const emailKey = email ? email.trim().toLowerCase() : '';
+    const codigoLimpio = codigo ? String(codigo).trim() : '';
+
+    const datosCodigo = codigosRecuperacion.get(emailKey);
+
+    if (!datosCodigo) {
+      return res.status(400).json({
+        mensaje: "No hay una solicitud activa para este correo. Solicita un nuevo código."
+      });
+    }
+
+    if (Date.now() > datosCodigo.expira) {
+      codigosRecuperacion.delete(emailKey);
+      return res.status(400).json({
+        mensaje: "El código ha expirado. Por favor solicita uno nuevo."
+      });
+    }
+
+    if (datosCodigo.codigo !== codigoLimpio) {
+      return res.status(400).json({
+        mensaje: "El código ingresado es incorrecto. Verifica e inténtalo nuevamente."
+      });
+    }
+
+    datosCodigo.verificado = true;
+    codigosRecuperacion.set(emailKey, datosCodigo);
+
+    res.status(200).json({
+      mensaje: "Código verificado correctamente. Ahora puedes ingresar tu nueva contraseña."
+    });
+  } catch (error) {
+    console.error("Error al verificar código:", error);
+    res.status(500).json({ mensaje: "Error al verificar el código.", detalle: error.message });
+  }
+});
+
+// RECUPERACIÓN DE CONTRASEÑA: Paso 3 - Cambiar la contraseña en la base de datos
+router.post('/recuperar-password/cambiar', async (req, res) => {
+  try {
+    const { email, codigo, nuevaPassword } = req.body;
+    const emailKey = email ? email.trim().toLowerCase() : '';
+    const codigoLimpio = codigo ? String(codigo).trim() : '';
+
+    if (!nuevaPassword || String(nuevaPassword).length < 6) {
+      return res.status(400).json({
+        mensaje: "La nueva contraseña debe tener al menos 6 caracteres."
+      });
+    }
+
+    const datosCodigo = codigosRecuperacion.get(emailKey);
+
+    if (!datosCodigo) {
+      return res.status(400).json({
+        mensaje: "La sesión de recuperación expiró. Solicita un nuevo código."
+      });
+    }
+
+    if (Date.now() > datosCodigo.expira) {
+      codigosRecuperacion.delete(emailKey);
+      return res.status(400).json({
+        mensaje: "El código ha expirado. Por favor solicita uno nuevo."
+      });
+    }
+
+    if (datosCodigo.codigo !== codigoLimpio) {
+      return res.status(400).json({
+        mensaje: "El código de verificación no coincide."
+      });
+    }
+
+    const passwordEncriptada = await bcrypt.hash(nuevaPassword, 10);
+
+    await prisma.usuarios.update({
+      where: { email: datosCodigo.emailReal },
+      data: { contrasena: passwordEncriptada }
+    });
+
+    codigosRecuperacion.delete(emailKey);
+    console.log(`Contraseña restablecida exitosamente para ${datosCodigo.emailReal}`);
+
+    res.status(200).json({
+      mensaje: "Contraseña actualizada exitosamente. Ya puedes iniciar sesión con tu nueva clave."
+    });
+  } catch (error) {
+    console.error("Error al cambiar contraseña:", error);
+    res.status(500).json({
+      mensaje: "Error al actualizar la contraseña en la base de datos.",
+      detalle: error.message
+    });
   }
 });
 
