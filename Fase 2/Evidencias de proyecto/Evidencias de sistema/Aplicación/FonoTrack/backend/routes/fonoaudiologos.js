@@ -27,9 +27,16 @@ function formatearRutChileno(rutRaw) {
   return `${cuerpoConPuntos}-${dv}`;
 }
 
+const UBICACIONES_POR_DEFECTO = {
+  1: { id_ubicacion: 22, comuna: 'Providencia' },
+  2: { id_ubicacion: 22, comuna: 'Providencia' },
+  3: { id_ubicacion: 13, comuna: 'Las Condes' },
+  4: { id_ubicacion: 19, comuna: 'Ñuñoa' }
+};
+
 async function corregirRutLegacySiCorresponde(prof) {
-  if (!prof || !prof.rut) return prof;
-  if (String(prof.rut).startsWith('PD-')) {
+  if (!prof) return prof;
+  if (prof.rut && String(prof.rut).startsWith('PD-')) {
     const sufijo = String(prof.rut).replace(/\D/g, '').slice(-6).padStart(6, '0');
     const cuerpo = `17${sufijo}`;
     const dv = calcularDvModulo11(cuerpo);
@@ -44,6 +51,19 @@ async function corregirRutLegacySiCorresponde(prof) {
       prof.rut = rutCorregido;
     }
   }
+
+  if (!prof.id_ubicacion) {
+    const ubDefecto = UBICACIONES_POR_DEFECTO[prof.id_fonoaudiologo] || { id_ubicacion: 22, comuna: 'Providencia' };
+    try {
+      await prisma.fonoaudiologos.update({
+        where: { id_fonoaudiologo: prof.id_fonoaudiologo },
+        data: { id_ubicacion: ubDefecto.id_ubicacion }
+      });
+    } catch (e) {}
+    prof.id_ubicacion = ubDefecto.id_ubicacion;
+    prof.ubicacion = ubDefecto;
+  }
+
   return prof;
 }
 
@@ -116,9 +136,12 @@ router.put('/:id', upload.single('foto_archivo'), async (req, res) => {
       publico_objetivo: publico_objetivo || 'Ambos',
       acerca_de_mi,
       foto_perfil: rutaImagen,
-      telefono,
-      id_ubicacion: id_ubicacion ? parseInt(id_ubicacion) : null
+      telefono
     };
+
+    if (id_ubicacion !== undefined && id_ubicacion !== '' && !isNaN(parseInt(id_ubicacion))) {
+      datosActualizar.id_ubicacion = parseInt(id_ubicacion);
+    }
 
     if (rut && String(rut).trim()) {
       datosActualizar.rut = formatearRutChileno(rut.trim());

@@ -7,22 +7,26 @@ export default function Directory() {
 
   const [searchParams] = useSearchParams();
   const especialidadDesdeChat = searchParams.get('especialidad') || '';
+  const ubicacionDesdeChat = searchParams.get('ubicacion') || '';
+  const publicoDesdeChat = searchParams.get('publico') || '';
 
   const [listaComunas, setListaComunas] = useState([]);
   const [listaCatalogo, setListaCatalogo] = useState([]);
 
-  const [filtroPublico, setFiltroPublico] = useState('');
+  const [filtroPublico, setFiltroPublico] = useState(publicoDesdeChat);
   const [filtroEsp, setFiltroEsp] = useState(especialidadDesdeChat);
-  const [filtroUbicacion, setFiltroUbicacion] = useState('');
+  const [filtroUbicacion, setFiltroUbicacion] = useState(ubicacionDesdeChat);
   const [filtroCalif, setFiltroCalif] = useState('0');
   const [activeTabs, setActiveTabs] = useState({});
 
   useEffect(() => {
-    const espURL = searchParams.get('especialidad');
-    if (espURL) {
-      setFiltroPublico('');
-      setFiltroEsp(espURL);
-    }
+    const espURL = searchParams.get('especialidad') || '';
+    const ubiURL = searchParams.get('ubicacion') || '';
+    const pubURL = searchParams.get('publico') || '';
+
+    setFiltroPublico(pubURL);
+    setFiltroEsp(espURL);
+    setFiltroUbicacion(ubiURL);
   }, [searchParams]);
 
   useEffect(() => {
@@ -98,6 +102,30 @@ export default function Directory() {
       .replace(/[\u0300-\u036f]/g, "")
       .trim();
 
+  const extraerPalabrasClaveEsp = (txt) => {
+    const ignorar = new Set([
+      'evaluacion',
+      'terapia',
+      'trastorno',
+      'trastornos',
+      'rehabilitacion',
+      'infantil',
+      'adultos',
+      'fonoaudiologia',
+      'general',
+      'para',
+      'del',
+      'las',
+      'los',
+      'con',
+      'por'
+    ]);
+    return normalizarTexto(txt)
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !ignorar.has(w));
+  };
+
   const profesionalesFiltrados = profesionalesBD.filter(p => {
     const cumplePublico =
       filtroPublico === '' ||
@@ -109,12 +137,15 @@ export default function Directory() {
       p.especialidades.some(esp => {
         const espProf = normalizarTexto(esp);
         const espBuscada = normalizarTexto(filtroEsp);
-        return espProf.includes(espBuscada) || espBuscada.includes(espProf);
+        if (espProf.includes(espBuscada) || espBuscada.includes(espProf)) return true;
+        const clavesBuscadas = extraerPalabrasClaveEsp(filtroEsp);
+        const clavesProf = extraerPalabrasClaveEsp(esp);
+        return clavesBuscadas.length > 0 && clavesBuscadas.some((k) => clavesProf.includes(k));
       });
 
     const cumpleUbicacion =
       filtroUbicacion === '' ||
-      p.comuna === filtroUbicacion ||
+      normalizarTexto(p.comuna) === normalizarTexto(filtroUbicacion) ||
       (filtroUbicacion === 'Online' && (p.modalidad === 'Online' || p.modalidad === 'Ambas'));
 
     const cumpleCalif = p.rating >= parseFloat(filtroCalif);

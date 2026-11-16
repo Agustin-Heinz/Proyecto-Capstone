@@ -67,7 +67,9 @@ export default function FloatingChat() {
         {
           rol: 'ia',
           texto: data.respuesta || 'No se pudo obtener respuesta en este momento.',
-          subespecialidad: data.subespecialidad || null
+          subespecialidad: data.subespecialidad || null,
+          ubicacion: data.ubicacion || null,
+          publico: data.publico || null
         }
       ]);
     } catch (error) {
@@ -77,7 +79,9 @@ export default function FloatingChat() {
         {
           rol: 'ia',
           texto: 'Ocurrió un error al conectar con el asistente.',
-          subespecialidad: null
+          subespecialidad: null,
+          ubicacion: null,
+          publico: null
         }
       ]);
     } finally {
@@ -98,14 +102,20 @@ export default function FloatingChat() {
       {
         rol: 'ia',
         texto: '🔒 He cerrado la consulta del RUT anterior. Por favor escribe el nuevo *RUT* que deseas consultar.',
-        subespecialidad: null
+        subespecialidad: null,
+        ubicacion: null,
+        publico: null
       }
     ]);
   };
 
-  const irAEspecialistas = (especialidad) => {
+  const irAEspecialistas = ({ subespecialidad, ubicacion, publico }) => {
+    const params = new URLSearchParams();
+    if (subespecialidad) params.set('especialidad', subespecialidad);
+    if (ubicacion) params.set('ubicacion', ubicacion);
+    if (publico) params.set('publico', publico);
     setAbierto(false);
-    navigate(`/directorio?especialidad=${encodeURIComponent(especialidad)}`);
+    navigate(`/directorio?${params.toString()}`);
   };
 
   return (
@@ -170,15 +180,34 @@ export default function FloatingChat() {
                 }}>
                   {renderizarTextoFonoBot(msg.texto)}
                 </span>
-                {msg.rol === 'ia' && msg.subespecialidad && (
-                  <div style={{ marginTop: '6px', textAlign: 'left' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a365d' }}>
-                      Especialista recomendado: {msg.subespecialidad}
-                    </span>
-                    <br />
+                {msg.rol === 'ia' && (msg.subespecialidad || msg.ubicacion || msg.publico) && (
+                  <div style={{ marginTop: '8px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {msg.subespecialidad && (
+                        <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#1e3a8a', backgroundColor: '#dbeafe', padding: '2px 8px', borderRadius: '999px' }}>
+                          🩺 {msg.subespecialidad}
+                        </span>
+                      )}
+                      {msg.publico && (
+                        <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#065f46', backgroundColor: '#d1fae5', padding: '2px 8px', borderRadius: '999px' }}>
+                          👥 {msg.publico === 'Infantil' ? 'Atención Infantil (Niños)' : 'Atención Adultos'}
+                        </span>
+                      )}
+                      {msg.ubicacion && (
+                        <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#9a3412', backgroundColor: '#ffedd5', padding: '2px 8px', borderRadius: '999px' }}>
+                          📍 {msg.ubicacion}
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
-                      onClick={() => irAEspecialistas(msg.subespecialidad)}
+                      onClick={() =>
+                        irAEspecialistas({
+                          subespecialidad: msg.subespecialidad,
+                          ubicacion: msg.ubicacion,
+                          publico: msg.publico
+                        })
+                      }
                       style={{
                         backgroundColor: '#eff6ff',
                         color: '#1d4ed8',
@@ -191,7 +220,7 @@ export default function FloatingChat() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px',
-                        marginTop: '4px',
+                        marginTop: '2px',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                       }}
                     >
