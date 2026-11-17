@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Register() {
@@ -14,6 +15,7 @@ export default function Register() {
     fechaNacimiento: '',
     genero: ''
   });
+  const [mostrarPassword, setMostrarPassword] = useState(false);
 
   const navigate = useNavigate();
 
@@ -24,6 +26,14 @@ export default function Register() {
     const dv = limpio.slice(-1);
     const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     return `${cuerpoConPuntos}-${dv}`;
+  };
+
+  const validarRequisitosPassword = (clave) => {
+    if (!clave || String(clave).length < 8) return false;
+    const tieneMayuscula = /[A-ZÁÉÍÓÚÑ]/.test(clave);
+    const tieneMinuscula = /[a-záéíóúñ]/.test(clave);
+    const tieneEspecial = /[^A-Za-z0-9\s]/.test(clave);
+    return tieneMayuscula && tieneMinuscula && tieneEspecial;
   };
 
   const handleRegister = async (e) => {
@@ -137,7 +147,24 @@ export default function Register() {
 
           <div className="cf-group">
             <label>Contraseña</label>
-            <input type="password" placeholder="Mínimo 8 caracteres" onChange={e => setFormData({ ...formData, password: e.target.value })} required />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={mostrarPassword ? 'text' : 'password'}
+                placeholder="Mín. 8 caracteres, mayúscula, minúscula y carácter especial"
+                value={formData.password}
+                onChange={e => setFormData({ ...formData, password: e.target.value })}
+                style={{ paddingRight: '42px' }}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setMostrarPassword(prev => !prev)}
+                aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                style={eyeBtnStyle}
+              >
+                {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button className="cf-submit" type="submit" style={{ width: '100%', marginTop: '10px' }}>
@@ -152,3 +179,18 @@ export default function Register() {
     </main>
   );
 }
+
+const eyeBtnStyle = {
+  position: 'absolute',
+  right: '10px',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  background: 'none',
+  border: 'none',
+  color: 'rgba(255, 255, 255, 0.75)',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '4px'
+};

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const navigate = useNavigate();
 
   // Estados para el flujo de "¿Has olvidado tu contraseña?"
@@ -14,6 +16,8 @@ export default function Login() {
   const [codigo, setCodigo] = useState('');
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [mostrarNuevaPassword, setMostrarNuevaPassword] = useState(false);
+  const [mostrarConfirmarPassword, setMostrarConfirmarPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensajeEstado, setMensajeEstado] = useState({ tipo: '', texto: '' });
 
@@ -244,13 +248,24 @@ export default function Login() {
               </div>
               <div className="cf-group">
                 <label>Contraseña</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={mostrarPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    style={{ paddingRight: '42px' }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarPassword(prev => !prev)}
+                    aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    style={eyeBtnStyle}
+                  >
+                    {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               <button className="cf-submit" type="submit" style={{ width: '100%', marginTop: '10px' }}>
                 Ingresar
@@ -474,24 +489,46 @@ export default function Login() {
             <form onSubmit={handleCambiarPassword}>
               <div className="cf-group">
                 <label>Nueva contraseña</label>
-                <input
-                  type="password"
-                  placeholder="Mín. 8 caracteres, mayúscula, minúscula y carácter especial"
-                  value={nuevaPassword}
-                  onChange={e => setNuevaPassword(e.target.value)}
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={mostrarNuevaPassword ? 'text' : 'password'}
+                    placeholder="Mín. 8 caracteres, mayúscula, minúscula y carácter especial"
+                    value={nuevaPassword}
+                    onChange={e => setNuevaPassword(e.target.value)}
+                    style={{ paddingRight: '42px' }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarNuevaPassword(prev => !prev)}
+                    aria-label={mostrarNuevaPassword ? 'Ocultar nueva contraseña' : 'Ver nueva contraseña'}
+                    style={eyeBtnStyle}
+                  >
+                    {mostrarNuevaPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <div className="cf-group">
                 <label>Confirmar nueva contraseña</label>
-                <input
-                  type="password"
-                  placeholder="Repite tu nueva contraseña"
-                  value={confirmarPassword}
-                  onChange={e => setConfirmarPassword(e.target.value)}
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={mostrarConfirmarPassword ? 'text' : 'password'}
+                    placeholder="Repite tu nueva contraseña"
+                    value={confirmarPassword}
+                    onChange={e => setConfirmarPassword(e.target.value)}
+                    style={{ paddingRight: '42px' }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarConfirmarPassword(prev => !prev)}
+                    aria-label={mostrarConfirmarPassword ? 'Ocultar confirmación de contraseña' : 'Ver confirmación de contraseña'}
+                    style={eyeBtnStyle}
+                  >
+                    {mostrarConfirmarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <button
@@ -527,3 +564,18 @@ export default function Login() {
     </main>
   );
 }
+
+const eyeBtnStyle = {
+  position: 'absolute',
+  right: '10px',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  background: 'none',
+  border: 'none',
+  color: 'rgba(255, 255, 255, 0.75)',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '4px'
+};
