@@ -1,0 +1,216 @@
+CREATE DATABASE IF NOT EXISTS `fonotrack` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `fonotrack`;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- 1. Eliminación limpia de tablas previas si existen
+DROP TABLE IF EXISTS `evoluciones_sesion`;
+DROP TABLE IF EXISTS `resenas`;
+DROP TABLE IF EXISTS `citas`;
+DROP TABLE IF EXISTS `disponibilidad`;
+DROP TABLE IF EXISTS `servicios`;
+DROP TABLE IF EXISTS `pagos`;
+DROP TABLE IF EXISTS `pacientes`;
+DROP TABLE IF EXISTS `fonoaudiologos`;
+DROP TABLE IF EXISTS `usuarios`;
+DROP TABLE IF EXISTS `catalogo_servicios`;
+DROP TABLE IF EXISTS `ubicacion`;
+DROP TABLE IF EXISTS `planes`;
+
+-- 2. Tablas Maestras (Catálogos)
+CREATE TABLE `catalogo_servicios` (
+    `id_catalogo` INTEGER NOT NULL AUTO_INCREMENT,
+    `nombre_servicio` VARCHAR(100) NOT NULL,
+    `publico_objetivo` VARCHAR(20) NOT NULL,
+    PRIMARY KEY (`id_catalogo`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `ubicacion` (
+    `id_ubicacion` INTEGER NOT NULL AUTO_INCREMENT,
+    `comuna` VARCHAR(100) NOT NULL,
+    PRIMARY KEY (`id_ubicacion`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `planes` (
+    `id_plan` INTEGER NOT NULL AUTO_INCREMENT,
+    `nombre` VARCHAR(50) NOT NULL,
+    `precio` INTEGER NOT NULL,
+    `duracion_dias` INTEGER NOT NULL,
+    PRIMARY KEY (`id_plan`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 3. Tablas de Cuentas y Perfiles (Vacías)
+CREATE TABLE `usuarios` (
+    `id_usuario` INTEGER NOT NULL AUTO_INCREMENT,
+    `email` VARCHAR(100) NOT NULL,
+    `contrasena` VARCHAR(255) NOT NULL,
+    `rol` VARCHAR(20) NOT NULL,
+    `fecha_creacion` DATETIME(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+    UNIQUE INDEX `email`(`email`),
+    PRIMARY KEY (`id_usuario`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `fonoaudiologos` (
+    `id_fonoaudiologo` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_usuario` INTEGER NOT NULL,
+    `nombre_completo` VARCHAR(100) NOT NULL,
+    `rut` VARCHAR(15) NOT NULL,
+    `subespecialidad` VARCHAR(100) NULL,
+    `publico_objetivo` VARCHAR(50) NULL DEFAULT 'Ambos',
+    `acerca_de_mi` TEXT NULL,
+    `foto_perfil` VARCHAR(255) NULL,
+    `id_ubicacion` INTEGER NULL,
+    `telefono` VARCHAR(20) NULL,
+    UNIQUE INDEX `rut`(`rut`),
+    INDEX `id_usuario`(`id_usuario`),
+    INDEX `fk_fono_ubicacion`(`id_ubicacion`),
+    PRIMARY KEY (`id_fonoaudiologo`),
+    CONSTRAINT `fk_fono_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios`(`id_usuario`),
+    CONSTRAINT `fk_fono_ubicacion` FOREIGN KEY (`id_ubicacion`) REFERENCES `ubicacion`(`id_ubicacion`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `pacientes` (
+    `id_paciente` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_usuario` INTEGER NOT NULL,
+    `id_ubicacion` INTEGER NULL,
+    `nombre_completo` VARCHAR(100) NOT NULL,
+    `nombre_tutor` VARCHAR(100) NULL,
+    `rut` VARCHAR(15) NOT NULL,
+    `fecha_nacimiento` DATE NULL,
+    `telefono` VARCHAR(20) NULL,
+    `genero` VARCHAR(30) NULL,
+    UNIQUE INDEX `rut`(`rut`),
+    INDEX `id_ubicacion`(`id_ubicacion`),
+    INDEX `id_usuario`(`id_usuario`),
+    PRIMARY KEY (`id_paciente`),
+    CONSTRAINT `fk_paciente_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios`(`id_usuario`),
+    CONSTRAINT `fk_paciente_ubicacion` FOREIGN KEY (`id_ubicacion`) REFERENCES `ubicacion`(`id_ubicacion`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 4. Tablas Operativas y Transaccionales (Vacías)
+CREATE TABLE `servicios` (
+    `id_servicios` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_fonoaudiologo` INTEGER NOT NULL,
+    `id_catalogo` INTEGER NULL,
+    `nombre_servicio` VARCHAR(100) NOT NULL,
+    `precio` INTEGER NOT NULL,
+    `duracion_minutos` INTEGER NOT NULL DEFAULT 50,
+    INDEX `id_fonoaudiologo`(`id_fonoaudiologo`),
+    INDEX `fk_servicios_catalogo`(`id_catalogo`),
+    PRIMARY KEY (`id_servicios`),
+    CONSTRAINT `fk_servicios_fono` FOREIGN KEY (`id_fonoaudiologo`) REFERENCES `fonoaudiologos`(`id_fonoaudiologo`),
+    CONSTRAINT `fk_servicios_catalogo` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_servicios`(`id_catalogo`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `disponibilidad` (
+    `id_disponibilidad` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_fonoaudiologo` INTEGER NOT NULL,
+    `dia_semana` VARCHAR(20) NOT NULL,
+    `hora_inicio` TIME(0) NOT NULL,
+    `hora_fin` TIME(0) NOT NULL,
+    `id_servicio` INTEGER NOT NULL,
+    INDEX `id_fonoaudiologo`(`id_fonoaudiologo`),
+    INDEX `id_servicio`(`id_servicio`),
+    PRIMARY KEY (`id_disponibilidad`),
+    CONSTRAINT `fk_disp_fono` FOREIGN KEY (`id_fonoaudiologo`) REFERENCES `fonoaudiologos`(`id_fonoaudiologo`),
+    CONSTRAINT `fk_disp_servicio` FOREIGN KEY (`id_servicio`) REFERENCES `servicios`(`id_servicios`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `citas` (
+    `id_citas` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_paciente` INTEGER NOT NULL,
+    `id_fonoaudiologo` INTEGER NOT NULL,
+    `id_servicio` INTEGER NOT NULL,
+    `id_ubicacion` INTEGER NULL,
+    `fecha` DATE NOT NULL,
+    `hora_inicio` TIME(0) NOT NULL,
+    `duracion_minutos` INTEGER NOT NULL,
+    `precio` INTEGER NOT NULL,
+    `estado_asistencia` VARCHAR(50) NULL,
+    `estado_pago` VARCHAR(50) NULL,
+    INDEX `id_fonoaudiologo`(`id_fonoaudiologo`),
+    INDEX `id_paciente`(`id_paciente`),
+    INDEX `id_servicio`(`id_servicio`),
+    INDEX `id_ubicacion`(`id_ubicacion`),
+    PRIMARY KEY (`id_citas`),
+    CONSTRAINT `fk_citas_paciente` FOREIGN KEY (`id_paciente`) REFERENCES `pacientes`(`id_paciente`),
+    CONSTRAINT `fk_citas_fono` FOREIGN KEY (`id_fonoaudiologo`) REFERENCES `fonoaudiologos`(`id_fonoaudiologo`),
+    CONSTRAINT `fk_citas_servicio` FOREIGN KEY (`id_servicio`) REFERENCES `servicios`(`id_servicios`),
+    CONSTRAINT `fk_citas_ubicacion` FOREIGN KEY (`id_ubicacion`) REFERENCES `ubicacion`(`id_ubicacion`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `evoluciones_sesion` (
+    `id_fichas` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_cita` INTEGER NOT NULL,
+    `observaciones_clinicas` TEXT NULL,
+    `actividades_hogar` TEXT NULL,
+    INDEX `id_cita`(`id_cita`),
+    PRIMARY KEY (`id_fichas`),
+    CONSTRAINT `fk_evolucion_cita` FOREIGN KEY (`id_cita`) REFERENCES `citas`(`id_citas`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `resenas` (
+    `id_resena` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_paciente` INTEGER NOT NULL,
+    `id_fonoaudiologo` INTEGER NOT NULL,
+    `calificacion` INTEGER NOT NULL,
+    `comentario` TEXT NULL,
+    `fecha_creacion` DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
+    INDEX `idx_resena_fono`(`id_fonoaudiologo`),
+    INDEX `idx_resena_paciente`(`id_paciente`),
+    PRIMARY KEY (`id_resena`),
+    CONSTRAINT `fk_resena_paciente` FOREIGN KEY (`id_paciente`) REFERENCES `pacientes`(`id_paciente`),
+    CONSTRAINT `fk_resena_fono` FOREIGN KEY (`id_fonoaudiologo`) REFERENCES `fonoaudiologos`(`id_fonoaudiologo`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `pagos` (
+    `id_pago` INTEGER NOT NULL AUTO_INCREMENT,
+    `id_fonoaudiologo` INTEGER NOT NULL,
+    `id_plan` INTEGER NOT NULL,
+    `estado_pago` VARCHAR(50) NOT NULL DEFAULT 'PENDIENTE',
+    `monto_final` INTEGER NOT NULL,
+    `fecha_pago` DATETIME(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
+    `tbk_token` VARCHAR(255) NULL,
+    `tbk_orden_compra` VARCHAR(100) NULL,
+    `tbk_codigo_autorizacion` VARCHAR(20) NULL,
+    INDEX `id_fonoaudiologo`(`id_fonoaudiologo`),
+    INDEX `id_plan`(`id_plan`),
+    PRIMARY KEY (`id_pago`),
+    CONSTRAINT `fk_pagos_fono` FOREIGN KEY (`id_fonoaudiologo`) REFERENCES `fonoaudiologos`(`id_fonoaudiologo`),
+    CONSTRAINT `fk_pagos_plan` FOREIGN KEY (`id_plan`) REFERENCES `planes`(`id_plan`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 5. Poblado inicial de los 3 Catálogos Maestros
+INSERT INTO `catalogo_servicios` (`nombre_servicio`, `publico_objetivo`) VALUES
+('Evaluación del lenguaje infantil', 'Infantil'),
+('Terapia de Trastorno del Espectro Autista (TEA)', 'Infantil'),
+('Evaluación y terapia de frenillo lingual', 'Infantil'),
+('Terapia de motricidad orofacial infantil', 'Infantil'),
+('Terapia de habla y articulación (Dislalia)', 'Infantil'),
+('Evaluación y rehabilitación vocal (Voz)', 'Adultos'),
+('Rehabilitación cognitiva y lenguaje post ACV', 'Adultos'),
+('Evaluación y terapia de deglución (Disfagia)', 'Adultos'),
+('Rehabilitación auditiva y vestibular', 'Adultos'),
+('Terapia de fluidez verbal (Adultos)', 'Adultos'),
+('Lavado de oídos infantil (Extracción de cerumen)', 'Infantil'),
+('Lavado de oídos adultos (Extracción de cerumen)', 'Adultos');
+
+INSERT INTO `ubicacion` (`comuna`) VALUES 
+('Cerrillos'), ('Cerro Navia'), ('Conchalí'), ('El Bosque'), ('Estación Central'), 
+('Huechuraba'), ('Independencia'), ('La Cisterna'), ('La Florida'), ('La Granja'), 
+('La Pintana'), ('La Reina'), ('Las Condes'), ('Lo Barnechea'), ('Lo Espejo'), 
+('Lo Prado'), ('Macul'), ('Maipú'), ('Ñuñoa'), ('Pedro Aguirre Cerda'), 
+('Peñalolén'), ('Providencia'), ('Pudahuel'), ('Quilicura'), ('Quinta Normal'), 
+('Recoleta'), ('Renca'), ('San Joaquín'), ('San Miguel'), ('San Ramón'), 
+('Santiago'), ('Vitacura'), ('Puente Alto'), ('Pirque'), ('San José de Maipo'), 
+('Colina'), ('Lampa'), ('Tiltil'), ('San Bernardo'), ('Buin'), 
+('Paine'), ('Calera de Tango'), ('Melipilla'), ('Alhué'), ('Curacaví'), 
+('María Pinto'), ('San Pedro'), ('Talagante'), ('El Monte'), ('Isla de Maipo'), 
+('Padre Hurtado'), ('Peñaflor');
+
+INSERT INTO `planes` (`nombre`, `precio`, `duracion_dias`) VALUES
+('Plan Mensual', 9990, 30),
+('Plan 3 Meses', 24990, 90),
+('Plan Anual', 79990, 365);
+
+SET FOREIGN_KEY_CHECKS = 1;
