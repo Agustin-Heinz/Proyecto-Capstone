@@ -26,15 +26,28 @@ router.post('/', async (req, res) => {
     const duracionParsed = parseInt(duracion_minutos ?? duracion);
     const duracionFinal = !isNaN(duracionParsed) && duracionParsed > 0 ? duracionParsed : 50;
 
-    const nuevoServicio = await prisma.servicios.create({
-      data: {
-        id_fonoaudiologo: parseInt(id_fonoaudiologo),
-        id_catalogo: id_catalogo ? parseInt(id_catalogo) : null,
-        nombre_servicio: nombre,
-        precio: parseInt(precio),
-        duracion_minutos: duracionFinal
-      }
-    });
+    const datosBase = {
+      id_fonoaudiologo: parseInt(id_fonoaudiologo),
+      id_catalogo: id_catalogo ? parseInt(id_catalogo) : null,
+      nombre_servicio: nombre,
+      precio: parseInt(precio) || 0
+    };
+
+    let nuevoServicio;
+    try {
+      nuevoServicio = await prisma.servicios.create({
+        data: {
+          ...datosBase,
+          duracion_minutos: duracionFinal
+        }
+      });
+    } catch (errCol) {
+      nuevoServicio = await prisma.servicios.create({
+        data: datosBase
+      });
+      nuevoServicio.duracion_minutos = duracionFinal;
+    }
+
     res.status(201).json(nuevoServicio);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al crear el servicio", detalle: error.message });
@@ -49,15 +62,29 @@ router.put('/:id', async (req, res) => {
     const duracionParsed = parseInt(duracion_minutos ?? duracion);
     const duracionFinal = !isNaN(duracionParsed) && duracionParsed > 0 ? duracionParsed : undefined;
 
-    const actualizado = await prisma.servicios.update({
-      where: { id_servicios: idServicio },
-      data: {
-        id_catalogo: id_catalogo ? parseInt(id_catalogo) : undefined,
-        nombre_servicio: nombre,
-        precio: parseInt(precio),
-        ...(duracionFinal !== undefined && { duracion_minutos: duracionFinal })
-      }
-    });
+    const datosBase = {
+      id_catalogo: id_catalogo ? parseInt(id_catalogo) : undefined,
+      nombre_servicio: nombre,
+      precio: parseInt(precio) || 0
+    };
+
+    let actualizado;
+    try {
+      actualizado = await prisma.servicios.update({
+        where: { id_servicios: idServicio },
+        data: {
+          ...datosBase,
+          ...(duracionFinal !== undefined && { duracion_minutos: duracionFinal })
+        }
+      });
+    } catch (errCol) {
+      actualizado = await prisma.servicios.update({
+        where: { id_servicios: idServicio },
+        data: datosBase
+      });
+      if (duracionFinal !== undefined) actualizado.duracion_minutos = duracionFinal;
+    }
+
     res.status(200).json(actualizado);
   } catch (error) {
     res.status(500).json({ mensaje: "Error", detalle: error.message });

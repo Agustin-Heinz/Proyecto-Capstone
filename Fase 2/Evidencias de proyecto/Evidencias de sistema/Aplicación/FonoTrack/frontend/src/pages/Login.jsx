@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -41,22 +42,25 @@ export default function Login() {
 
         if (usuario.rol === 'fonoaudiologo') {
           if (usuario.planActivo) {
-            alert(`¡Bienvenido ${usuario.nombre}!`);
+            await mostrarAlerta(`¡Bienvenido ${usuario.nombre}!`, { titulo: 'Inicio de sesión exitoso' });
             navigate('/panel');
           } else {
-            alert(`¡Bienvenido ${usuario.nombre}! Para desbloquear tu Panel Profesional, selecciona y contrata uno de los planes disponibles.`);
+            await mostrarAlerta(
+              `¡Bienvenido ${usuario.nombre}! Para desbloquear tu Panel Profesional, selecciona y contrata uno de los planes disponibles.`,
+              { titulo: 'Selecciona tu plan' }
+            );
             navigate('/#planes');
           }
         } else {
-          alert(`¡Bienvenido ${usuario.nombre}!`);
+          await mostrarAlerta(`¡Bienvenido ${usuario.nombre}!`, { titulo: 'Inicio de sesión exitoso' });
           navigate('/');
         }
       } else {
-        alert("Correo o contraseña incorrectos");
+        await mostrarAlerta("Correo o contraseña incorrectos");
       }
     } catch (error) {
       console.error("Error de conexión:", error);
-      alert("No se pudo conectar con el servidor.");
+      await mostrarAlerta("No se pudo conectar con el servidor.");
     }
   };
 
@@ -190,7 +194,7 @@ export default function Login() {
       const data = await respuesta.json();
 
       if (respuesta.ok) {
-        alert(data.mensaje || '¡Contraseña actualizada con éxito! Ahora puedes iniciar sesión.');
+        await mostrarAlerta(data.mensaje || '¡Contraseña actualizada con éxito! Ahora puedes iniciar sesión.');
         setEmail(emailRecuperacion);
         setPassword('');
         volverAlLogin();

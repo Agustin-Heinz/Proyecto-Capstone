@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { CreditCard, Wallet, Zap, X } from 'lucide-react';
+import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Payment() {
   const { profId, servId } = useParams();
@@ -379,7 +380,7 @@ export default function Payment() {
       console.error("Error procesando reserva:", error);
       redirigiendoWebpayRef.current = false;
       sessionStorage.removeItem('pagoWebpayEnCurso');
-      alert("Hubo un problema procesando tu pago. El intento de pago fue anulado.");
+      await mostrarAlerta("Hubo un problema procesando tu pago. El intento de pago fue anulado.");
       await ejecutarAnulacionPorInterrupcion(reservaId);
       setProcesando(false);
       setPagoAnulado(true);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Pencil, Trash, ChevronDown } from 'lucide-react';
+import { mostrarAlerta, mostrarConfirmacion } from '../utils/dialogoFonoTrack';
 
 export default function PanelPerfil() {
 
@@ -265,7 +266,7 @@ export default function PanelPerfil() {
     );
 
     if (esDuplicado) {
-      alert("Ya tienes este servicio registrado en tu catálogo.");
+      await mostrarAlerta("Ya tienes este servicio registrado en tu catálogo.");
       return;
     }
 
@@ -301,15 +302,15 @@ export default function PanelPerfil() {
       }
 
       if (respuesta.ok) {
-        alert(servicioEditando ? "Servicio actualizado" : "Servicio creado con éxito");
+        await mostrarAlerta(servicioEditando ? "Servicio actualizado con éxito." : "Servicio creado con éxito.");
         setServicioEditando(null);
         setNuevoServicio({ id_catalogo: '', nombre: '', precio: '', duracion: '' });
         cargarDatos();
       } else {
-        alert(`Error al guardar el servicio en el servidor.`);
+        await mostrarAlerta(`Error al guardar el servicio en el servidor.`);
       }
     } catch (error) {
-      alert("Error de red al intentar guardar.");
+      await mostrarAlerta("Error de red al intentar guardar.");
     }
   };
 
@@ -325,18 +326,22 @@ export default function PanelPerfil() {
   };
 
   const handleEliminarServicio = async (id) => {
-    if (!window.confirm("AVISO ¿Seguro que deseas eliminar este servicio? También se ELIMINARÁN TODOS LOS HORARIOS asociados a él automáticamente.")) return;
+    const confirmado = await mostrarConfirmacion(
+      "¿Seguro que deseas eliminar este servicio? También se eliminarán todos los horarios asociados a él automáticamente.",
+      { titulo: "Eliminar servicio", textoConfirmar: "Sí, eliminar", destructivo: true }
+    );
+    if (!confirmado) return;
     try {
       const respuesta = await fetch(`http://localhost:3000/api/servicios/${id}`, { method: 'DELETE' });
       if (respuesta.ok) {
-        alert("Servicio y sus horarios eliminados");
+        await mostrarAlerta("Servicio y sus horarios eliminados con éxito.");
         cargarDatos();
       } else {
         const errData = await respuesta.json().catch(() => ({}));
-        alert(errData.mensaje || "No se pudo eliminar el servicio porque ya tiene pacientes agendados históricamente.");
+        await mostrarAlerta(errData.mensaje || "No se pudo eliminar el servicio porque ya tiene pacientes agendados históricamente.");
       }
     } catch (error) {
-      alert("Error de conexión.");
+      await mostrarAlerta("Error de conexión.");
     }
   };
 
@@ -350,7 +355,7 @@ export default function PanelPerfil() {
     );
 
     if (duplicado) {
-      alert(`Ya tienes el bloque de ${horarioData.inicio} a ${horarioData.fin} asignado para este mismo servicio el día ${horarioData.dia}.`);
+      await mostrarAlerta(`Ya tienes el bloque de ${horarioData.inicio} a ${horarioData.fin} asignado para este mismo servicio el día ${horarioData.dia}.`);
       return;
     }
 
@@ -380,27 +385,31 @@ export default function PanelPerfil() {
       }
 
       if (respuesta.ok) {
-        alert(idEditando ? "Horario actualizado" : "Horario añadido al servicio");
+        await mostrarAlerta(idEditando ? "Horario actualizado con éxito." : "Horario añadido al servicio con éxito.");
         cargarDatos();
       } else {
-        alert(`Error al guardar el horario.`);
+        await mostrarAlerta(`Error al guardar el horario.`);
       }
     } catch (error) {
-      alert("Error de red.");
+      await mostrarAlerta("Error de red.");
     }
   };
 
   const handleEliminarHorario = async (id_disponibilidad) => {
-    if (!window.confirm("¿Seguro que deseas borrar este bloque de horario?")) return;
+    const confirmado = await mostrarConfirmacion(
+      "¿Seguro que deseas borrar este bloque de horario?",
+      { titulo: "Eliminar horario", textoConfirmar: "Sí, eliminar", destructivo: true }
+    );
+    if (!confirmado) return;
     try {
       const respuesta = await fetch(`http://localhost:3000/api/disponibilidad/${id_disponibilidad}`, { method: 'DELETE' });
       if (respuesta.ok) {
         cargarDatos();
       } else {
-        alert("Error al eliminar el horario.");
+        await mostrarAlerta("Error al eliminar el horario.");
       }
     } catch (error) {
-      alert("Error de red.");
+      await mostrarAlerta("Error de red.");
     }
   };
 

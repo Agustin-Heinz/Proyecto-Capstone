@@ -16,6 +16,7 @@ import PanelReportes from './pages/PanelReportes'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import FloatingChat from './components/FloatingChat'
+import FonoTrackDialogHost from './components/FonoTrackDialogHost'
 import PacientePerfil from './pages/PacientePerfil'
 
 // Componentes del Panel 
@@ -40,6 +41,7 @@ function PublicLayout() {
 function App() {
   return (
     <BrowserRouter>
+      <FonoTrackDialogHost />
       <Routes>
         
         {/* GRUPO 1: Sitio Público (Llevan el Header y Footer normal) */}

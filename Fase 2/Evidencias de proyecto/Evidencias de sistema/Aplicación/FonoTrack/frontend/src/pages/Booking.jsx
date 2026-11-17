@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
+import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Booking() {
   const { profId, servId } = useParams();
@@ -117,12 +118,12 @@ export default function Booking() {
     if (!respuesta.ok) {
       const errData = await respuesta.json().catch(() => ({}));
       if (respuesta.status === 409) {
-        alert(errData.mensaje || "Este bloque horario ya se encuentra ocupado por otro paciente.");
+        await mostrarAlerta(errData.mensaje || "Este bloque horario ya se encuentra ocupado por otro paciente.");
         await consultarHorasOcupadas(fecha);
         setHora(null);
         setMostrarModal(false);
       } else {
-        alert(errData.mensaje || "Error al guardar la hora en la base de datos.");
+        await mostrarAlerta(errData.mensaje || "Error al guardar la hora en la base de datos.");
       }
       return null;
     }
@@ -137,7 +138,7 @@ export default function Booking() {
       // Verificamos en tiempo real que el bloque no haya sido tomado recién por otro paciente
       const ocupadasActuales = await consultarHorasOcupadas(fecha);
       if (ocupadasActuales.includes(hora)) {
-        alert("Este bloque horario ya se encuentra ocupado por otro paciente.");
+        await mostrarAlerta("Este bloque horario ya se encuentra ocupado por otro paciente.");
         setHora(null);
         setMostrarModal(false);
         setProcesandoReserva(false);
@@ -169,8 +170,8 @@ export default function Booking() {
           body: JSON.stringify({ estado_asistencia: 'Anulada' })
         });
 
-        alert("Hora reagendada con éxito.");
         setMostrarModal(false);
+        await mostrarAlerta("Hora reagendada con éxito.");
         navigate('/');
         return;
       }

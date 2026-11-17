@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Contact() {
   const { profId, servId } = useParams();
@@ -105,7 +106,7 @@ export default function Contact() {
 
       if (!respuestaPaciente.ok) {
         const errorData = await respuestaPaciente.json();
-        alert(`Error al guardar paciente: ${errorData.mensaje}`);
+        await mostrarAlerta(`Error al guardar paciente: ${errorData.mensaje}`);
         return;
       }
 
@@ -154,7 +155,7 @@ export default function Contact() {
 
     } catch (error) {
       console.error("Error de red:", error);
-      alert("Error de conexión con el servidor.");
+      await mostrarAlerta("Error de conexión con el servidor.");
     }
   };
 

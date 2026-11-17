@@ -4,6 +4,7 @@ import {
   exportarFichaClinicaPDF,
   exportarPautaSesionPDF
 } from '../utils/exportarPdfClinico';
+import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function PanelPacientes() {
   const [pacienteActivo, setPacienteActivo] = useState(null);
@@ -206,7 +207,7 @@ export default function PanelPacientes() {
   const handleCrearNuevoPaciente = async (e) => {
     e.preventDefault();
     if (!nuevoPacForm.nombre_completo.trim() || !nuevoPacForm.rut.trim()) {
-      alert('Por favor ingresa al menos el nombre completo y el RUT del paciente.');
+      await mostrarAlerta('Por favor ingresa al menos el nombre completo y el RUT del paciente.');
       return;
     }
 
@@ -224,7 +225,7 @@ export default function PanelPacientes() {
 
       if (!respuesta.ok) {
         const errData = await respuesta.json().catch(() => ({}));
-        alert(errData.mensaje || 'Error al registrar el paciente.');
+        await mostrarAlerta(errData.mensaje || 'Error al registrar el paciente.');
         setGuardandoNuevoPac(false);
         return;
       }
@@ -243,7 +244,7 @@ export default function PanelPacientes() {
       cerrarModalNuevoPaciente();
     } catch (error) {
       console.error('Error creando paciente:', error);
-      alert('Error de conexión al registrar el paciente.');
+      await mostrarAlerta('Error de conexión al registrar el paciente.');
     } finally {
       setGuardandoNuevoPac(false);
     }
@@ -284,11 +285,11 @@ export default function PanelPacientes() {
         setListaPacientes(prev => prev.map(p => (p.id === pacienteActivo.id ? pacienteActualizadoVista : p)));
         setEditandoDatosPaciente(false);
       } else {
-        alert('No se pudieron actualizar los datos del paciente.');
+        await mostrarAlerta('No se pudieron actualizar los datos del paciente.');
       }
     } catch (error) {
       console.error('Error actualizando ficha del paciente:', error);
-      alert('Error de conexión al actualizar los datos del paciente.');
+      await mostrarAlerta('Error de conexión al actualizar los datos del paciente.');
     } finally {
       setGuardandoDatosPaciente(false);
     }
@@ -297,7 +298,7 @@ export default function PanelPacientes() {
   // Guardar el nuevo registro en MySQL y enviar el correo + WhatsApp
   const handleGuardarRegistro = async () => {
     if (!observaciones.trim()) {
-      alert("Debes ingresar al menos una observación clínica.");
+      await mostrarAlerta("Debes ingresar al menos una observación clínica.");
       return;
     }
 
@@ -327,9 +328,9 @@ export default function PanelPacientes() {
           setPacienteActivo(prev => ({ ...prev, idUltimaCita: resultado.id_cita }));
         }
         if (resultado.whatsappEnviado) {
-          alert("Registro guardado con éxito. Se han enviado las observaciones al WhatsApp y correo del paciente.");
+          await mostrarAlerta("Registro guardado con éxito. Se han enviado las observaciones al WhatsApp y correo del paciente.");
         } else {
-          alert("Registro guardado con éxito. Se ha enviado una copia al correo del paciente (verifica que el cliente de WhatsApp esté conectado y el paciente tenga teléfono registrado).");
+          await mostrarAlerta("Registro guardado con éxito. Se ha enviado una copia al correo del paciente (verifica que el cliente de WhatsApp esté conectado y el paciente tenga teléfono registrado).");
         }
         setObservaciones('');
         setTareas('');
@@ -338,11 +339,11 @@ export default function PanelPacientes() {
         const dataHistorial = await resHistorial.json();
         setHistorialFichas(Array.isArray(dataHistorial) ? dataHistorial : []);
       } else {
-        alert("Hubo un error al guardar el registro.");
+        await mostrarAlerta("Hubo un error al guardar el registro.");
       }
     } catch (error) {
       console.error("Error de red:", error);
-      alert("Error de conexión al intentar guardar la ficha.");
+      await mostrarAlerta("Error de conexión al intentar guardar la ficha.");
     }
   };
 
@@ -355,7 +356,7 @@ export default function PanelPacientes() {
 
   const handleGuardarEdicionEvolucion = async (idFichas) => {
     if (!evoEditObs.trim()) {
-      alert('Las observaciones clínicas no pueden quedar vacías.');
+      await mostrarAlerta('Las observaciones clínicas no pueden quedar vacías.');
       return;
     }
 
@@ -381,11 +382,11 @@ export default function PanelPacientes() {
         setHistorialFichas(Array.isArray(dataHistorial) ? dataHistorial : []);
         setEvolucionEditandoId(null);
       } else {
-        alert('Error al guardar los cambios de la evolución.');
+        await mostrarAlerta('Error al guardar los cambios de la evolución.');
       }
     } catch (error) {
       console.error('Error editando evolución:', error);
-      alert('Error de conexión al actualizar la evolución.');
+      await mostrarAlerta('Error de conexión al actualizar la evolución.');
     } finally {
       setGuardandoEdicionEvo(false);
     }

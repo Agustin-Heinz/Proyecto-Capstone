@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Plans() {
   // El estado y la llamada a tu API ahora viven dentro de su propio componente
@@ -52,7 +53,7 @@ export default function Plans() {
 
     // Si no ha iniciado sesión como fonoaudiólogo, lo llevamos al login
     if (!perfilId || rol !== 'fonoaudiologo') {
-      alert("Debes iniciar sesión o registrarte como Fonoaudiólogo para contratar un plan.");
+      await mostrarAlerta("Debes iniciar sesión o registrarte como Fonoaudiólogo para contratar un plan.");
       navigate('/login');
       return;
     }
@@ -98,7 +99,7 @@ export default function Plans() {
       form.submit();
     } catch (error) {
       console.error("Error al contratar plan:", error);
-      alert("Error al conectar con Transbank Webpay.");
+      await mostrarAlerta("Error al conectar con Transbank Webpay.");
       setProcesandoId(null);
     }
   };

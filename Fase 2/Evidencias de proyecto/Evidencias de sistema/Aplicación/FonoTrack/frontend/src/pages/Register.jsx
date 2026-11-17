@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { mostrarAlerta } from '../utils/dialogoFonoTrack';
 
 export default function Register() {
   // 1. Añadimos rut, edad y genero al estado inicial
@@ -36,11 +37,11 @@ export default function Register() {
       });
 
       if (respuesta.ok) {
-        alert("Cuenta creada con éxito. Ahora puedes iniciar sesión.");
+        await mostrarAlerta("Cuenta creada con éxito. Ahora puedes iniciar sesión.");
         navigate('/login'); 
       } else {
         const errorData = await respuesta.json();
-        alert(`Error: ${errorData.mensaje}`);
+        await mostrarAlerta(`Error: ${errorData.mensaje}`);
       }
     } catch (error) {
       console.error("Error de conexión:", error);
