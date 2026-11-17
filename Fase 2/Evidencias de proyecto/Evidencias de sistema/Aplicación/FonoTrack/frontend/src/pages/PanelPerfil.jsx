@@ -138,8 +138,8 @@ export default function PanelPerfil() {
       [name]: name === 'id_ubicacion'
         ? (value ? parseInt(value) : '')
         : name === 'rut'
-        ? formatearRutInput(value)
-        : value
+          ? formatearRutInput(value)
+          : value
     });
   };
 
